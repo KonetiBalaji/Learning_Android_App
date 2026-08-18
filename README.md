@@ -1,0 +1,75 @@
+# Learning Android App
+
+An AI-powered interactive study and quiz application that transforms a student's own study material into a grounded, chapter-based learning experience.
+
+The product loop is:
+
+**Learn → Answer → Understand the mistake → Improve → Continue**
+
+## Project status
+
+This repository currently contains the product plan and documentation-only project scaffolding. Application and backend implementation will be added incrementally after the foundation is agreed.
+
+## MVP goal
+
+The first release should support:
+
+1. Uploading PDF, DOCX, or TXT study material up to 50 MB.
+2. Extracting text and detecting chapters or sections.
+3. Selecting a document, chapter, section, page range, or custom topic.
+4. Generating ten source-grounded questions.
+5. Presenting one question at a time with immediate teaching feedback.
+6. Showing quiz results and allowing incorrect questions to be reviewed.
+
+## Planned repository structure
+
+```text
+android/                  Kotlin Android client
+├── app/                  Application entry point and navigation
+├── core/                 Shared Android infrastructure
+├── data/                 Repositories and data sources
+├── domain/               Use cases and domain models
+├── feature/              Feature-specific UI and state
+└── ui/                   Design system and shared Compose UI
+
+backend/                  Secure server-side application
+├── api/                  HTTP API and authentication boundary
+├── document-processing/  Upload, extraction, validation, and structure detection
+├── ai/                   Prompting, generation, and response validation
+├── retrieval/            Chunking, indexing, embeddings, and grounded retrieval
+├── progress/             Quiz history and learning analytics
+└── tests/                Backend test suites
+
+shared/contracts/         API schemas and cross-service contracts
+docs/                     Architecture, API, and product documentation
+scripts/                  Developer and maintenance utilities
+```
+
+## Architecture direction
+
+The Android client will use Kotlin, Jetpack Compose, Material 3, coroutines/Flow, and a layered MVVM or Clean Architecture approach. Local persistence will use Room where offline or cached state is useful.
+
+The backend will own authentication, document storage, parsing, retrieval, AI calls, quiz validation, and progress persistence. Provider credentials must never be shipped in the APK.
+
+Large documents will follow a retrieval-based pipeline:
+
+```text
+Upload → Extract → Detect structure → Chunk → Index → Retrieve → Generate structured quiz → Validate → Present
+```
+
+Questions and explanations must be grounded in the selected material and retain source references whenever possible.
+
+## Product principles
+
+- Teach through feedback; do not only mark answers right or wrong.
+- Prefer reliable, source-supported questions over unsupported questions.
+- Keep the student experience focused and avoid exposing unnecessary AI controls.
+- Protect uploaded documents and give users deletion controls.
+- Design interfaces and contracts so future flashcards, tutor chat, adaptive learning, OCR, and additional clients can be added without rewriting the MVP.
+
+## Getting started
+
+Read [INSTRUCTIONS.md](INSTRUCTIONS.md) before adding implementation. The current branch contains no runnable Android or backend application yet.
+
+The full product requirements are in [Initial_plan.md](Initial_plan.md).
+
