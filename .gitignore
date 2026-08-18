@@ -1,0 +1,41 @@
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+captures/
+*.apk
+*.aab
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Kotlin / generated output
+*.class
+out/
+
+# Backend dependencies and generated output
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+dist/
+coverage/
+.pytest_cache/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+
+# OS files
+.DS_Store
+Thumbs.db
+
