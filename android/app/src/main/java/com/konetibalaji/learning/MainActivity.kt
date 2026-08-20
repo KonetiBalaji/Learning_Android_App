@@ -125,7 +125,7 @@ private fun SignInScreen(loading: Boolean, onCreateAccount: (String, String) -> 
 @Composable
 private fun HomeScreen(loading: Boolean, onUpload: (android.content.Context, android.net.Uri) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { onUpload(context, it) } }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { onUpload(context, it) } }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 40.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
@@ -136,7 +136,19 @@ private fun HomeScreen(loading: Boolean, onUpload: (android.content.Context, and
                 Icon(Icons.Outlined.Description, contentDescription = null, tint = StudyBlue)
                 Text("Upload study material", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Text("Up to 50 MB. Password-protected or scanned files are reported clearly before a study session begins.", color = Color(0xFF475569))
-                Button(onClick = { picker.launch("application/*") }, enabled = !loading, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Choose document") }
+                Button(
+                    onClick = {
+                        picker.launch(
+                            arrayOf(
+                                "application/pdf",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "text/plain",
+                            ),
+                        )
+                    },
+                    enabled = !loading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) { Text("Choose document") }
             }
         }
         LearningPrinciple("One question at a time", "Answer, understand the explanation, then continue.")
