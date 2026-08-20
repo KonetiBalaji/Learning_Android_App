@@ -8,7 +8,12 @@ The product loop is:
 
 ## Project status
 
-This repository currently contains the product plan and documentation-only project scaffolding. Application and backend implementation will be added incrementally after the foundation is agreed.
+The MVP implementation is in progress on `agent/mvp-implementation`:
+
+- `android/` contains the Jetpack Compose client for account creation, document selection, chapter selection, the one-question quiz experience, teaching feedback, and results/mistake review.
+- `backend/` contains the FastAPI service that owns authentication, document validation/extraction, chapter detection, grounded quiz sessions, answer evaluation, and owner-scoped deletion.
+
+The backend test suite passes. Android APK compilation requires a locally accepted Android SDK license; see `android/README.md`.
 
 ## MVP goal
 
@@ -69,7 +74,6 @@ Questions and explanations must be grounded in the selected material and retain 
 
 ## Getting started
 
-Read [INSTRUCTIONS.md](INSTRUCTIONS.md) before adding implementation. The current branch contains no runnable Android or backend application yet.
+Read [INSTRUCTIONS.md](INSTRUCTIONS.md) before adding implementation. The backend can be run now; the Android app can be built once the Android SDK is installed locally.
 
 The full product requirements are in [Initial_plan.md](Initial_plan.md).
-
