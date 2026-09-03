@@ -1,14 +1,45 @@
 """Blind answer-key screening; model agreement is not curriculum certification."""
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 from .practice_matching import normalize_answer, rational_answer, response_matches
 
 
+class ReviewFailure(str, Enum):
+    BANK_SIZE = 'bank_size'
+    ORDER = 'review_order'
+    AMBIGUOUS = 'diagnostic_ambiguous'
+    TOPIC = 'diagnostic_topic'
+    GRADE = 'diagnostic_grade'
+    KEY = 'diagnostic_key_disagreement'
+    UNSOLVED = 'diagnostic_unsolved'
+    PRACTICE_INVALID = 'practice_invalid'
+    PRACTICE_NUMBER = 'practice_numeric_parse'
+    PRACTICE_KEY = 'practice_key_disagreement'
+
+
+@dataclass(frozen=True)
+class ReviewIssue:
+    code: ReviewFailure
+    item_index: int | None
+
+
 class DiagnosticReviewRejected(ValueError):
     """A complete, parsed review disagreed; distinct from outage or malformed output."""
+
+    def __init__(self, message='Diagnostic answer review rejected the generated bank', *, issues=()):
+        super().__init__(message)
+        self.issues = tuple(issues)
+
+    def safe_report(self):
+        # Emit only fixed codes and bounded indices, never exception/provider text.
+        return [{'code': issue.code.value, 'item_index': issue.item_index}
+                for issue in self.issues if isinstance(issue, ReviewIssue)
+                and isinstance(issue.code, ReviewFailure)
+                and (issue.item_index is None or type(issue.item_index) is int and 0 <= issue.item_index < 3)]
 
 
 class DiagnosticReviewItem(BaseModel):
@@ -55,19 +86,33 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
         text={'format': {'type': 'json_schema', 'name': 'diagnostic_answer_review', 'strict': True,
                          'schema': DiagnosticReview.model_json_schema()}})
     reviewed = DiagnosticReview.model_validate_json(response.output_text).items
-    if len(items) != 3 or any(
-        item.item_index != index or not (item.unambiguous and item.topic_matches and item.grade_suitable)
-        or item.answer_index != items[index].options.index(items[index].correct_option)
-        for index, item in enumerate(reviewed)
-    ):
-        raise DiagnosticReviewRejected('Diagnostic answer review rejected the generated bank')
+    if len(items) != 3:
+        raise DiagnosticReviewRejected(issues=(ReviewIssue(ReviewFailure.BANK_SIZE, None),))
+    issues = []
     accepted = []
-    for item, result in zip(items, reviewed):
+    for index, (item, result) in enumerate(zip(items, reviewed)):
+        if result.item_index != index:
+            issues.append(ReviewIssue(ReviewFailure.ORDER, index))
+            continue  # Misordered responses cannot establish answer disagreement.
+        for valid, code in (
+            (result.unambiguous, ReviewFailure.AMBIGUOUS),
+            (result.topic_matches, ReviewFailure.TOPIC),
+            (result.grade_suitable, ReviewFailure.GRADE),
+            (result.answer_index == item.options.index(item.correct_option),
+             ReviewFailure.UNSOLVED if result.answer_index == -1 else ReviewFailure.KEY),
+            (result.practice_valid, ReviewFailure.PRACTICE_INVALID),
+        ):
+            if not valid:
+                issues.append(ReviewIssue(code, index))
         mode = result.practice_answer_mode
-        if (not result.practice_valid
-            or (mode == 'number' and rational_answer(normalize_answer(result.practice_answer)) is None)
-            or not all(response_matches(answer, (result.practice_answer,), mode)[0]
-                       for answer in item.practice_answers)):
-            raise DiagnosticReviewRejected('Practice answer review rejected the generated bank')
+        if mode == 'number' and rational_answer(normalize_answer(result.practice_answer)) is None:
+            issues.append(ReviewIssue(ReviewFailure.PRACTICE_NUMBER, index))
+        if not all(response_matches(answer, (result.practice_answer,), mode)[0] for answer in item.practice_answers):
+            issues.append(ReviewIssue(ReviewFailure.PRACTICE_KEY, index))
         accepted.append(replace(item, answer_mode=mode))
+    if issues:
+        message = ('Practice answer review rejected the generated bank' if all(
+            issue.code.value.startswith('practice_') for issue in issues)
+            else 'Diagnostic answer review rejected the generated bank')
+        raise DiagnosticReviewRejected(message, issues=issues)
     return tuple(accepted)

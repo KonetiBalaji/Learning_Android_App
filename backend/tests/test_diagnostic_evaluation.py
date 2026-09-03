@@ -2,12 +2,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.diagnostic_quality import DiagnosticReviewRejected
+from app.diagnostic_quality import DiagnosticReviewRejected, ReviewIssue, ReviewFailure
 from app.mastery_service import FRACTION_DIAGNOSTIC
 from scripts.evaluate_diagnostic import evaluate
 
 
-@pytest.mark.parametrize('error,passed', [(DiagnosticReviewRejected('rejected'), True),
+@pytest.mark.parametrize('error,passed', [(DiagnosticReviewRejected('rejected'), False),
+    (DiagnosticReviewRejected(issues=[ReviewIssue(ReviewFailure.KEY, 0)]), True),
+    (DiagnosticReviewRejected(issues=[ReviewIssue(ReviewFailure.KEY, 1)]), False),
+    (DiagnosticReviewRejected(issues=[ReviewIssue(ReviewFailure.PRACTICE_KEY, 0)]), False),
+    (DiagnosticReviewRejected(issues=[ReviewIssue(ReviewFailure.UNSOLVED, 0)]), False),
     (ValueError('malformed'), False), (TimeoutError('unavailable'), False), (None, False)])
 def test_live_eval_does_not_count_outages_or_malformed_outputs_as_correct_rejection(monkeypatch, error, passed):
     def review(client, model, grade, subject, chapter, items):
@@ -31,3 +35,15 @@ def test_generation_exception_is_redacted_and_never_counts_as_success(monkeypatc
     assert all(not item['passed'] for item in result)
     assert all(item['error_type'] == 'RuntimeError' for item in result)
     assert 'private' not in str(result)
+
+
+def test_safe_report_never_emits_exception_text_or_unrecognized_codes(monkeypatch):
+    def fail(*args):
+        raise DiagnosticReviewRejected('private content', issues=[
+            ReviewIssue(ReviewFailure.PRACTICE_KEY, 2), ReviewIssue('private content', 0),
+            ReviewIssue(ReviewFailure.KEY, 1000), ReviewIssue(ReviewFailure.KEY, True)])
+    monkeypatch.setattr('scripts.evaluate_diagnostic.review_diagnostic_answers', fail)
+    results = evaluate(SimpleNamespace(client=None, model='fixture', diagnostic_bank=fail))
+    assert results[0]['review_issues'] == [{'code': 'practice_key_disagreement', 'item_index': 2}]
+    assert 'private' not in str(results)
+    assert not results[1]['passed']

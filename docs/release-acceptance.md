@@ -22,6 +22,11 @@ before persistence. Regression and HTTP tests cover accepted/rejected transition
 broad grading-quality evaluation, on-device verification and UAT remain open.
 See `docs/practice-answer-matching.md` for scope and limitations.
 
+Diagnostic QA now reports content-free rejection codes/indices, and deliberately
+corrupted-key evaluations require disagreement at the corrupted item rather than
+counting unrelated review rejection as success. This strengthens evaluation
+evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-review.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | Partial | Invalid/expired/deleted sessions, account switching, encrypted device tokens, automated Android tests |

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.diagnostic_quality import review_diagnostic_answers
+from app.diagnostic_quality import review_diagnostic_answers, DiagnosticReviewRejected
 from app.mastery_service import FRACTION_DIAGNOSTIC
 from app.tutor_provider import OpenAITutorProvider, ResilientTutorProvider, DeterministicTutorProvider
 
@@ -73,6 +73,29 @@ def test_each_proposed_answer_must_pass_not_just_one():
     items = (replace(FRACTION_DIAGNOSTIC[0], practice_answers=('3/4', '3+4')), *FRACTION_DIAGNOSTIC[1:])
     with pytest.raises(ValueError, match='Practice answer review'):
         review_diagnostic_answers(fake_client([review()], []), 'fixture', 8, 'math', 'fractions', items)
+
+
+def test_review_reports_all_fixed_reasons_without_raw_content():
+    result = review()
+    result['items'][0].update(answer_index=0, practice_valid=False)
+    result['items'][1].update(practice_answer='private wrong answer')
+    with pytest.raises(DiagnosticReviewRejected) as caught:
+        review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
+    assert caught.value.safe_report() == [
+        {'code': 'diagnostic_key_disagreement', 'item_index': 0},
+        {'code': 'practice_invalid', 'item_index': 0},
+        {'code': 'practice_key_disagreement', 'item_index': 1}]
+    assert 'private' not in str(caught.value.safe_report())
+
+
+def test_misordered_and_unsolved_reviews_do_not_establish_key_disagreement():
+    result = review()
+    result['items'][0].update(item_index=2, answer_index=0)
+    result['items'][1].update(answer_index=-1)
+    with pytest.raises(DiagnosticReviewRejected) as caught:
+        review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
+    assert caught.value.safe_report() == [
+        {'code': 'review_order', 'item_index': 0}, {'code': 'diagnostic_unsolved', 'item_index': 1}]
 
 
 def test_requested_denominator_cannot_be_replaced_by_equivalent_simplified_key():

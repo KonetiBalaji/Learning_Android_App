@@ -1,5 +1,60 @@
 # Generated diagnostic answer review
 
+## Safe rejection diagnostics
+
+Review rejections carry fixed reason codes and zero-based question indices.
+Codes distinguish diagnostic ambiguity, topic/grade fit, unresolved answers,
+key disagreement, response ordering and practice validity/key/numeric-parsing
+failures. All applicable reasons are collected from a complete review. Misordered
+responses are not used to infer an answer disagreement. `-1` is unresolved,
+not evidence that the reviewer found a different correct answer.
+
+The explicit smoke evaluator emits only those codes/indices on rejection, never
+the exception message, raw rejected model output, prompt, answer or credentials.
+No new production log or HTTP response fields were added. Raw rejected banks
+are not retained. Therefore these diagnostics identify a failure category and
+item, not the underlying educational truth or whether rejection was justified.
+
+The deliberate-key negative test now passes only when the review disagrees with
+the corrupted diagnostic key at index 0. Rejection for another question, an
+unresolved answer, a practice-only problem, malformed output or an outage does
+not count. This corrects an overly broad success condition in the prior smoke.
+It does not prove the reviewer's alternative answer was correct. Earlier live
+negative results without these reason codes remain weaker historical evidence.
+
+### Live diagnostic findings
+
+The instrumented smoke (`gpt-5-mini`, existing key, no retries, three requests)
+rejected the generated bank in 21.25 seconds with `practice_key_disagreement`
+at indices 0, 1 and 2. The deliberate corruption was detected at diagnostic
+index 0 in 9.98 seconds. Rejected content was not captured in this run, so the
+cause of those three disagreements cannot be reconstructed.
+
+A separate two-request synthetic-only inspection captured generator and reviewer
+JSON in the development console (not production logs or learner sessions).
+It exposed a reproducible failure pattern:
+
+- Generated practice: `Find (4/7) ÷ (8/21).`, acceptable answers `3/2` and `1 1/2`.
+- Independent review: answer `3/2`, valid true, but answer mode `exact`.
+- The server correctly enforced that policy, rejecting the second proposed
+  answer. However the policy itself was unnecessarily restrictive: the prompt
+  has no representation constraint and 4/7 × 21/8 = 3/2 = 1 1/2.
+- The same review assigned exact to unconstrained `Calculate 3/4 + 1/6.`;
+  that item passed only because its sole proposed answer matched `11/12`.
+
+This is direct evidence of a false rejection in the reviewed-policy workflow,
+not an arithmetic error in the inspected generated keys. It does not establish
+the cause of the earlier uncaptured failures. The next required repair is better
+explicit classification/validation of prompt format constraints, with positive
+and negative regression fixtures. Do not disable the reviewer or make all
+fractions numerically equivalent: requested denominators and lowest terms still
+need exact representation. Five live calls were made in this diagnostic slice;
+generation used a 60-second timeout, reviews 20 seconds, with retries disabled.
+
+Full backend QA for safe diagnostics passed 369 tests with one existing Windows
+symlink-privilege skip and the existing Starlette/httpx warning. Device QA, broader
+quality evaluation and UAT remain open; this slice does not fix the false rejection.
+
 ## Practice-review extension: 2026-09-03
 
 This extension adds practice screening to the same blind review call. The original
