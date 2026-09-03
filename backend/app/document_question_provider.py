@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .quiz_service import GeneratedQuestion
 from .document_selection import resolve_chapters
-from .quiz_difficulty import difficulty_guidance
+from .quiz_difficulty import difficulty_guidance, difficulty_plan, DIFFICULTY_GUIDANCE
 
 
 class Item(BaseModel):
@@ -48,9 +48,16 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                     'Use only the supplied passages. Each question must have exactly one correct option and three plausible but wrong '
                     'answers to that specific question. Do not ask which statement is supported while using other supported statements '
                     'as distractors. Include a verbatim supporting quote from its chapter and a helpful explanation. '
+                    'The quote must be one exact continuous substring of a supplied passage. For multi-fact questions, '
+                    'include the intervening source text between facts. Never stitch separate excerpts together, '
+                    'insert ellipses, change punctuation, or put calculated conclusions in the quote. '
+                    'Follow the per-question demand plan in order, using the provided difficulty definitions. '
+                    'Do not disguise direct recall or a single arithmetic operation as Hard. '
                     'Do not use all/none of the above. Do not invent missing facts. Return the requested count of distinct questions.'),
                 input=json.dumps({'count': count, 'passages': passages, 'requested_difficulty': difficulty,
-                                  'difficulty_guidance': difficulty_guidance(difficulty)}),
+                                  'difficulty_guidance': difficulty_guidance(difficulty),
+                                  'demand_plan': difficulty_plan(difficulty, count),
+                                  'difficulty_definitions': DIFFICULTY_GUIDANCE}),
                 text={'format': {'type': 'json_schema', 'name': 'document_questions', 'strict': True, 'schema': Bank.model_json_schema()}})
             bank = Bank.model_validate_json(response.output_text)
             if len(bank.questions) != count:

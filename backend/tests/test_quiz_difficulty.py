@@ -5,6 +5,18 @@ from app.database import connection, initialize
 from test_mastery_loop import registered_client
 
 
+def test_mixed_plan_has_balanced_explicit_demands():
+    from app.quiz_difficulty import difficulty_plan
+    for count in range(5, 21):
+        plan = difficulty_plan('mixed', count)
+        counts = [plan.count(level) for level in ['easy', 'medium', 'hard']]
+        assert len(plan) == count
+        assert min(counts) > 0
+        assert max(counts) - min(counts) <= 1
+    assert difficulty_plan('hard', 5) == ['hard'] * 5
+    assert difficulty_plan(None, 5) == []
+
+
 def test_difficulty_is_validated_saved_and_resumed(monkeypatch, tmp_path):
     client, headers = registered_client(monkeypatch, tmp_path)
     try:

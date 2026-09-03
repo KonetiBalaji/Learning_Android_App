@@ -10,13 +10,16 @@ Difficulty describes requested cognitive demand, not calibrated learner ability:
 
 - Easy: recognize/recall one explicitly stated fact.
 - Medium: explain a relationship or apply one supported principle.
-- Hard: combine multiple supported facts for application/comparison.
+- Hard: at least two dependent reasoning steps, not just one arithmetic operation.
 - Mixed: distribute those demands as evenly as the question count permits.
 
 All levels must remain source-grounded, with no outside knowledge requirement.
 The live provider receives these instructions but existing independent review
 checks answer correctness/grounding, not calibrated difficulty. Saved metadata
 records the request; it is not proof that each generated item meets that demand.
+Generation now receives a per-question demand plan, balanced across the three
+levels for Mixed. Live evaluation found insufficient difficulty separation before
+this refinement; the revised plan remains unverified. See `docs/difficulty-evaluation.md`.
 
 Deterministic mode accepts only null/Easy recall. Other explicit levels return
 422 before saving a quiz; it must not label unchanged recall content as Hard.

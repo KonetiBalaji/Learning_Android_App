@@ -32,6 +32,8 @@ def test_generation_requires_grounding_and_separate_blind_review(monkeypatch):
     assert result[0].correct_option == 'Mitochondria'
     assert f'0-{len(TEXT)}' in result[0].source_reference
     assert all(call['store'] is False for call in calls)
+    assert 'one exact continuous substring' in calls[0]['instructions']
+    assert 'Never stitch separate excerpts together' in calls[0]['instructions']
     reviewed = json.loads(calls[1]['input'])['questions'][0]
     assert set(reviewed) == {'prompt', 'options'}
 
@@ -43,6 +45,8 @@ def test_difficulty_guidance_reaches_generation_without_changing_blind_review(mo
     payload = json.loads(calls[0]['input'])
     assert payload['requested_difficulty'] == difficulty
     assert payload['difficulty_guidance'] == DIFFICULTY_GUIDANCE[difficulty]
+    assert len(payload['demand_plan']) == 1
+    assert payload['difficulty_definitions'] == DIFFICULTY_GUIDANCE
     assert 'difficulty_guidance' not in json.loads(calls[1]['input'])
 
 

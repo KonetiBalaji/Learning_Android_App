@@ -83,6 +83,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: live synthetic difficulty evaluation exposed non-verbatim quote
+  failures, then insufficient Hard/Mixed reasoning demand after quote guidance
+  improved acceptance. Correct answers did not count as difficulty success.
+  Added explicit multi-step Hard guidance and a balanced per-item Mixed plan;
+  that final plan still needs live evaluation. Backend 121 tests passed. Citation
+  completeness and educator review remain open; see `difficulty-evaluation.md`.
+
 - 2026-09-03: difficulty device QA passed on API 36. Hard selection survives
   restart and offline generation rejects it; switching to Easy generates a quiz
   whose saved label restores on question/results screens. Conflict/results/library
