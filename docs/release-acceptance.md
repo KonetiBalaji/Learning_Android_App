@@ -285,3 +285,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   passed. This is an HTTP failure after commit, not a TCP-loss simulation. Actual
   connection loss, malformed success payloads and other phase injections remain
   open; see `adaptive-submission-preconditions.md`.
+- Fixed premature Android token acknowledgement: adaptive decoders now accept
+  state only after constructing their result. Build/lint/42 JVM tests passed.
+  API 36 QA injected HTTP 200 with a new token but missing answer fields; retry
+  recovered via 409, restart and completion preserved the five-response total.
+  Semantically inconsistent payloads and other phase/device coverage remain open;
+  see `adaptive-submission-preconditions.md`.

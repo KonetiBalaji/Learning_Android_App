@@ -14,4 +14,10 @@ internal class MasterySubmissionState {
     }
 
     fun clear() = tokens.clear()
+
+    fun <T> accept(sessionId: String, token: String, decode: () -> T): T {
+        val result = decode()
+        remember(sessionId, token)
+        return result
+    }
 }

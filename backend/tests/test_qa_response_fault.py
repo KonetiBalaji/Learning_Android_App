@@ -24,7 +24,7 @@ def test_qa_fault_is_one_shot_after_success_and_not_installed_in_production(monk
     @app.post('/v1/mastery/sessions/{session_id}/diagnostic-answer')
     def answer(session_id: str):
         committed.append(session_id)
-        return {'saved': True}
+        return {'saved': True, 'state_token': 'new-state'}
 
     install_response_fault(app)
     with TestClient(app) as client:
@@ -33,5 +33,11 @@ def test_qa_fault_is_one_shot_after_success_and_not_installed_in_production(monk
         path = '/v1/mastery/sessions/owned/diagnostic-answer'
         assert client.post(path).status_code == 503
         assert committed == ['owned']
-        assert client.post(path).json() == {'saved': True}
+        assert client.post(path).json() == {'saved': True, 'state_token': 'new-state'}
         assert committed == ['owned', 'owned']
+        assert client.post('/__qa/mastery/owned/fail-next-response?mode=malformed').status_code == 200
+        broken = client.post(path)
+        assert broken.status_code == 200
+        assert broken.json() == {'state_token': 'new-state'}
+        assert len(committed) == 3
+        assert client.post(path).json()['saved'] is True

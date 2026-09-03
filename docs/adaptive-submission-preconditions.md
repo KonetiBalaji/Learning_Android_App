@@ -95,3 +95,29 @@ fires once, rejects another session and is not installed in the production app.
 Android code was unchanged from the prior build/lint/40-test verification.
 TCP loss, malformed successful responses, practice/rewrite failure injection,
 physical-device coverage and user acceptance remain unverified.
+
+## Decoding before acknowledging a response
+
+The API layer previously remembered a token immediately after parsing the JSON
+envelope, before reading required result fields. A valid new token with missing
+answer fields could therefore leave the old question on screen but acknowledge
+the newer server state. Adaptive start/resume/answer/practice/rewrite now accept
+their token only after constructing their decoded result. A thrown decoding
+error retains the previous token (or no token for a failed first response).
+
+On 2026-09-03, Android build/lint and 42 JVM tests passed, including two new
+decoding-failure tests. The QA fault regression test also passed after adding
+the `malformed` mode. The production server does not install this fault.
+
+The API 36 emulator passed the previous failed-response command with additional
+`-MalformedResponse`. The server committed question 2 but returned HTTP 200 with
+only the new `state_token`, deliberately omitting the result fields. Android
+displayed its generic safe error, retained question 2 and retried with the old
+token. Server logs confirmed 409 followed by GET resume. Question 3 remained
+unchanged across retry and restart; completing it produced exactly five learning
+responses and one mastered chapter in the weekly report.
+
+This verifies the tested missing-required-field decode failure, not every
+semantically inconsistent payload. Unknown actions and inconsistent optional
+fields require further validation. No AI requests, physical-device validation,
+user acceptance or production deployment were performed.

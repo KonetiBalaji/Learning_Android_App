@@ -476,29 +476,42 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val response = request("GET", "/v1/mastery/sessions/$sessionId", null)
         val question = response.optJSONObject("question")
         val tutor = response.optJSONObject("tutor")?.let { TutorLesson(it.getString("title"), it.getString("explanation"), it.getString("worked_example"), it.getString("hint"), it.getString("practice_prompt")) }
-        return ResumedMastery(response.getInt("grade"), response.getString("subject_id"), response.getString("chapter_id"), response.getString("status"), question?.let(::adaptiveQuestion), question?.getInt("ordinal") ?: 1, question?.getInt("total") ?: 3, tutor, if (response.isNull("selected_option")) null else response.getString("selected_option"), (response.getDouble("mastery_score") * 100).toInt(), response.getInt("coaching_rounds"), if (response.isNull("assessment_points")) null else response.getInt("assessment_points"), if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
+        return masterySubmissionState.accept(sessionId, response.getString("state_token")) {
+            ResumedMastery(response.getInt("grade"), response.getString("subject_id"), response.getString("chapter_id"), response.getString("status"), question?.let(::adaptiveQuestion), question?.getInt("ordinal") ?: 1, question?.getInt("total") ?: 3, tutor, if (response.isNull("selected_option")) null else response.getString("selected_option"), (response.getDouble("mastery_score") * 100).toInt(), response.getInt("coaching_rounds"), if (response.isNull("assessment_points")) null else response.getInt("assessment_points"), if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
+        }
     }
     fun startDiagnostic(grade: Int, subjectId: String, chapterId: String): StartedDiagnostic {
         val response = request("POST", "/v1/mastery/diagnostics", JSONObject().put("grade", grade).put("subject_id", subjectId).put("chapter_id", chapterId).toString())
         val question = response.getJSONObject("question")
-        return StartedDiagnostic(response.getString("id"), adaptiveQuestion(question), question.getInt("ordinal"), question.getInt("total"))
+        return masterySubmissionState.accept(response.getString("id"), response.getString("state_token")) {
+            StartedDiagnostic(response.getString("id"), adaptiveQuestion(question), question.getInt("ordinal"), question.getInt("total"))
+        }
     }
     fun answerDiagnostic(sessionId: String, selected: String): DiagnosticResult {
         val response = request("POST", "/v1/mastery/sessions/$sessionId/diagnostic-answer", JSONObject().put("selected_option", selected).toString())
         val next = response.optJSONObject("next_question")
         val tutor = response.optJSONObject("tutor")?.let { TutorLesson(it.getString("title"), it.getString("explanation"), it.getString("worked_example"), it.getString("hint"), it.getString("practice_prompt")) }
-        return DiagnosticResult(response.getBoolean("correct"), response.getString("next_action"), next?.let(::adaptiveQuestion), next?.optInt("ordinal") ?: 1, (response.getDouble("mastery_score") * 100).toInt(), tutor)
+        return masterySubmissionState.accept(sessionId, response.getString("state_token")) {
+            DiagnosticResult(response.getBoolean("correct"), response.getString("next_action"), next?.let(::adaptiveQuestion), next?.optInt("ordinal") ?: 1, (response.getDouble("mastery_score") * 100).toInt(), tutor)
+        }
     }
-    fun submitPractice(sessionId: String, answer: String): Pair<Boolean, String?> { val response = request("POST", "/v1/mastery/sessions/$sessionId/practice", JSONObject().put("response", answer).toString()); return response.getBoolean("correct") to response.optString("hint").takeIf(String::isNotBlank) }
+    fun submitPractice(sessionId: String, answer: String): Pair<Boolean, String?> {
+        val response = request("POST", "/v1/mastery/sessions/$sessionId/practice", JSONObject().put("response", answer).toString())
+        return masterySubmissionState.accept(sessionId, response.getString("state_token")) {
+            response.getBoolean("correct") to response.optString("hint").takeIf(String::isNotBlank)
+        }
+    }
     fun submitRewrite(sessionId: String, rewrite: String): RewriteResult {
         val response = request("POST", "/v1/mastery/sessions/$sessionId/rewrite", JSONObject().put("response", rewrite).toString())
         val next = response.optJSONObject("next_question")
-        return RewriteResult(response.getBoolean("mastery_achieved"), (response.getDouble("mastery_score") * 100).toInt(),
+        return masterySubmissionState.accept(sessionId, response.getString("state_token")) {
+            RewriteResult(response.getBoolean("mastery_achieved"), (response.getDouble("mastery_score") * 100).toInt(),
             response.getString("confidence").replace('_', ' ').replaceFirstChar(Char::uppercase),
             if (response.isNull("coaching")) null else response.getString("coaching"), response.getString("next_action"),
             next?.let(::adaptiveQuestion), next?.getInt("ordinal"),
             if (response.isNull("assessment_points")) null else response.getInt("assessment_points"),
             if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
+        }
     }
     fun progressDashboard(grade: Int): ProgressSnapshot {
         val response = request("GET", "/v1/progress/dashboard?grade=$grade", null)
@@ -520,12 +533,9 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val connection = connection(method, path, "application/json")
         try {
             if (guardedBody != null) connection.outputStream.use { it.write(guardedBody.toByteArray(Charsets.UTF_8)) }
-            val response = readJson(connection, path.startsWith("/v1/auth/"))
-            // Failed/unknown outcomes leave the old token intact. A retry then conflicts,
-            // invoking the existing resume flow rather than answering the next question.
-            if (sessionId != null) masterySubmissionState.remember(sessionId, response.getString("state_token"))
-            if (path == "/v1/mastery/diagnostics") masterySubmissionState.remember(response.getString("id"), response.getString("state_token"))
-            return response
+            // Transport success alone does not acknowledge a learning transition.
+            // Each adaptive decoder accepts its token only after constructing its result.
+            return readJson(connection, path.startsWith("/v1/auth/"))
         } finally { connection.disconnect() }
     }
     private fun requestNoContent(method: String, path: String) { readApiResponse(connection(method, path, "application/json")) }

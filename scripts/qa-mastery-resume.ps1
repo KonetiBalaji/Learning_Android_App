@@ -6,7 +6,8 @@ param(
     [switch]$VerifyWeeklyReport,
     [switch]$VerifyFractionModel,
     [switch]$VerifyStaleSubmission,
-    [switch]$VerifyFailedResponse
+    [switch]$VerifyFailedResponse,
+    [switch]$MalformedResponse
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -60,6 +61,7 @@ $health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
 if ($health.ai_provider -notin @('deterministic', 'scripted-qa')) { throw 'Run an isolated deterministic or scripted-qa backend on port 8000 first.' }
 if ($ExpectRubricFeedback -and $health.ai_provider -ne 'scripted-qa') { throw 'Rubric display checks require scripts/serve_qa.py --qa-only.' }
 if ($VerifyFailedResponse -and ($VerifyStaleSubmission -or $health.ai_provider -ne 'scripted-qa')) { throw 'Failed-response QA requires scripted-qa and cannot combine with stale-submission QA.' }
+if ($MalformedResponse -and -not $VerifyFailedResponse) { throw '-MalformedResponse requires -VerifyFailedResponse' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -138,14 +140,16 @@ if ($VerifyStaleSubmission -or $VerifyFailedResponse) {
         $otherAnswer = Invoke-RestMethod "$sessionUrl/diagnostic-answer" -Method Post -Headers $qaHeaders -ContentType 'application/json' -Body (@{selected_option='3/6'; expected_state=$beforeStale.state_token} | ConvertTo-Json)
         if ($otherAnswer.next_question.ordinal -ne 3) { throw 'Second client did not advance to question 3' }
     } else {
-        $armed = Invoke-RestMethod "http://127.0.0.1:8000/__qa/mastery/$sessionId/fail-next-response" -Method Post -Headers $qaHeaders
+        $faultMode = if ($MalformedResponse) { 'malformed' } else { '503' }
+        $armed = Invoke-RestMethod "http://127.0.0.1:8000/__qa/mastery/$sessionId/fail-next-response?mode=$faultMode" -Method Post -Headers $qaHeaders
         if (-not $armed.armed) { throw 'QA response fault was not armed' }
     }
 }
 TapText '3/6'
 TapText 'Submit answer'
 if ($VerifyFailedResponse) {
-    TextNode 'The learning service is temporarily unavailable. Please try again.' | Out-Null
+    $expectedError = if ($MalformedResponse) { 'Something went wrong. Please try again.' } else { 'The learning service is temporarily unavailable. Please try again.' }
+    TextNode $expectedError | Out-Null
     $committed = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
     if ($committed.question.ordinal -ne 3 -or $committed.state_token -eq $beforeStale.state_token) { throw 'Failed response did not follow a committed answer' }
     TapText 'Try again'
@@ -158,7 +162,7 @@ if ($VerifyFailedResponse) {
     if ($recovered.state_token -ne $committed.state_token) { throw 'Retry after failed response changed server state' }
     RestartApp
     TextNode 'Question 3 of 3' | Out-Null
-    Write-Output 'PASS: post-commit 503 retains old submission state; retry resumes Q3 without another answer'
+    Write-Output "PASS: post-commit $faultMode response retains old submission state; retry resumes Q3 without another answer"
 }
 if ($VerifyStaleSubmission) {
     $afterStale = Invoke-RestMethod $sessionUrl -Headers $qaHeaders

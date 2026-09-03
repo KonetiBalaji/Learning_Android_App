@@ -5,6 +5,25 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class MasterySubmissionStateTest {
+    @Test fun decodingFailureDoesNotAcknowledgeNewState() {
+        val state = MasterySubmissionState()
+        state.remember("a", "old")
+        assertThrows(IllegalStateException::class.java) {
+            state.accept("a", "new") { error("Malformed response") }
+        }
+        assertEquals("old", state.expected("a"))
+        val result = state.accept("a", "new") { "decoded" }
+        assertEquals("decoded", result)
+        assertEquals("new", state.expected("a"))
+    }
+
+    @Test fun failedFirstDecodeDoesNotCreateSubmissionState() {
+        val state = MasterySubmissionState()
+        assertThrows(IllegalStateException::class.java) {
+            state.accept("a", "new") { error("Malformed start or resume") }
+        }
+        assertThrows(IllegalArgumentException::class.java) { state.expected("a") }
+    }
     @Test fun failedRequestsRetainOldStateUntilSuccessfulResponseOrResume() {
         val state = MasterySubmissionState()
         state.remember("a", "a:diagnostic:0")
