@@ -13,6 +13,7 @@ from fastapi import HTTPException, UploadFile, status
 from .config import Settings
 from .schemas import Chapter
 from .document_limits import validate_docx_archive
+from .docx_text import extract_docx_body
 from .file_cleanup import discard_uncommitted_upload
 
 ALLOWED_SUFFIXES = {".pdf", ".docx", ".txt"}
@@ -57,7 +58,7 @@ def extract_text(content: bytes, suffix: str) -> str:
             raise ValueError("The DOCX archive is invalid")
         validate_docx_archive(content)
         document = Document(BytesIO(content))
-        return "\n".join(paragraph.text for paragraph in document.paragraphs if paragraph.text.strip())
+        return extract_docx_body(document)
     pdf = fitz.open(stream=content, filetype="pdf")
     try:
         if pdf.needs_pass:

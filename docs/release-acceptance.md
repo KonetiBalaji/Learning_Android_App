@@ -67,6 +67,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Baseline evidence and known defects
 
+- Fixed DOCX body extraction omitting tables: new uploads preserve ordered table
+  and nested-cell text, avoid duplicate merged-cell evidence and reject excess
+  traversal limits. Existing stored source offsets remain unchanged. Eight new
+  tests include a table-only upload/search offset round trip. Backend suite on
+  2026-09-03: 285 passed, 1 existing Windows skip. Complex Word layout, device
+  rendering and model quality on tables remain unverified; see
+  `docs/docx-source-extraction.md`.
+
 - Authentication registration/login/Google exchange now share a persistent,
   bounded peer-admission throttle with generic 429/Retry-After, digest-only records,
   concurrent SQLite enforcement and no direct trust in forwarding headers.
