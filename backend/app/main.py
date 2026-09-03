@@ -591,7 +591,9 @@ def mastery_session_state(session_id: str, user_id: str = Depends(current_user_i
 
 @app.get("/v1/progress/dashboard", response_model=ProgressDashboard)
 def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> ProgressDashboard:
+    from .study_time import observed_seconds
     with connection(settings.database_path) as db:
+        study_seconds = observed_seconds(db, user_id, grade)
         sessions = db.execute(
             "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?) ORDER BY started_at DESC, rowid DESC", (user_id, grade, grade)
         ).fetchall()
@@ -632,7 +634,7 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
     mastered = {(chapter.subject_id, chapter.chapter_id) for chapter in chapters if chapter.status == 'mastered'}
     unlocked = sorted(f'{subject}:{chapter}' for (subject, chapter), required in PREREQUISITES.items()
                       if grade is not None and (subject, required) in mastered)
-    return ProgressDashboard(grade=grade, unlocked_chapter_ids=unlocked, subjects=subject_scores,
+    return ProgressDashboard(observed_study_seconds=study_seconds, grade=grade, unlocked_chapter_ids=unlocked, subjects=subject_scores,
                              chapters=chapters, weak_areas=weak_areas, recommendations=recommendations)
 
 
@@ -651,5 +653,10 @@ def weekly_report(grade: int | None = Query(default=None, ge=1, le=12), user_id:
             "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?)",
             (user_id, grade, grade),
         ).fetchall()
-    return build_weekly_report(sessions, attempts, as_of,
-                               {row['id']: len(session_diagnostic_bank(row)) for row in sessions})
+    report = build_weekly_report(sessions, attempts, as_of,
+                                 {row['id']: len(session_diagnostic_bank(row)) for row in sessions})
+    from .study_time import observed_seconds
+    with connection(settings.database_path) as db:
+        report.observed_study_seconds = observed_seconds(db, user_id, grade,
+            datetime.fromisoformat(report.period_start), datetime.fromisoformat(report.period_end))
+    return report

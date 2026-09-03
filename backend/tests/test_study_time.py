@@ -5,6 +5,38 @@ from app.database import connection
 from test_mastery_loop import registered_client
 
 
+def test_reports_clip_intervals_and_isolate_grade_and_owner(monkeypatch, tmp_path):
+    import app.main as api
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        end = datetime(2026, 9, 3, 12, tzinfo=UTC)
+        start = end - timedelta(days=7)
+        monkeypatch.setattr(api, 'now', lambda: end.isoformat())
+        def session(grade, auth):
+            return client.post('/v1/mastery/diagnostics', headers=auth,
+                json={'grade': grade, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()['id']
+        first, second = session(8, headers), session(7, headers)
+        token = client.post('/v1/auth/register', json={'email': 'other-time-report@example.com', 'password': 'long-enough-password'}).json()['access_token']
+        other = session(8, {'Authorization': f'Bearer {token}'})
+        def interval(id, begin, finish):
+            with connection(get_settings().database_path) as db:
+                db.execute('INSERT INTO study_time_intervals(session_id, started_at, ended_at, seconds) VALUES (?, ?, ?, ?)',
+                    (id, begin.isoformat(), finish.isoformat(), (finish - begin).total_seconds()))
+        interval(first, start - timedelta(seconds=20), start + timedelta(seconds=10))
+        interval(first, end - timedelta(seconds=15), end + timedelta(seconds=15))
+        interval(first, start - timedelta(seconds=60), start - timedelta(seconds=30))
+        interval(first, end + timedelta(seconds=20), end + timedelta(seconds=40))
+        interval(second, start + timedelta(seconds=20), start + timedelta(seconds=40))
+        interval(other, start + timedelta(seconds=50), start + timedelta(seconds=80))
+        assert client.get('/v1/progress/dashboard?grade=8', headers=headers).json()['observed_study_seconds'] == 110
+        assert client.get('/v1/progress/dashboard', headers=headers).json()['observed_study_seconds'] == 130
+        assert client.get('/v1/progress/weekly-report?grade=8', headers=headers).json()['observed_study_seconds'] == 25
+        assert client.get('/v1/progress/weekly-report', headers=headers).json()['observed_study_seconds'] == 45
+        assert client.get('/v1/progress/weekly-report?grade=9', headers=headers).json()['observed_study_seconds'] == 0
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_presence_is_bounded_nonoverlapping_and_stops_at_completion(monkeypatch, tmp_path):
     import app.main as api
     client, headers = registered_client(monkeypatch, tmp_path)

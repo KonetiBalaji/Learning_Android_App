@@ -212,6 +212,7 @@ class StudyPresence(BaseModel):
 
 
 class ProgressDashboard(BaseModel):
+    observed_study_seconds: int = Field(default=0, ge=0)
     grade: int | None = None
     unlocked_chapter_ids: list[str] = Field(default_factory=list)
     subjects: dict[str, float]
@@ -228,6 +229,7 @@ class UserProfile(BaseModel):
 
 
 class WeeklyReport(BaseModel):
+    observed_study_seconds: int = Field(default=0, ge=0)
     period_days: int
     period_start: str
     period_end: str

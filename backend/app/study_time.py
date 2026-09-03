@@ -4,6 +4,23 @@ from datetime import datetime
 MAX_PRESENCE_GAP_SECONDS = 60
 
 
+def observed_seconds(db, owner_id: str, grade: int | None = None,
+                     period_start: datetime | None = None, period_end: datetime | None = None) -> int:
+    rows = db.execute('''SELECT i.started_at, i.ended_at FROM study_time_intervals i
+                         JOIN mastery_sessions s ON s.id = i.session_id
+                         WHERE s.owner_id = ? AND (? IS NULL OR s.grade = ?)''',
+                      (owner_id, grade, grade))
+    seconds = 0.0
+    for row in rows:
+        start, end = datetime.fromisoformat(row['started_at']), datetime.fromisoformat(row['ended_at'])
+        if period_start is not None:
+            start = max(start, period_start)
+        if period_end is not None:
+            end = min(end, period_end)
+        seconds += max(0.0, (end - start).total_seconds())
+    return int(seconds)
+
+
 def session_seconds(db, session_id: str) -> int:
     return int(db.execute('SELECT COALESCE(SUM(seconds), 0) FROM study_time_intervals WHERE session_id = ?',
                           (session_id,)).fetchone()[0])

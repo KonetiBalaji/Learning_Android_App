@@ -32,3 +32,20 @@ Do not label current sessions as time-tracked yet. Background/idle suppression
 depends on that client integration. Even then, a modified client could continue
 sending observations while unattended; the metric must remain clearly labeled.
 Production retention, request-rate limits and interval compaction are also open.
+
+## Reporting totals
+
+The progress dashboard and weekly report now return `observed_study_seconds`.
+Dashboard totals sum stored interval durations for the owner and optional grade.
+Weekly totals use only the overlap between each interval and the report's exact
+rolling seven-day `[period_start, period_end)` window. They do not assign the
+entire interval to the day it ended. Fractional seconds are summed before the
+total is truncated, and empty/untracked history contributes zero, not an estimate
+derived from historical session age. Omitting grade aggregates only this owner's
+grades; another owner's intervals never contribute.
+
+All 184 backend tests passed. The new integration test covers intervals crossing
+both weekly boundaries, intervals fully outside the window, grade-specific versus
+aggregate totals, empty grades and other-owner exclusion. Android presence
+emission and the time display are still not connected; this is report infrastructure,
+not evidence that real foreground study has been measured or accepted in UAT.

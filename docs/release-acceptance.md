@@ -487,3 +487,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   lifecycle/idle signals and time displays are not connected yet, so MAST-01 time
   tracking remains partial. This measures presence, not attention. See
   `shared/contracts/study-presence.md`.
+- Progress and weekly-report responses now include owner/grade-scoped observed
+  study seconds. Weekly totals clip each interval to the exact reporting window;
+  untracked history stays zero. Backend 184 tests passed, including both boundaries,
+  aggregate/grade and other-owner checks. Android emission/display and device QA
+  remain pending; MAST-01 is not complete. See the study-presence contract.
