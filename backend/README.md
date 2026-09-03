@@ -13,6 +13,15 @@ uv run uvicorn app.main:app --reload
 
 Open `http://127.0.0.1:8000/docs` for the interactive API.
 
+The backend automatically loads `backend/.env.local`. To enable live tutoring, keep these values only in that ignored file:
+
+```dotenv
+OPENAI_API_KEY=your-project-key
+OPENAI_MODEL=gpt-5-mini
+```
+
+Live calls use the OpenAI Responses API with strict structured output and `store=false`. OpenAI generates grade-aware diagnostic banks for the selected subject and chapter, and each validated bank is frozen with its session so questions cannot drift between answers. If the provider is temporarily unavailable or returns invalid output, the validated deterministic Fractions tutor remains available. Tests always force deterministic mode and never consume API credits.
+
 ## Test
 
 ```powershell
@@ -28,4 +37,3 @@ uv run pytest
 - Uploaded material and the SQLite database stay under `backend/.runtime/`, which is ignored by Git.
 
 This is a local MVP. Before any public deployment, replace the local file store with managed encrypted storage, move the signing secret to a secret manager, introduce rate limiting, and configure retention/deletion operations for the deployed environment.
-

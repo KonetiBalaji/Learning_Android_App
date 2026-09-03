@@ -1,0 +1,49 @@
+from app.config import Settings
+import pytest
+
+from app.mastery_service import DiagnosticItem, FRACTION_DIAGNOSTIC, parse_diagnostic_bank, serialize_diagnostic_bank, validate_diagnostic_bank
+from app.tutor_provider import DeterministicTutorProvider, ResilientTutorProvider, RewriteAssessment
+
+
+class BrokenProvider:
+    name = "broken"
+
+    def explain(self, grade, item, selected_option):
+        raise TimeoutError("provider unavailable")
+
+    def assess_rewrite(self, grade, item, response):
+        raise TimeoutError("provider unavailable")
+
+    def diagnostic_bank(self, grade, subject_id, chapter_id):
+        raise TimeoutError("provider unavailable")
+
+
+def test_provider_falls_back_without_exposing_an_outage() -> None:
+    provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
+    lesson = provider.explain(6, FRACTION_DIAGNOSTIC[0], "1/2")
+    assessment = provider.assess_rewrite(6, FRACTION_DIAGNOSTIC[0], "The denominator stays the same and numerators add to 4/4, one whole.")
+    assert lesson.title == "Adding like fractions"
+    assert isinstance(assessment, RewriteAssessment)
+    assert assessment.understood is True
+    assert len(provider.diagnostic_bank(6, "math", "fractions")) == 3
+
+
+def test_settings_never_include_key_in_repr(tmp_path) -> None:
+    settings = Settings(runtime_dir=tmp_path, jwt_secret="secret", openai_api_key="super-secret")
+    assert "super-secret" not in repr(settings)
+
+
+def test_generated_bank_round_trips_without_question_drift() -> None:
+    encoded = serialize_diagnostic_bank(FRACTION_DIAGNOSTIC)
+    assert parse_diagnostic_bank(encoded) == FRACTION_DIAGNOSTIC
+
+
+def test_generated_bank_rejects_ambiguous_or_duplicate_choices() -> None:
+    invalid = DiagnosticItem(
+        prompt="Which choice demonstrates the concept?", options=("same", "same", "other", "last"),
+        correct_option="missing", concept="Validation", explanation="Only one answer may be correct.",
+        worked_example="A valid item has unique choices.", hint="Compare each choice.",
+        practice_prompt="Choose the valid item.", practice_answers=("valid",),
+    )
+    with pytest.raises(ValueError):
+        validate_diagnostic_bank((invalid, invalid, invalid))

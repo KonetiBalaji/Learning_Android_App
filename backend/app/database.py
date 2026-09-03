@@ -29,12 +29,31 @@ CREATE TABLE IF NOT EXISTS questions (
   correct_option TEXT NOT NULL, explanation TEXT NOT NULL, source_reference TEXT NOT NULL,
   answered_option TEXT, answered_at TEXT, UNIQUE(quiz_id, ordinal)
 );
+CREATE TABLE IF NOT EXISTS mastery_sessions (
+  id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  grade INTEGER NOT NULL, subject_id TEXT NOT NULL, chapter_id TEXT NOT NULL,
+  current_question INTEGER NOT NULL DEFAULT 0, correct_answers INTEGER NOT NULL DEFAULT 0,
+  coaching_rounds INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'diagnostic',
+  started_at TEXT NOT NULL, completed_at TEXT, questions_json TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS mastery_attempts (
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
+  phase TEXT NOT NULL, prompt TEXT NOT NULL, response TEXT NOT NULL,
+  correct INTEGER NOT NULL, concept TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS mastery_sessions_owner_idx
+  ON mastery_sessions(owner_id, subject_id, chapter_id, started_at);
+CREATE INDEX IF NOT EXISTS mastery_attempts_session_idx
+  ON mastery_attempts(session_id, created_at);
 """
 
 
 def initialize(path: Path) -> None:
     with sqlite3.connect(path) as connection:
         connection.executescript(SCHEMA)
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(mastery_sessions)")}
+        if "questions_json" not in columns:
+            connection.execute("ALTER TABLE mastery_sessions ADD COLUMN questions_json TEXT NOT NULL DEFAULT ''")
 
 
 @contextmanager

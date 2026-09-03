@@ -13,7 +13,17 @@ from .config import Settings, get_settings
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .quiz_service import generate_grounded_questions, question_id
+from .mastery_service import (
+    diagnostic_bank,
+    confidence_for,
+    response_matches,
+    public_question,
+    parse_diagnostic_bank,
+    serialize_diagnostic_bank,
+)
+from .tutor_provider import tutor_provider
 from .schemas import (
+    AdaptiveQuestion,
     AnswerRequest,
     Chapter,
     Credentials,
@@ -24,6 +34,18 @@ from .schemas import (
     QuizResults,
     QuizSummary,
     Token,
+    ChapterProgress,
+    DiagnosticAnswerRequest,
+    DiagnosticOutcome,
+    DiagnosticSession,
+    DiagnosticStartRequest,
+    PracticeOutcome,
+    PracticeRequest,
+    ProgressDashboard,
+    RewriteOutcome,
+    RewriteRequest,
+    UserProfile,
+    WeeklyReport,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 
@@ -59,9 +81,42 @@ def question_payload(row: sqlite3.Row) -> QuizQuestion:
     return QuizQuestion(id=row["id"], ordinal=row["ordinal"], prompt=row["prompt"], options=parse_json(row["options_json"]), source_reference=row["source_reference"])
 
 
+def owned_mastery_session(session_id: str, user_id: str, settings: Settings) -> sqlite3.Row:
+    with connection(settings.database_path) as db:
+        row = db.execute("SELECT * FROM mastery_sessions WHERE id = ? AND owner_id = ?", (session_id, user_id)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mastery session not found")
+    return row
+
+
+def session_diagnostic_bank(session: sqlite3.Row):
+    stored = session["questions_json"] if "questions_json" in session.keys() else ""
+    return parse_diagnostic_bank(stored) if stored else diagnostic_bank(session["subject_id"], session["chapter_id"])
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
+    return {"status": "ok", "ai_provider": tutor_provider(settings).name, "model": settings.openai_model if settings.ai_mode == "openai" else "none"}
+
+
+@app.get("/v1/account", response_model=UserProfile)
+def account_profile(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> UserProfile:
+    with connection(settings.database_path) as db:
+        user = db.execute("SELECT id, email, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    return UserProfile(id=user["id"], email=user["email"], created_at=user["created_at"])
+
+
+@app.delete("/v1/account", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> None:
+    with connection(settings.database_path) as db:
+        files = [Path(row["stored_path"]) for row in db.execute("SELECT stored_path FROM documents WHERE owner_id = ?", (user_id,)).fetchall()]
+        deleted = db.execute("DELETE FROM users WHERE id = ?", (user_id,)).rowcount
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    for stored_file in files:
+        stored_file.unlink(missing_ok=True)
 
 
 @app.post("/v1/auth/register", response_model=Token, status_code=status.HTTP_201_CREATED)
@@ -176,3 +231,178 @@ def quiz_results(quiz_id: str, user_id: str = Depends(current_user_id), settings
     correct = [row for row in answered if row["answered_option"] == row["correct_option"]]
     mistakes = [question_payload(row) for row in answered if row["answered_option"] != row["correct_option"]]
     return QuizResults(quiz_id=quiz_id, answered=len(answered), total=len(rows), correct=len(correct), accuracy=(len(correct) / len(answered) if answered else 0.0), mistakes=mistakes)
+
+
+@app.post("/v1/mastery/diagnostics", response_model=DiagnosticSession, status_code=status.HTTP_201_CREATED)
+def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DiagnosticSession:
+    try:
+        bank = tutor_provider(settings).diagnostic_bank(request.grade, request.subject_id, request.chapter_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    session_id = str(uuid.uuid4())
+    with connection(settings.database_path) as db:
+        db.execute(
+            """INSERT INTO mastery_sessions
+               (id, owner_id, grade, subject_id, chapter_id, started_at, questions_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, user_id, request.grade, request.subject_id.lower(), request.chapter_id.lower(), now(), serialize_diagnostic_bank(bank)),
+        )
+    return DiagnosticSession(id=session_id, status="diagnostic", question=public_question(bank[0], 0, len(bank)))
+
+
+@app.post("/v1/mastery/sessions/{session_id}/diagnostic-answer", response_model=DiagnosticOutcome)
+def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DiagnosticOutcome:
+    session = owned_mastery_session(session_id, user_id, settings)
+    if session["status"] != "diagnostic":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The diagnostic phase is already complete")
+    bank = session_diagnostic_bank(session)
+    index = session["current_question"]
+    if index >= len(bank):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No diagnostic question is pending")
+    item = bank[index]
+    if request.selected_option not in item.options:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The selected answer is not one of this question's options")
+    correct = request.selected_option == item.correct_option
+    new_correct = session["correct_answers"] + int(correct)
+    next_index = index + 1 if correct else index
+    next_status = "mastered" if correct and next_index == len(bank) else ("diagnostic" if correct else "tutor")
+    with connection(settings.database_path) as db:
+        db.execute(
+            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), session_id, "diagnostic", item.prompt, request.selected_option, int(correct), item.concept, now()),
+        )
+        db.execute(
+            "UPDATE mastery_sessions SET current_question = ?, correct_answers = ?, status = ?, completed_at = ? WHERE id = ?",
+            (next_index, new_correct, next_status, now() if next_status == "mastered" else None, session_id),
+        )
+    score = new_correct / len(bank)
+    next_question = public_question(bank[next_index], next_index, len(bank)) if correct and next_index < len(bank) else None
+    return DiagnosticOutcome(
+        correct=correct,
+        selected_option=request.selected_option,
+        correct_option=item.correct_option,
+        mastery_score=score,
+        next_action="mastery" if next_status == "mastered" else ("next_question" if correct else "tutor"),
+        next_question=next_question,
+        tutor=None if correct else tutor_provider(settings).explain(session["grade"], item, request.selected_option),
+    )
+
+
+@app.post("/v1/mastery/sessions/{session_id}/practice", response_model=PracticeOutcome)
+def submit_practice(session_id: str, request: PracticeRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> PracticeOutcome:
+    session = owned_mastery_session(session_id, user_id, settings)
+    if session["status"] not in {"tutor", "practice"}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Guided practice is not available in the current phase")
+    bank = session_diagnostic_bank(session)
+    item = bank[session["current_question"]]
+    correct, normalized = response_matches(request.response, item.practice_answers)
+    with connection(settings.database_path) as db:
+        db.execute(
+            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), session_id, "practice", item.practice_prompt, request.response, int(correct), item.concept, now()),
+        )
+        db.execute("UPDATE mastery_sessions SET status = ?, coaching_rounds = coaching_rounds + ? WHERE id = ?", ("rewrite" if correct else "practice", 0 if correct else 1, session_id))
+    return PracticeOutcome(
+        correct=correct,
+        normalized_answer=normalized,
+        hint=None if correct else item.hint,
+        next_action="rewrite" if correct else "more_practice",
+    )
+
+
+@app.post("/v1/mastery/sessions/{session_id}/rewrite", response_model=RewriteOutcome)
+def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> RewriteOutcome:
+    session = owned_mastery_session(session_id, user_id, settings)
+    if session["status"] != "rewrite":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A concept rewrite is not pending")
+    bank = session_diagnostic_bank(session)
+    item = bank[session["current_question"]]
+    assessment = tutor_provider(settings).assess_rewrite(session["grade"], item, request.response)
+    understood, coaching = assessment.understood, assessment.coaching
+    diagnostic_score = session["correct_answers"] / len(bank)
+    mastery_score = max(0.85, diagnostic_score) if understood else diagnostic_score
+    next_status = "mastered" if understood else "tutor"
+    with connection(settings.database_path) as db:
+        db.execute(
+            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), session_id, "rewrite", f"Explain {item.concept} in your own words", request.response, int(understood), item.concept, now()),
+        )
+        db.execute(
+            "UPDATE mastery_sessions SET status = ?, coaching_rounds = coaching_rounds + ?, completed_at = ? WHERE id = ?",
+            (next_status, 0 if understood else 1, now() if understood else None, session_id),
+        )
+    return RewriteOutcome(
+        understood=understood,
+        mastery_achieved=understood,
+        mastery_score=mastery_score,
+        confidence=confidence_for(mastery_score),
+        coaching=coaching,
+        next_chapter_unlocked=understood,
+    )
+
+
+@app.get("/v1/progress/dashboard", response_model=ProgressDashboard)
+def progress_dashboard(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> ProgressDashboard:
+    with connection(settings.database_path) as db:
+        sessions = db.execute(
+            "SELECT * FROM mastery_sessions WHERE owner_id = ? ORDER BY started_at DESC", (user_id,)
+        ).fetchall()
+        attempts = db.execute(
+            """SELECT mastery_attempts.* FROM mastery_attempts
+               JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
+               WHERE mastery_sessions.owner_id = ?""", (user_id,)
+        ).fetchall()
+    chapters: list[ChapterProgress] = []
+    subjects: dict[str, list[float]] = {}
+    seen: set[tuple[str, str]] = set()
+    for session in sessions:
+        key = (session["subject_id"], session["chapter_id"])
+        if key in seen:
+            continue
+        seen.add(key)
+        bank_size = len(session_diagnostic_bank(session))
+        diagnostic_score = session["correct_answers"] / bank_size
+        score = max(0.85, diagnostic_score) if session["status"] == "mastered" else diagnostic_score
+        subjects.setdefault(session["subject_id"], []).append(score)
+        chapters.append(ChapterProgress(subject_id=key[0], chapter_id=key[1], mastery=score, attempts=sum(1 for row in attempts if row["session_id"] == session["id"]), status=session["status"]))
+    incorrect = [row["concept"] for row in attempts if not row["correct"]]
+    weak_areas = list(dict.fromkeys(incorrect))[:5]
+    subject_scores = {name: sum(values) / len(values) for name, values in subjects.items()}
+    recommendations = ([f"Practice {area} for 15 minutes" for area in weak_areas[:3]] or ["Start a diagnostic to personalize your learning path"])
+    return ProgressDashboard(subjects=subject_scores, chapters=chapters, weak_areas=weak_areas, recommendations=recommendations)
+
+
+@app.get("/v1/progress/weekly-report", response_model=WeeklyReport)
+def weekly_report(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> WeeklyReport:
+    with connection(settings.database_path) as db:
+        attempts = db.execute(
+            """SELECT mastery_attempts.* FROM mastery_attempts
+               JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
+               WHERE mastery_sessions.owner_id = ?
+                 AND mastery_attempts.created_at >= datetime('now', '-7 days')""",
+            (user_id,),
+        ).fetchall()
+        sessions = db.execute(
+            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND started_at >= datetime('now', '-7 days')",
+            (user_id,),
+        ).fetchall()
+    correct = sum(int(row["correct"]) for row in attempts)
+    concept_totals: dict[str, list[int]] = {}
+    for row in attempts:
+        concept_totals.setdefault(row["concept"], []).append(int(row["correct"]))
+    concept_scores = {name: sum(values) / len(values) for name, values in concept_totals.items()}
+    strongest = [name for name, _ in sorted(concept_scores.items(), key=lambda item: item[1], reverse=True)[:3]]
+    weak = [name for name, score in sorted(concept_scores.items(), key=lambda item: item[1]) if score < 0.7][:3]
+    mastered = sum(1 for row in sessions if row["status"] == "mastered")
+    active_subjects = len({row["subject_id"] for row in sessions})
+    accuracy = correct / len(attempts) if attempts else 0.0
+    completion = mastered / len(sessions) if sessions else 0.0
+    readiness = round((accuracy * 0.6 + completion * 0.4) * 100, 1)
+    label = "high" if readiness >= 85 else ("developing" if readiness >= 60 else "needs_support")
+    recommendations = [f"Review {concept} for 15 minutes" for concept in weak] or ["Complete one diagnostic this week"]
+    return WeeklyReport(
+        period_days=7, questions_answered=len(attempts), correct_answers=correct, accuracy=accuracy,
+        mastered_chapters=mastered, active_subjects=active_subjects, strongest_concepts=strongest,
+        weak_areas=weak, estimated_exam_readiness=readiness, readiness_label=label,
+        recommendations=recommendations,
+    )

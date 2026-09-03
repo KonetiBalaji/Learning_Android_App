@@ -11,6 +11,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import Settings, get_settings
+from .database import connection
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -43,6 +44,10 @@ def current_user_id(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="A bearer token is required")
     try:
         payload = jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=["HS256"], issuer=settings.jwt_issuer)
-        return str(payload["sub"])
+        user_id = str(payload["sub"])
+        with connection(settings.database_path) as db:
+            if db.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone() is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        return user_id
     except (jwt.InvalidTokenError, KeyError) as error:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from error
