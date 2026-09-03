@@ -22,6 +22,13 @@ pending/failed recovery. Live grounded-answer quality, device QA, animation,
 consent/retention and broader cost controls remain
 open. See `shared/contracts/tutor-conversation.md`; TUT-06 remains partial.
 
+API 36 typed-conversation QA passed sending a question, restoring saved replies
+after process restart, displaying unavailability, preparing an explicit retry
+without sending, and confirming exactly two saved turns with unchanged mastery.
+Reply/failure screenshots were inspected. Scripted QA content only; real speech,
+live answer quality, pending/network-loss paths and UAT remain open. Backend
+regression: 403 passed, one existing Windows skip.
+
 Read-aloud lifecycle repair stops queued speech when backgrounded or lesson text
 changes, ignores stale callbacks, and provides completion/stop/error status with
 an accessibility live region. Android build/lint and 115 JVM tests pass. Real

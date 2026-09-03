@@ -1,8 +1,42 @@
 # Lesson-scoped tutor questions (server implementation)
 
+## Repeatable Android conversation workflow QA
+
+Start the isolated backend with `uv run python scripts/serve_qa.py --qa-only`,
+then run `scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyTutorConversation`.
+This requires the dedicated LearnSmart_API36 emulator and resets only its app's
+synthetic local test state. It installs the current debug APK and creates a fresh
+test account. The QA provider returns a visibly labelled scripted reply; the
+question `QA unavailable` deliberately fails. Production provider code does not
+import this fixture and no external AI requests are made.
+
+The script checks typed question/reply, process restart and saved history,
+unavailable reply UI, filling a retry draft without auto-sending, exactly one
+completed and one failed persisted turn, and unchanged tutor/mastery state.
+Screenshots are local generated artifacts. The first execution reached the
+failure/retry UI but its final assertion incorrectly wrapped PowerShell's JSON
+array; read-only database inspection confirmed the expected two turns. That run
+was not counted as an end-to-end pass, and the array handling was corrected.
+
+The corrected fresh-account run passed on API 36 using the debug APK from
+`a2517b8`. Exactly two turns (one complete, one failed) remained after choosing
+the draft-only retry control; the learning session stayed `tutor` with score 0.
+`artifacts/qa-tutor-conversation.png` and
+`artifacts/qa-tutor-conversation-failure.png` were visually inspected: disclosure,
+question/reply, failure guidance and retry draft are readable at the tested size.
+These generated screenshots are not committed. Transient UI null-root errors
+were retried using fresh hierarchies. The isolated QA server was refreshed for
+the new routes/fixture; no production host or credentials were changed.
+
+Full backend regression with the two QA-fixture tests: 403 passed, one existing
+Windows symlink-privilege skip, and the existing Starlette/httpx warning. These
+checks do not establish live answer quality, real dictation, voice cancellation,
+pending/network-loss recovery, playback quality or user acceptance.
+
 This adds follow-up conversation, separate from diagnostic/practice/rewrite
 assessment. Android text/voice controls and reply read-aloud are implemented;
-device QA and live conversational-answer evaluation are pending.
+focused typed-conversation device QA passed as recorded above. Broader device QA
+and live conversational-answer evaluation remain pending.
 
 ## Android integration
 

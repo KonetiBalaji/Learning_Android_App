@@ -13,6 +13,12 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
+def scripted_tutor_answer(question):
+    if question == 'QA unavailable':
+        raise RuntimeError('Scripted QA tutor outage')
+    return {'answer': 'Scripted QA reply: equal denominators describe equal-sized parts.', 'supported': True}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--qa-only", action="store_true")
@@ -38,6 +44,9 @@ def main():
 
     class ScriptedQAProvider(DeterministicTutorProvider):
         name = "scripted-binary-qa" if args.binary_fixtures else "scripted-qa"
+
+        def answer_question(self, grade, item, question, history):
+            return scripted_tutor_answer(question)
 
         def assess_rewrite(self, grade, item, response):
             base = super().assess_rewrite(grade, item, response)

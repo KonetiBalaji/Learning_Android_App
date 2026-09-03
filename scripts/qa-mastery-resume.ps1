@@ -12,7 +12,8 @@ param(
     [switch]$VerifyStudyTime,
     [switch]$VerifyFreshPractice,
     [switch]$VerifyRejectedRewrite,
-    [switch]$VerifyReadAloud
+    [switch]$VerifyReadAloud,
+    [switch]$VerifyTutorConversation
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -77,6 +78,7 @@ if ($MalformedResponse -and -not $VerifyFailedResponse) { throw '-MalformedRespo
 if ($VerifyUnlocks -and ($health.ai_provider -ne 'scripted-qa' -or $VerifyWeeklyReport)) { throw 'Unlock QA requires scripted-qa and cannot combine with weekly-count assertions' }
 if ($VerifyStudyTime -and -not $VerifyWeeklyReport) { throw 'Study time QA requires -VerifyWeeklyReport to verify the displayed total' }
 if ($VerifyRejectedRewrite -and -not $VerifyFreshPractice) { throw 'Rejected rewrite QA requires -VerifyFreshPractice' }
+if ($VerifyTutorConversation -and ($health.ai_provider -ne 'scripted-qa' -or $VerifyReadAloud)) { throw 'Conversation QA requires scripted-qa and runs separately from read-aloud QA.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -169,6 +171,39 @@ if ($savedNames -contains 'token' -or $sealedSession.Count -ne 1 -or -not $seale
     throw 'Session is not stored exclusively as a versioned encrypted envelope'
 }
 Write-Output 'PASS: restarted session uses encrypted storage with no legacy plaintext token (secret values omitted)'
+if ($VerifyTutorConversation) {
+    TapText 'Ask the tutor a question'
+    TextNode 'Talk with your tutor' | Out-Null
+    TextNode 'No questions in this lesson conversation yet.' | Out-Null
+    EnterField 0 'Why keep the denominator?'
+    TapText 'Send question'
+    TextNode 'Scripted QA reply: equal denominators describe equal-sized parts.' | Out-Null
+    Adb shell screencap -p /sdcard/qa-tutor-conversation.png | Out-Null
+    Adb pull /sdcard/qa-tutor-conversation.png (Join-Path $repo 'artifacts\qa-tutor-conversation.png') | Out-Null
+    RestartApp
+    TextNode 'Your answer: 1/2' | Out-Null
+    TapText 'Ask the tutor a question'
+    TextNode 'You: Why keep the denominator?' | Out-Null
+    TextNode 'Scripted QA reply: equal denominators describe equal-sized parts.' | Out-Null
+    EnterField 0 'QA unavailable'
+    TapText 'Send question'
+    TextNode 'The tutor could not reply. Retry only when you are ready; it counts as a new request.' | Out-Null
+    TapText 'Use this question again'
+    $draft = @((Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' })
+    if ($draft.Count -ne 1 -or $draft[0].text -ne 'QA unavailable') { throw 'Failed question was not restored to the draft' }
+    $auth = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+    $chatHeaders = @{Authorization="Bearer $($auth.access_token)"}
+    $chatSession = ($savedXml.map.ChildNodes | Where-Object name -eq "active_mastery:$qaEmail").InnerText
+    $chatPath = "http://127.0.0.1:8000/v1/mastery/sessions/$chatSession"
+    $turns = Invoke-RestMethod "$chatPath/tutor-questions" -Headers $chatHeaders
+    if ($turns.Count -ne 2 -or $turns[0].status -ne 'complete' -or $turns[1].status -ne 'failed') { throw 'Unexpected persisted conversation or automatic retry' }
+    $mastery = Invoke-RestMethod $chatPath -Headers $chatHeaders
+    if ($mastery.status -ne 'tutor' -or $mastery.mastery_score -ne 0) { throw 'Conversation changed mastery state' }
+    Adb shell screencap -p /sdcard/qa-tutor-conversation-failure.png | Out-Null
+    Adb pull /sdcard/qa-tutor-conversation-failure.png (Join-Path $repo 'artifacts\qa-tutor-conversation-failure.png') | Out-Null
+    Write-Output 'PASS: tutor question/reply, restart history, unavailable reply, draft-only retry and unchanged mastery. Scripted content; no live answer-quality claim.'
+    return
+}
 if ($VerifyReadAloud) {
     $readLabel = TextNode 'Read explanation aloud'
     $readButton = $readLabel.SelectSingleNode("ancestor-or-self::node[@clickable='true'][1]")
