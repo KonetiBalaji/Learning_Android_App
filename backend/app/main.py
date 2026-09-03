@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import sqlite3
+import asyncio
+import logging
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
-from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,11 +56,29 @@ from .schemas import (
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
 from .mastery_transactions import lock_mastery_snapshot
+from .file_cleanup import queue_file_deletion, cleanup_pending_files
+
+
+async def retry_file_cleanup(settings: Settings):
+    while True:
+        await asyncio.sleep(60)
+        try:
+            await asyncio.to_thread(cleanup_pending_files, settings)
+        except (sqlite3.Error, OSError):
+            logging.getLogger(__name__).warning('Upload cleanup could not run; pending jobs remain queued')
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    initialize(get_settings().database_path)
-    yield
+    settings = get_settings()
+    initialize(settings.database_path)
+    await asyncio.to_thread(cleanup_pending_files, settings)
+    worker = asyncio.create_task(retry_file_cleanup(settings))
+    try:
+        yield
+    finally:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
 
 
 app = FastAPI(title="Learning API", version="0.1.0", lifespan=lifespan)
@@ -118,12 +137,14 @@ def account_profile(user_id: str = Depends(current_user_id), settings: Settings 
 @app.delete("/v1/account", status_code=status.HTTP_204_NO_CONTENT)
 def delete_account(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> None:
     with connection(settings.database_path) as db:
-        files = [Path(row["stored_path"]) for row in db.execute("SELECT stored_path FROM documents WHERE owner_id = ?", (user_id,)).fetchall()]
+        db.execute('BEGIN IMMEDIATE')
+        files = [row["stored_path"] for row in db.execute("SELECT stored_path FROM documents WHERE owner_id = ?", (user_id,)).fetchall()]
+        for stored_path in files:
+            queue_file_deletion(db, stored_path)
         deleted = db.execute("DELETE FROM users WHERE id = ?", (user_id,)).rowcount
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
-    for stored_file in files:
-        stored_file.unlink(missing_ok=True)
+    cleanup_pending_files(settings)
 
 
 @app.post("/v1/auth/register", response_model=Token, status_code=status.HTTP_201_CREATED)
@@ -180,10 +201,14 @@ def document_summary(document_id: str, user_id: str = Depends(current_user_id), 
 
 @app.delete("/v1/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(document_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> None:
-    row = owned_document(document_id, user_id, settings)
     with connection(settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT stored_path FROM documents WHERE id = ? AND owner_id = ?', (document_id, user_id)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail='Document not found')
+        queue_file_deletion(db, row['stored_path'])
         db.execute("DELETE FROM documents WHERE id = ? AND owner_id = ?", (document_id, user_id))
-    Path(row["stored_path"]).unlink(missing_ok=True)
+    cleanup_pending_files(settings)
 
 
 @app.post("/v1/documents/{document_id}/quizzes", response_model=QuizSummary, status_code=status.HTTP_201_CREATED)

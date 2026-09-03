@@ -55,7 +55,7 @@ inspection confirmed zero documents. The count check was corrected and the full
 test passed with a fresh fixture. Only disposable QA documents/quizzes were
 removed; their original synthetic source remains in `scripts/fixtures`.
 
-Production limitations remain: filesystem-unlink failure after database commit
-needs durable cleanup/retry handling, and backup retention is not defined. UI
+Subsequent backend work added durable cleanup/retry handling for filesystem-unlink
+failure after database commit; see `upload-cleanup.md`. Backup retention is not defined. UI
 deletion is not evidence that production backups or third-party retention have
 been erased. No production data was involved in this QA.

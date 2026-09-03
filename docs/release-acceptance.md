@@ -239,3 +239,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   quiz/question cascade and unrelated-material preservation. Filesystem cleanup
   failure/retry and production backup retention remain open; see the deletion
   section in `document-library.md`.
+- Added a transactional file-cleanup queue for document/account deletion, bounded
+  immediate/startup retries and a periodic worker. Failed unlinks retain a job;
+  outside-upload paths and live references are preserved. Backend 81 tests passed,
+  including failure injection and actual startup cleanup. Production failure
+  drills, legacy orphan reconciliation, alerts and backup retention remain open.
+  See `upload-cleanup.md`.

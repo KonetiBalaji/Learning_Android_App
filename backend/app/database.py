@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS questions (
   correct_option TEXT NOT NULL, explanation TEXT NOT NULL, source_reference TEXT NOT NULL,
   answered_option TEXT, answered_at TEXT, UNIQUE(quiz_id, ordinal)
 );
+CREATE TABLE IF NOT EXISTS pending_file_deletions (
+  stored_path TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
 CREATE TABLE IF NOT EXISTS mastery_sessions (
   id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   grade INTEGER NOT NULL, subject_id TEXT NOT NULL, chapter_id TEXT NOT NULL,
