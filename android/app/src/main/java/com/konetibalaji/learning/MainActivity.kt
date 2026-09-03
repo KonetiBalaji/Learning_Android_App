@@ -124,10 +124,10 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty)
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
-                        Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects, state.savedQuizDifficulty)
+                        Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects, state.savedQuizDifficulty, state.savedQuizQuestionType)
                         Screen.Settings -> SettingsScreen(state, viewModel::backToSubjects, viewModel::setDarkMode, viewModel::changeGrade, viewModel::signOut, viewModel::deleteAccount, viewModel::openInterests)
                         Screen.Interests -> InterestsScreen(state, viewModel::selectInterest, viewModel::clearInterests, viewModel::saveInterests, viewModel::reloadInterests, viewModel::openSettings)
                     }
@@ -495,7 +495,7 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit) {
     val document = state.document ?: return
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
@@ -530,6 +530,16 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
             }
         }
         Text("Difficulty is a request, not a measured skill level. Offline generation supports Easy recall only; other levels require live generation.")
+        Text("Question format")
+        documentQuestionTypes.forEach { (value, label) ->
+            Row(Modifier.fillMaxWidth().selectable(selected = state.documentQuestionType == value,
+                enabled = !state.loading, role = androidx.compose.ui.semantics.Role.RadioButton,
+                onClick = { onType(value) }).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = state.documentQuestionType == value, onClick = null, enabled = !state.loading)
+                Text(label)
+            }
+        }
+        Text("Choose one format per quiz. True / False and Yes / No require live generation.")
         PrimaryButton(if (count == null) "Generate quiz" else "Generate $count questions", state.selectedChapterIds.isNotEmpty() && count != null && !state.loading, onCreate)
     }
 }
@@ -537,7 +547,7 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
 @Composable
 private fun DocumentQuestionScreen(state: AppUiState, onAnswer: (String) -> Unit) {
     val question = state.question ?: return; var selected by remember(question.id) { mutableStateOf<String?>(null) }
-    Page { Text("QUESTION ${question.ordinal} OF ${state.documentQuestionTotal}", color = Indigo, fontWeight = FontWeight.Bold); Text(requestedDifficultyLabel(state.savedQuizDifficulty), style = MaterialTheme.typography.bodySmall); Text(question.prompt, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); question.options.forEach { AnswerChoice(it, selected == it) { selected = it } }; Text("Source: ${question.sourceReference}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall); PrimaryButton("Check answer", selected != null && !state.loading) { selected?.let(onAnswer) } }
+    Page { Text("QUESTION ${question.ordinal} OF ${state.documentQuestionTotal}", color = Indigo, fontWeight = FontWeight.Bold); Text(requestedDifficultyLabel(state.savedQuizDifficulty), style = MaterialTheme.typography.bodySmall); Text(documentQuestionTypeLabel(state.savedQuizQuestionType), style = MaterialTheme.typography.bodySmall); Text(question.prompt, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); question.options.forEach { AnswerChoice(it, selected == it) { selected = it } }; Text("Source: ${question.sourceReference}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall); PrimaryButton("Check answer", selected != null && !state.loading) { selected?.let(onAnswer) } }
 }
 
 @Composable
@@ -547,9 +557,9 @@ private fun DocumentFeedbackScreen(feedback: Feedback?, onContinue: () -> Unit) 
 }
 
 @Composable
-private fun DocumentResultsScreen(results: Results?, onAgain: () -> Unit, onBack: () -> Unit, difficulty: String?) {
+private fun DocumentResultsScreen(results: Results?, onAgain: () -> Unit, onBack: () -> Unit, difficulty: String?, questionType: String?) {
     results ?: return
-    Page { Text(requestedDifficultyLabel(difficulty), style = MaterialTheme.typography.bodySmall); Header("Session complete", "${results.correct} / ${results.total} correct", "Accuracy: ${(results.accuracy * 100).toInt()}%. Review missed concepts before moving on."); results.mistakes.forEach { mistake -> TipCard("Review question ${mistake.ordinal}", "${mistake.prompt}\nSource: ${mistake.sourceReference}") }; PrimaryButton("Study another document", onClick = onAgain); TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Return to learning path") } }
+    Page { Text(requestedDifficultyLabel(difficulty), style = MaterialTheme.typography.bodySmall); Text(documentQuestionTypeLabel(questionType), style = MaterialTheme.typography.bodySmall); Header("Session complete", "${results.correct} / ${results.total} correct", "Accuracy: ${(results.accuracy * 100).toInt()}%. Review missed concepts before moving on."); results.mistakes.forEach { mistake -> TipCard("Review question ${mistake.ordinal}", "${mistake.prompt}\nSource: ${mistake.sourceReference}") }; PrimaryButton("Study another document", onClick = onAgain); TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Return to learning path") } }
 }
 
 @Composable

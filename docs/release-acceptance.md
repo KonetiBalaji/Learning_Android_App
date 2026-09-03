@@ -83,6 +83,11 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: wired Android multiple-choice/True-False/Yes-No controls, scoped
+  preferences, API requests and server-saved question/results labels. Debug build,
+  lint and 51 JVM tests passed. No metered requests in this step. Emulator binary
+  flow, restart/account-switch and offline-error QA remain pending; see
+  `document-question-types.md`. DOC-03 remains partial.
 - 2026-09-03: implemented backend True/False and Yes/No configuration, strict
   option validation, persisted type metadata, grading and recovery. 150 backend
   tests passed (34 relevant tests rerun after final guidance). Two live five-item

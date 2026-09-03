@@ -1,4 +1,4 @@
-# Document question types: backend implemented, Android pending
+# Document question types: implemented, device QA pending
 
 2026-09-03: added one selected type per quiz: multiple choice, True/False or
 Yes/No. The API defaults omitted type to multiple choice and rejects unknown/null
@@ -36,8 +36,18 @@ Local evidence:
 
 ## Remaining work
 
-Android type selection, saved preference/recovery display and device QA are not
-implemented or verified for these new formats. Mixed-format quizzes are not
+Android now provides format radio controls, sends the selection, saves it in
+account-scoped device preferences and restores it when opening an uploaded
+document. Question/results labels use server-saved metadata, not the current
+preference. Missing or unknown server metadata displays unspecified. Existing
+dynamic answer rendering supports two or four options without changing grading.
+Controls are disabled while loading; the screen explains that binary formats
+require live generation. Debug build, lint and 51 JVM tests passed, including
+supported preference restoration and unknown/absent format labels. No live API
+requests were made for this Android implementation step.
+
+Emulator selection/restart, account switching, binary answering/recovery and
+offline rejection UI have not yet been verified for these controls. Mixed-format quizzes are not
 implemented. Broader materials/counts/difficulties, educator review, actual user
 UAT and production acceptance remain open. The shared configuration contract
 defines the API; this backend slice does not complete DOC-03.

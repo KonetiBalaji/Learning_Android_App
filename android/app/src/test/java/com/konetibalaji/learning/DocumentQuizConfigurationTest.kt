@@ -4,6 +4,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DocumentQuizConfigurationTest {
+    @Test fun questionTypePreferenceOnlyRestoresSupportedChoices() {
+        documentQuestionTypes.keys.forEach { assertEquals(it, restoredDocumentQuestionType(it)) }
+        assertEquals("multiple_choice", restoredDocumentQuestionType(null))
+        assertEquals("multiple_choice", restoredDocumentQuestionType("essay"))
+    }
+    @Test fun absentServerFormatIsNotInferredFromPreference() {
+        assertEquals("Question type: unspecified", documentQuestionTypeLabel(null))
+        assertEquals("Question type: unspecified", documentQuestionTypeLabel("unknown"))
+        assertEquals("Question type: True / False", documentQuestionTypeLabel("true_false"))
+        assertEquals("Question type: Yes / No", documentQuestionTypeLabel("yes_no"))
+    }
     @Test fun difficultyPreferenceOnlyRestoresSupportedChoices() {
         documentDifficulties.keys.forEach { assertEquals(it, restoredDocumentDifficulty(it)) }
         assertEquals("easy", restoredDocumentDifficulty(null))

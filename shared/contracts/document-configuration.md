@@ -19,7 +19,10 @@ The same owner-scoped grading, retry, recovery and results flow applies to all
 formats. False/No requires contradictory evidence, not mere absence of support.
 All live formats use blind answer verification and the separate quality audit.
 Offline generation currently supports multiple choice only and rejects binary
-requests before saving a quiz. Android format selection is not yet implemented.
+requests before saving a quiz. Android format selection and account-scoped draft
+preferences are implemented. Question/results labels use the saved server format;
+absent or unknown server metadata is displayed as unspecified. Deploy the updated
+backend before using these controls. Device QA remains pending.
 
 Difficulty describes requested cognitive demand, not calibrated learner ability:
 
