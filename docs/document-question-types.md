@@ -59,7 +59,26 @@ checks. After `adb start-server`, device/boot verification and a fresh disposabl
 test run, the full script exited successfully. This was a tooling interruption,
 not a demonstrated app defect. No live provider requests were made.
 
-Account switching and actual binary answering/recovery on Android remain
+The opt-in `serve_qa.py --qa-only --binary-fixtures` service now provides clearly
+labeled binary UI fixtures. It binds only localhost, uses the isolated QA runtime,
+replaces the document provider before serving, and rejects non-binary requests
+instead of calling a live provider. Normal application startup never installs
+these fixtures. All 154 backend tests passed, including explicit QA opt-in,
+fixture labels/choices and refusal to fall back for unsupported formats.
+
+Both API 36 fixture runs passed with `-ResetTestAppData -BinaryFixtureType
+true_false` and `-ResetTestAppData -BinaryFixtureType yes_no`. Android renders two
+choices and the saved format, handles a first-question conflict without overwrite,
+successfully submits a wrong answer to question 2, restores that feedback after
+restart and continues to question 3. Results and saved-format labels restore after
+completion. Remaining answers were submitted by the API fixture, not Android;
+a successful correct-answer submission through Android is not proven by these
+runs. Both question-3 screenshots were visually inspected:
+`artifacts/qa-binary-true_false.png` and `artifacts/qa-binary-yes_no.png`.
+No metered calls were made. The service was returned to normal isolated QA mode
+after these runs; saved disposable fixtures remain explicitly labeled QA.
+
+Account switching and live-provider binary answering/recovery on Android remain
 unverified. Mixed-format quizzes are not
 implemented. Broader materials/counts/difficulties, educator review, actual user
 UAT and production acceptance remain open. The shared configuration contract

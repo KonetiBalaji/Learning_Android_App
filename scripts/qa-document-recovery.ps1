@@ -1,9 +1,12 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
 $expectedCount = if ($VerifyQuestionCount) { 7 } else { 10 }
+$expectedFormat = if ($BinaryFixtureType) { $BinaryFixtureType } else { 'multiple_choice' }
+$formatLabel = switch ($expectedFormat) { 'true_false' { 'True / False' } 'yes_no' { 'Yes / No' } default { 'Multiple choice' } }
+if ($BinaryFixtureType -and ($VerifyQuestionType -or $VerifyDifficulty -or $VerifyMultiChapter)) { throw 'Binary fixture run cannot be combined with offline or source coverage checks' }
 function Adb {
     & $adb -s $Serial @args
     if ($LASTEXITCODE -ne 0) { throw "ADB failed: $($args[0])" }
@@ -48,7 +51,9 @@ function RestartApp {
 if (-not $ResetTestAppData) { throw 'Supply -ResetTestAppData for the dedicated QA emulator only.' }
 if (((Adb emu avd name) -join "`n") -notmatch '^LearnSmart_API36') { throw 'Not the dedicated QA emulator.' }
 $health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
-if ($health.ai_provider -notin @('deterministic','scripted-qa')) { throw 'Use the isolated QA backend.' }
+if ($BinaryFixtureType) {
+    if ($health.ai_provider -ne 'scripted-binary-qa') { throw 'Use the explicit isolated binary fixture backend' }
+} elseif ($health.ai_provider -notin @('deterministic','scripted-qa')) { throw 'Use the isolated QA backend.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 Adb push (Join-Path $PSScriptRoot 'fixtures\qa-biology.txt') /sdcard/Download/qa-biology.txt | Out-Null
@@ -155,6 +160,7 @@ if ($VerifyQuestionType) {
     }
     TapText 'Multiple choice'
 }
+if ($BinaryFixtureType) { TapText $formatLabel }
 TapText "Generate $expectedCount questions"
 TextNode "QUESTION 1 OF $expectedCount" | Out-Null
 RestartApp
@@ -165,9 +171,10 @@ if (-not $quizId) { throw 'Quiz pointer is missing' }
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
 $quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers
-if ($VerifyQuestionType) {
-    if ($state.question_type -ne 'multiple_choice' -or $state.question.question_type -ne 'multiple_choice') { throw 'Saved quiz format differs from the selected format' }
-    TextNode 'Question type: Multiple choice' | Out-Null
+if ($VerifyQuestionType -or $BinaryFixtureType) {
+    if ($state.question_type -ne $expectedFormat -or $state.question.question_type -ne $expectedFormat) { throw 'Saved quiz format differs from the selected format' }
+    TextNode "Question type: $formatLabel" | Out-Null
+    if ($BinaryFixtureType -and $state.question.options.Count -ne 2) { throw 'Expected exactly two answer choices' }
 }
 if ($VerifyDifficulty) {
     if ($state.difficulty -ne 'easy') { throw 'Saved quiz difficulty is not Easy' }
@@ -195,6 +202,22 @@ TextNode "QUESTION 2 OF $expectedCount" | Out-Null
 Adb shell screencap -p /sdcard/qa-document-resumed-question.png | Out-Null
 Adb pull /sdcard/qa-document-resumed-question.png (Join-Path $repo 'artifacts\qa-document-resumed-question.png') | Out-Null
 Write-Output 'PASS: quiz resumes after restart; conflicting answer refreshes saved feedback without overwriting it'
+if ($BinaryFixtureType) {
+    $second = $state.question
+    TapText $second.options[0]
+    TapText 'Check answer'
+    TextNode 'Study feedback' | Out-Null
+    $state = Invoke-RestMethod $quizPath -Headers $headers
+    if ($state.answered -ne 2 -or $state.last_feedback.correct -ne $false -or $state.last_feedback.correct_option -ne $second.options[1]) { throw 'Binary Android answer or feedback was incorrect' }
+    RestartApp
+    TextNode 'Study feedback' | Out-Null
+    TapText 'Next question'
+    TextNode "QUESTION 3 OF $expectedCount" | Out-Null
+    TextNode "Question type: $formatLabel" | Out-Null
+    Adb shell screencap -p /sdcard/qa-binary-question.png | Out-Null
+    Adb pull /sdcard/qa-binary-question.png (Join-Path $repo "artifacts\qa-binary-$BinaryFixtureType.png") | Out-Null
+    Write-Output "PASS: Android $formatLabel answer commits; wrong-answer feedback and next question survive restart"
+}
 # Complete only this disposable quiz through the public API, then verify app restoration.
 while ($state.question) {
     $question = $state.question
@@ -212,7 +235,7 @@ if ($VerifyMultiChapter) {
 }
 RestartApp
 TextNode 'Session complete' | Out-Null
-if ($VerifyQuestionType) { TextNode 'Question type: Multiple choice' | Out-Null }
+if ($VerifyQuestionType -or $BinaryFixtureType) { TextNode "Question type: $formatLabel" | Out-Null }
 if ($VerifyDifficulty) { TextNode 'Requested difficulty: Easy · recall a fact' | Out-Null }
 Write-Output 'PASS: completed quiz restores results after restart (remaining answers submitted by API fixture)'
 if ($VerifyLibrary) {

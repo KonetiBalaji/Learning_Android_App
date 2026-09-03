@@ -83,6 +83,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: both binary formats passed API 36 scripted answering/recovery:
+  two choices, saved type, conflict handling, committed wrong answer, feedback
+  restart, next question and completed results. Both screenshots inspected;
+  remaining answers used API fixtures. Backend 154 tests passed. Explicit QA-only
+  fixtures make no live calls and normal QA mode was restored. Correct-answer
+  Android submission, live-provider integration and user UAT remain open; see
+  `document-question-types.md`.
 - 2026-09-03: API 36 QA verified both binary selections across restart, offline
   rejection with no quiz pointer, then multiple-choice generation, saved labels,
   conflict recovery, results and library reopening. Yes/No screenshot inspected;
