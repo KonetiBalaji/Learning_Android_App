@@ -39,6 +39,16 @@ coverage and live generation across counts remain unverified. Preset buttons
 were exercised but this device run generated only the custom seven-question quiz;
 it does not verify live generation at every supported count.
 
-Difficulty, true/false and yes/no question modes remain missing. Custom counts
+Difficulty now has a backend request/persistence/resume contract, with explicit
+recall/application/multi-fact reasoning guidance for live generation. Deterministic
+mode rejects Medium/Hard/Mixed instead of mislabelling recall content. Existing
+quizzes migrate to unspecified difficulty. On 2026-09-03, 120 backend tests passed;
+five difficulty tests passed again after refining the migration fixture. Tests
+cover enum validation, routing, prompt guidance, persistence, repeated startup,
+legacy migration and refusal without saved quizzes. Mocked provider checks are
+not evidence of achieved difficulty. See `shared/contracts/document-configuration.md`.
+
+Android difficulty controls, difficulty quality evaluation, true/false and yes/no
+question modes remain missing. Custom counts
 outside 5–20 are not supported. Full quiz configuration, UAT and production
 completion are not claimed.

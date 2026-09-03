@@ -83,6 +83,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: added backend Easy/Medium/Hard/Mixed request metadata, generation
+  guidance and persisted/resumed difficulty. Old quizzes retain unspecified
+  difficulty. Deterministic mode refuses unsupported cognitive demand instead of
+  falsely labelling recall questions. Backend 120 tests passed. Android controls,
+  live difficulty evaluation and additional question types remain open. See
+  `document-quiz-configuration.md` and the shared document-configuration contract.
+
 - 2026-09-03: count-control API 36 QA passed. Presets update the generation action,
   invalid 21 disables generation, and custom 7 restores after restart. Android
   generated exactly seven questions; conflict/result/library recovery passed.

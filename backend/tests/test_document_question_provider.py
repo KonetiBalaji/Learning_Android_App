@@ -8,7 +8,7 @@ from app.schemas import Chapter
 TEXT = 'Mitochondria release usable energy for cellular work.'
 
 
-def run(monkeypatch, item=None, review=None):
+def run(monkeypatch, item=None, review=None, difficulty=None):
     item = item or dict(prompt='Which structure releases usable energy for cellular work?',
         options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'], correct_index=0,
         explanation=TEXT, chapter_id='cells', quote=TEXT)
@@ -23,7 +23,7 @@ def run(monkeypatch, item=None, review=None):
             return SimpleNamespace(output_text=next(outputs))
     monkeypatch.setattr(provider, 'OpenAI', Client)
     result = provider.generate_document_questions(TEXT, [Chapter(id='cells', title='Cells', start_character=0,
-        end_character=len(TEXT), confidence=1)], ['cells'], 1, SimpleNamespace(openai_api_key='synthetic', openai_model='synthetic'))
+        end_character=len(TEXT), confidence=1)], ['cells'], 1, SimpleNamespace(openai_api_key='synthetic', openai_model='synthetic'), difficulty)
     return result, calls
 
 
@@ -34,6 +34,16 @@ def test_generation_requires_grounding_and_separate_blind_review(monkeypatch):
     assert all(call['store'] is False for call in calls)
     reviewed = json.loads(calls[1]['input'])['questions'][0]
     assert set(reviewed) == {'prompt', 'options'}
+
+
+@pytest.mark.parametrize('difficulty', ['easy', 'medium', 'hard', 'mixed'])
+def test_difficulty_guidance_reaches_generation_without_changing_blind_review(monkeypatch, difficulty):
+    from app.quiz_difficulty import DIFFICULTY_GUIDANCE
+    _, calls = run(monkeypatch, difficulty=difficulty)
+    payload = json.loads(calls[0]['input'])
+    assert payload['requested_difficulty'] == difficulty
+    assert payload['difficulty_guidance'] == DIFFICULTY_GUIDANCE[difficulty]
+    assert 'difficulty_guidance' not in json.loads(calls[1]['input'])
 
 
 @pytest.mark.parametrize('review', [[-1], [1], [0, 0], []])

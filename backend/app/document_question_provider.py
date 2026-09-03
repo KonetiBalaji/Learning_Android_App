@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .quiz_service import GeneratedQuestion
 from .document_selection import resolve_chapters
+from .quiz_difficulty import difficulty_guidance
 
 
 class Item(BaseModel):
@@ -33,7 +34,7 @@ class QuestionGenerationUnavailable(Exception):
     pass
 
 
-def generate_document_questions(text, chapters, selected_ids, count, settings):
+def generate_document_questions(text, chapters, selected_ids, count, settings, difficulty=None):
     selected = resolve_chapters(text, chapters, selected_ids)
     passages = {chapter.id: text[chapter.start_character:chapter.end_character] for chapter in selected}
     if sum(map(len, passages.values())) > 40000:
@@ -48,7 +49,8 @@ def generate_document_questions(text, chapters, selected_ids, count, settings):
                     'answers to that specific question. Do not ask which statement is supported while using other supported statements '
                     'as distractors. Include a verbatim supporting quote from its chapter and a helpful explanation. '
                     'Do not use all/none of the above. Do not invent missing facts. Return the requested count of distinct questions.'),
-                input=json.dumps({'count': count, 'passages': passages}),
+                input=json.dumps({'count': count, 'passages': passages, 'requested_difficulty': difficulty,
+                                  'difficulty_guidance': difficulty_guidance(difficulty)}),
                 text={'format': {'type': 'json_schema', 'name': 'document_questions', 'strict': True, 'schema': Bank.model_json_schema()}})
             bank = Bank.model_validate_json(response.output_text)
             if len(bank.questions) != count:

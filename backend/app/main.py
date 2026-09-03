@@ -238,8 +238,10 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
     chapters = [Chapter.model_validate(item) for item in parse_json(document["chapters_json"])]
     try:
         if settings.ai_mode == 'openai':
-            generated = generate_document_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count, settings)
+            generated = generate_document_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count, settings, request.difficulty)
         elif settings.ai_mode == 'deterministic':
+            if request.difficulty not in {None, 'easy'}:
+                raise ValueError('This offline generator supports recall questions only; choose Easy or use live generation')
             generated = generate_grounded_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count)
         else:
             raise QuestionGenerationUnavailable('Unsupported provider mode')
@@ -249,7 +251,7 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     quiz_id = str(uuid.uuid4())
     with connection(settings.database_path) as db:
-        db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at) VALUES (?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now()))
+        db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at, difficulty) VALUES (?, ?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now(), request.difficulty))
         for ordinal, question in enumerate(generated, start=1):
             db.execute(
                 """INSERT INTO questions (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation, source_reference)
@@ -257,7 +259,7 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
                 (question_id(), quiz_id, ordinal, question.prompt, json_value(question.options), question.correct_option, question.explanation, question.source_reference),
             )
         first = db.execute("SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal LIMIT 1", (quiz_id,)).fetchone()
-    return QuizSummary(id=quiz_id, title=f"Quiz: {document['original_name']}", question_count=len(generated), first_question=question_payload(first) if first else None)
+    return QuizSummary(id=quiz_id, title=f"Quiz: {document['original_name']}", question_count=len(generated), first_question=question_payload(first) if first else None, difficulty=request.difficulty)
 
 
 @app.post("/v1/quizzes/{quiz_id}/questions/{question_id}/answer", response_model=Feedback)
@@ -297,7 +299,7 @@ def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user
 @app.get("/v1/quizzes/{quiz_id}", response_model=DocumentQuizState)
 def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DocumentQuizState:
     with connection(settings.database_path) as db:
-        document = db.execute("""SELECT documents.* FROM documents JOIN quizzes ON quizzes.document_id = documents.id
+        document = db.execute("""SELECT documents.*, quizzes.difficulty AS quiz_difficulty FROM documents JOIN quizzes ON quizzes.document_id = documents.id
                                  WHERE quizzes.id = ? AND quizzes.owner_id = ? AND documents.owner_id = ?""",
                               (quiz_id, user_id, user_id)).fetchone()
         if document is None:
@@ -310,7 +312,7 @@ def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), s
     feedback = Feedback(correct=last['answered_option'] == last['correct_option'], selected_option=last['answered_option'],
                         correct_option=last['correct_option'], explanation=last['explanation'],
                         source_reference=last['source_reference'], next_question=next_question) if last else None
-    return DocumentQuizState(id=quiz_id, document=DocumentSummary(id=document['id'], original_name=document['original_name'],
+    return DocumentQuizState(id=quiz_id, difficulty=document['quiz_difficulty'], document=DocumentSummary(id=document['id'], original_name=document['original_name'],
                              chapters=[Chapter.model_validate(item) for item in parse_json(document['chapters_json'])]),
                              total=len(rows), answered=len(answered), question=next_question, last_feedback=feedback)
 

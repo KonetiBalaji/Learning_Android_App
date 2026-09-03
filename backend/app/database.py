@@ -59,6 +59,9 @@ CREATE INDEX IF NOT EXISTS mastery_attempts_session_idx
 def initialize(path: Path) -> None:
     with sqlite3.connect(path) as connection:
         connection.executescript(SCHEMA)
+        quiz_columns = {row[1] for row in connection.execute("PRAGMA table_info(quizzes)")}
+        if 'difficulty' not in quiz_columns:
+            connection.execute('ALTER TABLE quizzes ADD COLUMN difficulty TEXT')
         columns = {row[1] for row in connection.execute("PRAGMA table_info(mastery_sessions)")}
         if "questions_json" not in columns:
             connection.execute("ALTER TABLE mastery_sessions ADD COLUMN questions_json TEXT NOT NULL DEFAULT ''")
