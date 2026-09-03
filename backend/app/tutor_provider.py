@@ -11,6 +11,7 @@ from .mastery_service import DiagnosticItem, diagnostic_bank, evaluate_rewrite, 
 from .schemas import TutorIntervention
 from .rewrite_grading import FULL_MARKS, GradeResult, grading_prompts, learner_feedback
 from .diagnostic_quality import review_diagnostic_answers
+from .tutor_conversation import TutorAnswer, generate_tutor_answer
 
 
 class RewriteAssessment(BaseModel):
@@ -59,6 +60,8 @@ class GeneratedDiagnosticBank(BaseModel):
 class TutorProvider(Protocol):
     name: str
 
+    def answer_question(self, grade: int, item: DiagnosticItem, question: str, history: list[dict]) -> TutorAnswer: ...
+
     def explain(self, grade: int, item: DiagnosticItem, selected_option: str) -> TutorIntervention: ...
 
     def assess_rewrite(self, grade: int, item: DiagnosticItem, response: str) -> RewriteAssessment: ...
@@ -68,6 +71,9 @@ class TutorProvider(Protocol):
 
 class DeterministicTutorProvider:
     name = "deterministic"
+
+    def answer_question(self, grade, item, question, history):
+        raise RuntimeError('Conversational tutor unavailable')
 
     def explain(self, grade: int, item: DiagnosticItem, selected_option: str) -> TutorIntervention:
         return tutor_for(item)
@@ -82,6 +88,9 @@ class DeterministicTutorProvider:
 
 class OpenAITutorProvider:
     name = "openai"
+
+    def answer_question(self, grade, item, question, history):
+        return generate_tutor_answer(self.client, self.model, grade, item, question, history)
 
     def __init__(self, api_key: str, model: str, interests: tuple[str, ...] = ()) -> None:
         self.client = OpenAI(api_key=api_key, timeout=20.0, max_retries=1)
@@ -170,6 +179,10 @@ class ResilientTutorProvider:
         self.primary = primary
         self.fallback = fallback
         self.name = primary.name
+
+    def answer_question(self, grade, item, question, history):
+        # Failure is surfaced as unavailable, never a fabricated conversation.
+        return self.primary.answer_question(grade, item, question, history)
 
     def explain(self, grade: int, item: DiagnosticItem, selected_option: str) -> TutorIntervention:
         try:

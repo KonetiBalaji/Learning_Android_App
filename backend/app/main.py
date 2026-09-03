@@ -71,6 +71,7 @@ from .weekly_reporting import build_weekly_report
 from .mastery_transactions import lock_mastery_snapshot, mastery_state_token, check_expected_state
 from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload
 from .learner_preferences import InterestPreferences
+from .tutor_conversation import TutorQuestionRequest, TutorTurn, answer_question as answer_tutor_follow_up, conversation_history
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -547,6 +548,20 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
         next_question=next_question,
         tutor=lesson,
     )
+
+
+@app.get('/v1/mastery/sessions/{session_id}/tutor-questions', response_model=list[TutorTurn])
+def get_tutor_questions(session_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    return conversation_history(owned_mastery_session(session_id, user_id, settings), settings)
+
+
+@app.post('/v1/mastery/sessions/{session_id}/tutor-questions', response_model=TutorTurn)
+def ask_tutor_question(session_id: str, request: TutorQuestionRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    session = owned_mastery_session(session_id, user_id, settings)
+    if session['status'] not in {'tutor', 'practice'}:
+        raise HTTPException(409, 'Tutor questions are available during tutoring and practice.')
+    item = session_diagnostic_bank(session)[session['current_question']]
+    return answer_tutor_follow_up(session, item, request, settings, tutor_provider(settings))
 
 
 @app.post("/v1/mastery/sessions/{session_id}/practice", response_model=PracticeOutcome)

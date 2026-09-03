@@ -14,6 +14,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Acceptance ledger
 
+Conversational tutor server: authenticated lesson-scoped question/history routes,
+bounded persisted turns, replay/pending protection and failure recovery implemented.
+Replies do not grade or unlock learning. Android text/voice UI, live grounded-answer
+quality, device QA, animation, consent/retention and broader cost controls remain
+open. See `shared/contracts/tutor-conversation.md`; TUT-06 remains partial.
+
 Read-aloud lifecycle repair stops queued speech when backgrounded or lesson text
 changes, ignores stale callbacks, and provides completion/stop/error status with
 an accessibility live region. Android build/lint and 115 JVM tests pass. Real

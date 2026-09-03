@@ -63,6 +63,13 @@ CREATE TABLE IF NOT EXISTS mastery_attempts (
   phase TEXT NOT NULL, prompt TEXT NOT NULL, response TEXT NOT NULL,
   correct INTEGER NOT NULL, concept TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tutor_turns (
+  session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL, context_token TEXT NOT NULL, question TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending', 'complete', 'failed')),
+  reply_json TEXT, created_at TEXT NOT NULL,
+  PRIMARY KEY(session_id, request_id)
+);
 CREATE TABLE IF NOT EXISTS study_presence (
   owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
