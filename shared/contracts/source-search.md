@@ -106,3 +106,27 @@ responses, empty/limited results, stale confirmation and deletion cleanup. No li
 AI calls were made. Emulator search/confirmation, restart/failure/account-switch,
 large-text/TalkBack usability and UAT remain unverified for this new UI. This is
 not completion of semantic topic retrieval, PDF page selection or DOC-02 overall.
+
+## API 36 source-search workflow evidence
+
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyCreationRetry
+-VerifySourceSearch` passed on LearnSmart_API36 with APK source `330aa9f` and the
+refreshed isolated scripted-QA backend. A no-match query displayed the explicit
+empty state without changing chapter IDs or saving an excerpt. Android then
+searched for `photosynthesis`, displayed the first Plants passage, and required
+**Use passage 1 as excerpt** confirmation. The chosen source range was **324–927**;
+its boundaries matched the search API and survived force-stop/restart. The full
+visible passage and confirmation label in `artifacts/qa-source-search.png` were
+visually inspected. Queries were entered through Android, not by writing app state.
+
+Injected HTTP 503 after committed creation left the request identity pending.
+Restart/retry recovered exactly one original quiz with the chosen range and
+cleared accepted pending metadata. All ten question references stayed within that
+range. Conflict recovery, feedback restart and completed-results restoration
+passed; remaining quiz answers were submitted through the API fixture, not all
+through Android. Transient UI-dump failures recovered using fresh-dump retries.
+
+This is one synthetic literal-search workflow with no live AI calls. Multiple
+results/additions, truncated contexts, invalid/malformed/offline responses,
+account switching, query editing invalidation on-device, accessibility and user
+UAT remain open. It does not verify semantic relevance or full topic coverage.

@@ -83,6 +83,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- API 36 source-search QA passed: no-match state preserved selection; Android
+  query/result confirmation selected source characters 324–927; restart and a
+  committed-creation HTTP 503 retry preserved the range with exactly one quiz.
+  All ten question references matched it, and conflict/feedback/results recovery
+  passed (remaining answers used the API fixture). Screenshot inspected. No live
+  calls. Multiple results, failure/accessibility/account-switch checks and UAT
+  remain open; see `shared/contracts/source-search.md`.
+
 - Added Android literal source search and explicit result-to-excerpt confirmation.
   Results are validated against document/query/chapter scope and Unicode bounds;
   stale results clear on relevant edits, and unconfirmed searches are not persisted.
