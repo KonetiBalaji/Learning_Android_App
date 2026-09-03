@@ -509,3 +509,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   Fractions remediation/restart/completion and weekly response counts passed.
   Network/account-switch timing, broader device/accessibility coverage, retention
   and UAT remain open. See `shared/contracts/study-presence.md` for exact scope.
+- Added opt-in fresh arithmetic practice after wrong answers for the existing
+  three Fractions concepts, with atomic prompt/key/hint persistence and stale
+  retry protection. Android accepts and displays the next lesson and clears its
+  old input. Backend 188 tests and Android build/lint/71 JVM tests passed. Device
+  checks, general subject coverage and failed-rewrite variant generation remain
+  open; TUT-02 is partial. See `shared/contracts/fresh-practice.md`.

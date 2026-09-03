@@ -310,7 +310,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val current = mutableState.value
         perform(null, SubmittedFlow.MASTERY) {
             val outcome = api.submitPractice(requireNotNull(current.masterySessionId), answer)
-            mutableState.value = current.copy(practiceResult = outcome.first, showHint = !outcome.first, error = null)
+            mutableState.value = current.copy(practiceResult = outcome.correct, showHint = !outcome.correct, error = null,
+                tutorLesson = outcome.nextLesson ?: current.tutorLesson)
         }
     }
     fun moveToRewrite() { mutableState.value = mutableState.value.copy(screen = Screen.Rewrite, rewrite = "") }
@@ -635,10 +636,13 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             DiagnosticResult(response.getBoolean("correct"), response.getString("next_action"), next?.let(::adaptiveQuestion), next?.optInt("ordinal") ?: 1, (response.getDouble("mastery_score") * 100).toInt(), tutor)
         }
     }
-    fun submitPractice(sessionId: String, answer: String): Pair<Boolean, String?> {
-        val response = request("POST", "/v1/mastery/sessions/$sessionId/practice", JSONObject().put("response", answer).toString())
+    data class PracticeResult(val correct: Boolean, val nextLesson: TutorLesson?)
+    fun submitPractice(sessionId: String, answer: String): PracticeResult {
+        val response = request("POST", "/v1/mastery/sessions/$sessionId/practice", JSONObject().put("response", answer).put("fresh_practice", true).toString())
         return masterySubmissionState.accept(sessionId, response.getString("state_token")) {
-            response.getBoolean("correct") to response.optString("hint").takeIf(String::isNotBlank)
+            PracticeResult(response.getBoolean("correct"), response.optJSONObject("next_practice")?.let {
+                TutorLesson(it.getString("title"), it.getString("explanation"), it.getString("worked_example"), it.getString("hint"), it.getString("practice_prompt"))
+            })
         }
     }
     fun submitRewrite(sessionId: String, rewrite: String): RewriteResult {

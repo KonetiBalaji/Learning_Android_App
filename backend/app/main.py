@@ -499,6 +499,14 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
     bank = session_diagnostic_bank(session)
     item = bank[session["current_question"]]
     correct, normalized = response_matches(request.response, item.practice_answers)
+    next_item = None
+    next_lesson = None
+    if not correct and request.fresh_practice and session['subject_id'] == 'math' and session['chapter_id'] == 'fractions':
+        from .fraction_practice import next_fraction_practice
+        next_item = next_fraction_practice(item, session['coaching_rounds'] + 1)
+        if next_item is not None:
+            lesson = TutorIntervention.model_validate_json(session['tutor_json']) if session['tutor_json'] else tutor_for(item)
+            next_lesson = lesson.model_copy(update={'practice_prompt': next_item.practice_prompt, 'hint': next_item.hint})
     with connection(settings.database_path) as db:
         lock_mastery_snapshot(db, session)
         db.execute(
@@ -506,11 +514,17 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
             (str(uuid.uuid4()), session_id, "practice", item.practice_prompt, request.response, int(correct), item.concept, now()),
         )
         db.execute("UPDATE mastery_sessions SET status = ?, coaching_rounds = coaching_rounds + ? WHERE id = ?", ("rewrite" if correct else "practice", 0 if correct else 1, session_id))
+        if next_item is not None:
+            updated_bank = list(bank)
+            updated_bank[session['current_question']] = next_item
+            db.execute('UPDATE mastery_sessions SET questions_json = ?, tutor_json = ? WHERE id = ?',
+                       (serialize_diagnostic_bank(tuple(updated_bank)), next_lesson.model_dump_json(), session_id))
     return PracticeOutcome(
         state_token=mastery_state_token(session, status='rewrite' if correct else 'practice', coaching_rounds=session['coaching_rounds'] + int(not correct)),
         correct=correct,
         normalized_answer=normalized,
-        hint=None if correct else item.hint,
+        hint=None if correct else (next_item.hint if next_item else item.hint),
+        next_practice=next_lesson,
         next_action="rewrite" if correct else "more_practice",
     )
 

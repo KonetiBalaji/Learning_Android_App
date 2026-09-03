@@ -148,11 +148,13 @@ class DiagnosticOutcome(BaseModel):
 
 
 class PracticeRequest(BaseModel):
+    fresh_practice: bool = False
     expected_state: str | None = Field(default=None, min_length=1, max_length=200)
     response: str = Field(min_length=1, max_length=400)
 
 
 class PracticeOutcome(BaseModel):
+    next_practice: TutorIntervention | None = None
     state_token: str
     correct: bool
     normalized_answer: str

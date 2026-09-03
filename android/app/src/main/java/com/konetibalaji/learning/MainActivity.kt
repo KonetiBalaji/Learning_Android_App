@@ -292,7 +292,7 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
 
 @Composable
 private fun PracticeScreen(state: AppUiState, onHint: () -> Unit, onCheck: (String) -> Unit, onContinue: () -> Unit) {
-    var answer by remember { mutableStateOf("") }
+    var answer by remember(state.masterySessionId, state.tutorLesson?.practicePrompt) { mutableStateOf("") }
     Page {
         Header("Practice with AI", "Let’s try together.", "Apply the idea from the tutor's explanation.")
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) { Text(state.tutorLesson?.practicePrompt ?: "What is 2/8 + 4/8?", modifier = Modifier.padding(22.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) }
@@ -301,7 +301,7 @@ private fun PracticeScreen(state: AppUiState, onHint: () -> Unit, onCheck: (Stri
         if (state.showHint) TipCard("Hint", state.tutorLesson?.hint ?: "Review the tutor explanation, then try again.")
         when (state.practiceResult) {
             true -> Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer), shape = RoundedCornerShape(16.dp)) { Text("Correct! You are ready to explain the idea.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onTertiaryContainer, fontWeight = FontWeight.Bold) }
-            false -> Text("Almost. Use the hint, then try again.", color = Warning, fontWeight = FontWeight.Medium)
+            false -> Text("Not quite. Review the question shown above and use its hint before answering.", color = Warning, fontWeight = FontWeight.Medium)
             null -> Unit
         }
         if (state.practiceResult == true) PrimaryButton("Explain it in your own words", onClick = onContinue)
