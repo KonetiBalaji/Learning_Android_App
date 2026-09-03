@@ -29,6 +29,16 @@ Tests cover identical and differing concurrent submissions, sequential retry,
 immutability, ordering, and owner/auth boundaries. Device network-loss/multi-device
 recovery remains unverified.
 
+Android conflict handling now opts in at the four answer submission operations:
+document answers resume the document quiz; diagnostic/practice/rewrite answers
+resume adaptive learning. Recovery is selected from the submitted operation, not
+whichever screen happens to be visible when the response arrives. Read/resume
+requests do not opt in, so a failed refresh shows an error instead of recursively
+refreshing. The operation guard is released before starting the one recovery read.
+Build, lint and **29 JVM tests passed**; two new policy tests cover both flow
+targets, non-conflict failures and the no-recursion default. They do not exercise
+the ViewModel on a device, and do not establish multi-device UAT acceptance.
+
 Remaining DOC-01 gaps include recovery between upload and quiz creation, unsent
 answer drafts and unknown-outcome quiz creation. Document generation was separately
 reworked after this initial recovery slice; see `document-question-validation.md`

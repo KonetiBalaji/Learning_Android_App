@@ -203,3 +203,7 @@ feature to UAT accepted or production verified. All release gates below remain o
   Backend 74 tests passed. Device network-loss/multi-device recovery and production
   contention remain unverified; see `document-quiz-recovery.md` and the document
   answer contract. No UAT or production acceptance is claimed.
+- Android document-answer conflicts now trigger saved-quiz recovery. Adaptive
+  recovery is also explicitly tied to answer operations; read/refresh failures
+  cannot recursively refresh. Android build/lint/29 JVM tests passed, including
+  routing-policy tests. Device conflict injection remains pending.

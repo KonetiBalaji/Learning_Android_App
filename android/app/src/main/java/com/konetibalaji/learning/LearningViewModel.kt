@@ -204,7 +204,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
 
     fun submitDiagnostic() {
         val current = mutableState.value; val selected = current.selectedDiagnosticAnswer ?: return
-        perform(null) {
+        perform(null, SubmittedFlow.MASTERY) {
             val outcome = api.answerDiagnostic(requireNotNull(current.masterySessionId), selected)
             mutableState.value = current.copy(
                 diagnosticIndex = outcome.ordinal - 1,
@@ -225,7 +225,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun showHint() { mutableState.value = mutableState.value.copy(showHint = true) }
     fun checkPractice(answer: String) {
         val current = mutableState.value
-        perform(null) {
+        perform(null, SubmittedFlow.MASTERY) {
             val outcome = api.submitPractice(requireNotNull(current.masterySessionId), answer)
             mutableState.value = current.copy(practiceResult = outcome.first, showHint = !outcome.first, error = null)
         }
@@ -234,7 +234,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun updateRewrite(value: String) { mutableState.value = mutableState.value.copy(rewrite = value) }
     fun submitRewrite() {
         val current = mutableState.value
-        perform(null) {
+        perform(null, SubmittedFlow.MASTERY) {
             val outcome = api.submitRewrite(requireNotNull(current.masterySessionId), current.rewrite)
             mutableState.value = current.copy(
                 screen = screenForLearningAction(outcome.nextAction),
@@ -275,17 +275,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         mutableState.value = current.copy(quizId = quiz.first, question = quiz.second, feedback = null, results = null,
             documentQuestionTotal = quiz.third, canResumeDocumentQuiz = true)
     }
-    fun submitAnswer(option: String) = perform(Screen.Feedback) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
+    fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
     fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, quizId = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
     private var operationInFlight = false
-    private fun perform(destination: Screen?, block: suspend () -> Unit) = viewModelScope.launch {
+    private fun perform(destination: Screen?, submittedFlow: SubmittedFlow? = null, block: suspend () -> Unit) = viewModelScope.launch {
         if (operationInFlight) return@launch
         operationInFlight = true
-        var resumeAfterConflict = false
+        var resumeAfterConflict: SubmittedFlow? = null
         mutableState.value = mutableState.value.copy(loading = true, error = null)
         try {
             withContext(Dispatchers.IO) { block() }
@@ -293,15 +293,15 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
+            val recovery = recoveryAfterFailure((failure as? ApiFailure)?.status, submittedFlow)
             if (failure is ApiFailure && failure.sessionExpired) {
                 api.signOut()
                 val cleared = withContext(Dispatchers.IO) { runCatching { tokenStore.clear() } }.isSuccess
                 // Keep account-scoped resume pointers. Reauthentication can restore server progress.
                 mutableState.value = AppUiState(darkMode = mutableState.value.darkMode,
                     error = if (cleared) failure.message else "Your session is invalid. Saved credentials could not be cleared. Please sign in again.")
-            } else if (failure is ApiFailure && failure.status == 409 && mutableState.value.masterySessionId != null &&
-                mutableState.value.screen in setOf(Screen.Diagnostic, Screen.Tutor, Screen.Practice, Screen.Rewrite)) {
-                resumeAfterConflict = true
+            } else if (recovery != null) {
+                resumeAfterConflict = recovery
                 mutableState.value = mutableState.value.copy(loading = false)
             } else {
                 val message = when (failure) {
@@ -315,7 +315,11 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         } finally {
             operationInFlight = false
         }
-        if (resumeAfterConflict) resumeLearning()
+        when (resumeAfterConflict) {
+            SubmittedFlow.MASTERY -> resumeLearning()
+            SubmittedFlow.DOCUMENT -> resumeDocumentQuiz()
+            null -> Unit
+        }
     }
 }
 
