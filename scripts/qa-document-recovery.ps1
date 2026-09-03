@@ -1,8 +1,10 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
+$fixtureName = if ($VerifyPreview) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
+if ($VerifyPreview -and (-not $VerifyCreationRetry -or $VerifyStructureRepair)) { throw 'Preview check requires creation retry and cannot combine with the legacy repair fixture' }
 $expectedCount = if ($VerifyQuestionCount) { 7 } else { 10 }
 $expectedFormat = if ($BinaryFixtureType) { $BinaryFixtureType } else { 'multiple_choice' }
 $formatLabel = switch ($expectedFormat) { 'true_false' { 'True / False' } 'yes_no' { 'Yes / No' } default { 'Multiple choice' } }
@@ -57,7 +59,7 @@ if ($BinaryFixtureType) {
 } elseif ($health.ai_provider -notin @('deterministic','scripted-qa')) { throw 'Use the isolated QA backend.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
-Adb push (Join-Path $PSScriptRoot 'fixtures\qa-biology.txt') /sdcard/Download/qa-biology.txt | Out-Null
+Adb push (Join-Path $PSScriptRoot "fixtures\$fixtureName") "/sdcard/Download/$fixtureName" | Out-Null
 RestartApp
 TapText 'New student? Create a private account'
 $qaEmail = 'document-' + [Guid]::NewGuid().ToString('N') + '@example.com'
@@ -79,7 +81,7 @@ if (-not $downloads) { throw 'Missing Downloads provider in picker drawer' }
 $point = Center $downloads
 Adb shell input tap $point[0] $point[1] | Out-Null
 Start-Sleep -Milliseconds 900
-TapText 'qa-biology.txt'
+TapText $fixtureName
 TapText 'Entire document'
 TextNode '2 of 2 chapters selected' | Out-Null
 RestartApp
@@ -180,6 +182,39 @@ if ($VerifyCreationRetry) {
     [xml]$restoredCreationPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     if (($restoredCreationPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText -ne $pendingCreation) { throw 'Creation identity changed across restart' }
     Write-Output 'PASS: committed creation returns 503; pending identity survives restart without accepting the failed response'
+}
+if ($VerifyPreview) {
+    $previewPath = "http://127.0.0.1:8000/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview"
+    $firstPart = Invoke-RestMethod $previewPath -Headers $headers
+    if ($firstPart.total_pages -lt 2) { throw 'Preview fixture must exercise pagination' }
+    TapText 'Preview: Chapter 2 Plants'
+    TextNode 'Source preview' | Out-Null
+    TextNode "Part 1 of $($firstPart.total_pages) · Characters $($firstPart.start_character)–$($firstPart.end_character)" | Out-Null
+    TextNode ($firstPart.text.Replace("`r`n", "`n")) | Out-Null
+    $previous = TextNode 'Previous part'
+    if ($previous.enabled -ne 'false' -and -not $previous.SelectSingleNode("ancestor::node[@enabled='false']")) { throw 'Previous part should be disabled on the first part' }
+    for ($part = 1; $part -lt $firstPart.total_pages; $part++) {
+        TapText 'Next part'
+        $expectedPart = Invoke-RestMethod "$($previewPath)?page=$part" -Headers $headers
+        TextNode "Part $($part + 1) of $($firstPart.total_pages) · Characters $($expectedPart.start_character)–$($expectedPart.end_character)" | Out-Null
+        TextNode ($expectedPart.text.Replace("`r`n", "`n")) | Out-Null
+    }
+    $next = TextNode 'Next part'
+    if ($next.enabled -ne 'false' -and -not $next.SelectSingleNode("ancestor::node[@enabled='false']")) { throw 'Next part should be disabled on the final part' }
+    Adb shell screencap -p /sdcard/qa-source-preview.png | Out-Null
+    Adb pull /sdcard/qa-source-preview.png (Join-Path $repo 'artifacts\qa-source-preview.png') | Out-Null
+    for ($part = $firstPart.total_pages - 2; $part -ge 0; $part--) { TapText 'Previous part' }
+    TextNode ($firstPart.text.Replace("`r`n", "`n")) | Out-Null
+    TapText '‹ Back to chapter selection'
+    TextNode "$($selectedIds.Count) of 2 chapters selected" | Out-Null
+    TapText 'Preview: Chapter 2 Plants'
+    RestartApp
+    TextNode 'Choose chapters' | Out-Null
+    [xml]$previewPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if (($previewPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText -ne $pendingCreation) { throw 'Preview changed pending creation identity' }
+    $previewSelection = @(($previewPreferences.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail").InnerText | ConvertFrom-Json)
+    if (@(Compare-Object $selectedIds $previewSelection).Count -ne 0) { throw 'Preview changed selection' }
+    Write-Output 'PASS: exact source preview parts and boundary buttons verified; backward navigation, return and restart preserve selection and pending quiz identity'
 }
 if ($VerifyStructureRepair) {
     $beforeRepairQuiz = Invoke-RestMethod "http://127.0.0.1:8000/v1/quizzes/$committedQuizId" -Headers $headers | ConvertTo-Json -Depth 20 -Compress
@@ -300,10 +335,10 @@ Write-Output 'PASS: completed quiz restores results after restart (remaining ans
 if ($VerifyLibrary) {
 TapText 'Study another document'
 TapText 'My uploaded documents'
-TextNode 'qa-biology.txt' | Out-Null
+TextNode $fixtureName | Out-Null
 Adb shell screencap -p /sdcard/qa-document-library.png | Out-Null
 Adb pull /sdcard/qa-document-library.png (Join-Path $repo 'artifacts\qa-document-library.png') | Out-Null
-TapText 'Open qa-biology.txt'
+TapText "Open $fixtureName"
 TextNode 'Choose chapters' | Out-Null
 RestartApp
 TextNode 'Choose chapters' | Out-Null

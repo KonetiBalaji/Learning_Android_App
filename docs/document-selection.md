@@ -173,3 +173,12 @@ pages. See `shared/contracts/document-preview.md` for bounds and failure behavio
 navigation, offline/retry and accessibility checks remain open; no user UAT is
 claimed. Original-page rendering and section/page/topic quiz selection remain
 separate outstanding requirements.
+
+Device follow-up passed on API 36 using the disposable two-part preview fixture:
+displayed text equals each API part, boundary controls disable correctly, backward
+navigation returns the original text, and closing/restarting preserves selected
+IDs and pending quiz creation identity. The retry resumed the same server quiz
+without duplication. Inspected the final-part screenshot, including readable
+text and disabled Next control. Preview-specific offline/malformed response and
+accessibility checks remain pending. Exact command and scope are recorded in
+`shared/contracts/document-preview.md`; this is automated QA, not user UAT.

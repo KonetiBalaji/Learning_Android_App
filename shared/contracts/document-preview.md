@@ -28,3 +28,14 @@ Tests include exact multi-part Unicode source reconstruction, boundary isolation
 ownership, deleted documents, invalid pages and malformed client payloads.
 On-device pagination, offline retry and large-font/accessibility checks remain
 pending. This endpoint does not implement PDF page-range quiz selection.
+
+API 36 device follow-up: `qa-document-recovery.ps1 -ResetTestAppData
+-VerifyCreationRetry -VerifyPreview` passed with `qa-preview-biology.txt`.
+UI text matched both API source parts exactly (normalizing only CRLF for XML
+comparison); first/last navigation buttons, backward navigation, return to
+selection and force-stop/restart were checked. Selected chapter IDs and pending
+quiz identity survived unchanged; subsequent retry resumed exactly one existing
+quiz. Results restoration passed with remaining answers submitted by the API
+fixture. The final-part screenshot `artifacts/qa-source-preview.png` was inspected.
+Preview-specific offline failures, malformed responses on-device, TalkBack and
+large-font checks are still unverified. No live AI or real user documents were used.

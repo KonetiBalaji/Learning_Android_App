@@ -454,3 +454,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   Backend 175 tests and Android build/lint/63 JVM tests passed; device navigation,
   offline retry and accessibility remain pending. Text chunks are not PDF pages;
   DOC-02 section/page/topic selection remains partial. See `document-selection.md`.
+- API 36 preview QA now passed: both displayed source parts match the API,
+  boundary navigation and backward/return controls work, restart preserves
+  selection and pending quiz identity, and retry resumes the same quiz. Screenshot
+  inspected. Remaining-answer completion was API-driven; preview-specific offline,
+  malformed-response and accessibility checks remain open. See the preview contract.
