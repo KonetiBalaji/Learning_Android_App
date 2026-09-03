@@ -376,7 +376,7 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
     displaySubjects.forEach { (subject, progress) ->
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(subject, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); Text("$progress%", color = Success, fontWeight = FontWeight.Bold) }; LinearProgressIndicator(progress = { progress / 100f }, color = Success, trackColor = Color(0xFFE2E8F0), modifier = Modifier.fillMaxWidth()) } }
     }
-    Header("Focus next", "Weak areas", snapshot?.weakAreas?.joinToString(" · ")?.ifBlank { "Complete a diagnostic to identify focus areas" } ?: "Complete a diagnostic to identify focus areas")
+    Header("Focus next", "Current weak areas", snapshot?.weakAreas?.joinToString(" · ")?.ifBlank { "No unresolved weak areas recorded. Continue assessing and practising." } ?: "Complete a diagnostic to identify focus areas")
     TipCard("Suggested next step", snapshot?.recommendations?.joinToString("\n") ?: "Start a diagnostic to personalize your learning path.")
 }
 

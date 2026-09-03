@@ -427,9 +427,10 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
             "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?) ORDER BY started_at DESC", (user_id, grade, grade)
         ).fetchall()
         attempts = db.execute(
-            """SELECT mastery_attempts.* FROM mastery_attempts
+            """SELECT mastery_attempts.*, mastery_attempts.rowid AS attempt_order FROM mastery_attempts
                JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
-               WHERE mastery_sessions.owner_id = ? AND (? IS NULL OR mastery_sessions.grade = ?)""", (user_id, grade, grade)
+               WHERE mastery_sessions.owner_id = ? AND (? IS NULL OR mastery_sessions.grade = ?)
+               ORDER BY mastery_attempts.rowid""", (user_id, grade, grade)
         ).fetchall()
     chapters: list[ChapterProgress] = []
     subjects: dict[str, list[float]] = {}
@@ -443,10 +444,21 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
         score = session["current_question"] / bank_size
         subjects.setdefault(session["subject_id"], []).append(score)
         chapters.append(ChapterProgress(grade=key[0], subject_id=key[1], chapter_id=key[2], mastery=score, attempts=sum(1 for row in attempts if row["session_id"] == session["id"]), status=session["status"]))
-    incorrect = [row["concept"] for row in attempts if not row["correct"]]
-    weak_areas = list(dict.fromkeys(incorrect))[:5]
+    by_session = {row['id']: row for row in sessions}
+    latest_assessment = {}
+    for attempt in attempts:
+        # Guided practice alone is not evidence of independent understanding.
+        if attempt['phase'] not in {'diagnostic', 'rewrite'}:
+            continue
+        session = by_session[attempt['session_id']]
+        key = (session['grade'], session['subject_id'], session['chapter_id'], attempt['concept'].strip().casefold())
+        latest_assessment[key] = attempt
+    unresolved = sorted((row for row in latest_assessment.values() if not row['correct']),
+                        key=lambda row: row['attempt_order'], reverse=True)
+    weak_areas = list(dict.fromkeys(row['concept'] for row in unresolved))[:5]
     subject_scores = {name: sum(values) / len(values) for name, values in subjects.items()}
-    recommendations = ([f"Practice {area} for 15 minutes" for area in weak_areas[:3]] or ["Start a diagnostic to personalize your learning path"])
+    recommendations = ([f"Practice {area} for 15 minutes" for area in weak_areas[:3]] or
+                       ["Continue your saved assessment or explore the next concept" if attempts else "Start a diagnostic to personalize your learning path"])
     return ProgressDashboard(subjects=subject_scores, chapters=chapters, weak_areas=weak_areas, recommendations=recommendations)
 
 

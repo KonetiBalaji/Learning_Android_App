@@ -62,7 +62,7 @@ def test_wrong_answer_routes_through_tutor_practice_rewrite_and_mastery(monkeypa
 
         dashboard = client.get("/v1/progress/dashboard", headers=headers)
         assert dashboard.status_code == 200, dashboard.text
-        assert "Adding like fractions" in dashboard.json()["weak_areas"]
+        assert dashboard.json()["weak_areas"] == []  # Successful remediation clears current focus.
         assert dashboard.json()["chapters"][0]["status"] == "mastered"
         assert dashboard.json()["chapters"][0]["mastery"] == 1
     finally:

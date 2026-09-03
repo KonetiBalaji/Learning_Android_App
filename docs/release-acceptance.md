@@ -192,3 +192,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   Android build/lint/27 tests passed with conflict-triggered session refresh.
   Delayed retries/idempotency and device conflict injection remain open. See
   `mastery-concurrency.md`; ASM-01 is still partial.
+- Current weak-area recommendations now clear after successful independent
+  assessment, persist through guided practice, and reactivate on a later mistake.
+  Android keeps these separate from historical weekly response metrics. Backend
+  70 tests and Android build/lint/27 JVM tests passed; dashboard device acceptance
+  and retention calibration remain pending. See `current-weak-areas.md`.
