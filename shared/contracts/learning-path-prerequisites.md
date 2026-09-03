@@ -36,3 +36,25 @@ provider generation without a target session being saved. A fixture provider was
 used; its fraction questions are not claimed as real geometry or other chapter
 content. No live AI calls occurred. Android gate-denial/device behavior and
 curriculum-specific UAT remain unverified.
+
+## Server-owned unlock display
+
+`GET /v1/progress/dashboard?grade=8` now includes `grade` and
+`unlocked_chapter_ids`, with subject-qualified values such as `math:geometry`.
+These are the eligible gated chapters, not an exhaustive list of open chapters.
+They use the same prerequisite map and latest-session status as diagnostic
+enforcement. An aggregate dashboard without a grade returns an empty unlock list;
+cross-grade mastery cannot be interpreted as access for a particular grade.
+
+Android no longer infers unlocks from local chapter ordering. It accepts only
+the server list for the requested grade. Legacy/missing scope grants no new
+unlocks; a mismatched explicit grade or malformed/duplicate identifiers rejects
+the response. Open chapters remain open. A stale previously loaded decision may
+still be displayed after a failed refresh, but the backend rechecks every new
+diagnostic request. Existing sessions remain resumable as above.
+
+Backend 180 tests and Android debug build/lint/66 JVM tests passed. Tests assert
+the four unlock lists, latest-attempt relocking, grade-scoped versus aggregate
+responses, client wrong-grade rejection and legacy fail-closed behavior. Actual
+device unlock transitions and stale-screen denial remain pending. No live AI
+requests were made. This does not supply an authoritative curriculum catalog.

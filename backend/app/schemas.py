@@ -207,6 +207,8 @@ class ChapterProgress(BaseModel):
 
 
 class ProgressDashboard(BaseModel):
+    grade: int | None = None
+    unlocked_chapter_ids: list[str] = Field(default_factory=list)
     subjects: dict[str, float]
     chapters: list[ChapterProgress]
     weak_areas: list[str]

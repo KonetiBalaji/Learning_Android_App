@@ -615,7 +615,12 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
     subject_scores = {name: sum(values) / len(values) for name, values in subjects.items()}
     recommendations = ([f"Practice {area} for 15 minutes" for area in weak_areas[:3]] or
                        ["Continue your saved assessment or explore the next concept" if attempts else "Start a diagnostic to personalize your learning path"])
-    return ProgressDashboard(subjects=subject_scores, chapters=chapters, weak_areas=weak_areas, recommendations=recommendations)
+    from .learning_path import PREREQUISITES
+    mastered = {(chapter.subject_id, chapter.chapter_id) for chapter in chapters if chapter.status == 'mastered'}
+    unlocked = sorted(f'{subject}:{chapter}' for (subject, chapter), required in PREREQUISITES.items()
+                      if grade is not None and (subject, required) in mastered)
+    return ProgressDashboard(grade=grade, unlocked_chapter_ids=unlocked, subjects=subject_scores,
+                             chapters=chapters, weak_areas=weak_areas, recommendations=recommendations)
 
 
 @app.get("/v1/progress/weekly-report", response_model=WeeklyReport)

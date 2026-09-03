@@ -39,6 +39,7 @@ def test_locked_diagnostics_require_current_owner_grade_mastery(monkeypatch, tmp
         path = '/v1/mastery/diagnostics'
         assert client.post(path, headers=headers, json=payload).status_code == 403
         assert calls == []
+        assert client.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == []
         required = PREREQUISITES[subject, chapter]
         seed(headers, subject, required, grade=7)
         assert client.post(path, headers=headers, json=payload).status_code == 403
@@ -48,9 +49,16 @@ def test_locked_diagnostics_require_current_owner_grade_mastery(monkeypatch, tmp
         seed(headers, subject, required, status='tutor')
         assert client.post(path, headers=headers, json=payload).status_code == 403
         seed(headers, subject, required)
+        snapshot = client.get('/v1/progress/dashboard?grade=8', headers=headers).json()
+        assert snapshot['grade'] == 8
+        assert snapshot['unlocked_chapter_ids'] == [f'{subject}:{chapter}']
+        assert client.get('/v1/progress/dashboard?grade=9', headers=headers).json()['unlocked_chapter_ids'] == []
+        aggregate = client.get('/v1/progress/dashboard', headers=headers).json()
+        assert aggregate['grade'] is None and aggregate['unlocked_chapter_ids'] == []
         assert client.post(path, headers=headers, json=payload).status_code == 201
         assert len(calls) == 1
         seed(headers, subject, required, status='diagnostic')
+        assert client.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == []
         assert client.post(path, headers=headers, json=payload).status_code == 403
         assert len(calls) == 1
     finally:

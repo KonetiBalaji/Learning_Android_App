@@ -465,3 +465,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   Backend 180 tests passed, including a generation-time eligibility race. This is
   not a complete curriculum graph; time tracking, server catalog and device denial
   checks remain open. See `shared/contracts/learning-path-prerequisites.md`.
+- Android now consumes grade-scoped backend unlock IDs instead of inferring them
+  from local chapter order. Legacy/unscoped responses grant no new unlocks;
+  mismatched grades are rejected. Backend 180 tests and Android build/lint/66 JVM
+  tests passed. Device transition/stale-denial checks and the full curriculum
+  catalog remain open. See the learning-path prerequisite contract.

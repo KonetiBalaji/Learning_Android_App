@@ -36,6 +36,7 @@ data class ProgressSnapshot(
     val questionsAnswered: Int = 0, val accuracy: Int = 0, val masteredChapters: Int = 0,
     val examReadiness: Int = 0, val readinessLabel: String = "Needs support",
     val chapterScores: Map<String, Int> = emptyMap(), val masteredChapterIds: Set<String> = emptySet(),
+    val unlockedChapterIds: Set<String> = emptySet(),
 )
 
 sealed interface Screen {
@@ -132,12 +133,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private suspend fun loadProgress() {
         val grade = mutableState.value.grade ?: return
         val snapshot = api.progressDashboard(grade)
-        val unlocked = chaptersBySubject.flatMap { (subjectId, chapters) ->
-            chapters.mapIndexedNotNull { index, chapter ->
-                if (index > 0 && "$subjectId:${chapters[index - 1].id}" in snapshot.masteredChapterIds) "$subjectId:${chapter.id}" else null
-            }
-        }.toSet()
-        mutableState.value = mutableState.value.copy(progressSnapshot = snapshot, unlockedChapterIds = unlocked)
+        mutableState.value = mutableState.value.copy(progressSnapshot = snapshot, unlockedChapterIds = snapshot.unlockedChapterIds)
     }
 
     fun refreshProgress() = perform(null) { loadProgress() }
@@ -620,7 +616,9 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val chapters = response.getJSONArray("chapters")
         val scores = (0 until chapters.length()).associate { index -> val item = chapters.getJSONObject(index); "${item.getString("subject_id")}:${item.getString("chapter_id")}" to (item.getDouble("mastery") * 100).toInt() }
         val mastered = (0 until chapters.length()).mapNotNull { index -> val item = chapters.getJSONObject(index); if (item.getString("status") == "mastered" && item.getDouble("mastery") >= 1.0) "${item.getString("subject_id")}:${item.getString("chapter_id")}" else null }.toSet()
-        return ProgressSnapshot(subjects, response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), chapterScores = scores, masteredChapterIds = mastered)
+        val unlocked = serverChapterUnlocks(grade, if (response.isNull("grade")) null else response.getInt("grade"),
+            if (response.isNull("unlocked_chapter_ids")) null else response.getJSONArray("unlocked_chapter_ids").strings())
+        return ProgressSnapshot(subjects, response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), chapterScores = scores, masteredChapterIds = mastered, unlockedChapterIds = unlocked)
     }
     fun weeklyReport(grade: Int): ProgressSnapshot { val response = request("GET", "/v1/progress/weekly-report?grade=$grade", null); return ProgressSnapshot(emptyMap(), response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), response.getInt("questions_answered"), (response.getDouble("accuracy") * 100).toInt(), response.getInt("mastered_chapters"), response.getDouble("estimated_exam_readiness").toInt(), response.getString("readiness_label").replace('_', ' ').replaceFirstChar(Char::uppercase)) }
     fun progressWithWeekly(grade: Int): ProgressSnapshot { val dashboard = progressDashboard(grade); val weekly = weeklyReport(grade); return dashboard.copy(questionsAnswered = weekly.questionsAnswered, accuracy = weekly.accuracy, masteredChapters = weekly.masteredChapters, examReadiness = weekly.examReadiness, readinessLabel = weekly.readinessLabel) }
