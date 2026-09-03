@@ -5,6 +5,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
 from .quiz_service import GeneratedQuestion
+from .document_selection import resolve_chapters
 
 
 class Item(BaseModel):
@@ -33,9 +34,7 @@ class QuestionGenerationUnavailable(Exception):
 
 
 def generate_document_questions(text, chapters, selected_ids, count, settings):
-    selected = [chapter for chapter in chapters if chapter.id in selected_ids]
-    if len({chapter.id for chapter in selected}) != len(set(selected_ids)) or not selected:
-        raise ValueError('Select valid chapters')
+    selected = resolve_chapters(text, chapters, selected_ids)
     passages = {chapter.id: text[chapter.start_character:chapter.end_character] for chapter in selected}
     if sum(map(len, passages.values())) > 40000:
         raise ValueError('Select a smaller section, up to 40,000 extracted characters, for one quiz')

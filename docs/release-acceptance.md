@@ -32,6 +32,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Defined parent access model; grade-scoped reports, unique chapter counting, exact time windows |
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, source-grounding checks, deletion, interrupted-flow recovery |
+| DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Backend chapter-set validation; Android multi-selection and persistence; page/section/topic retrieval boundaries and device QA |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
@@ -80,6 +81,14 @@ feature to UAT accepted or production verified. All release gates below remain o
   upstream engines must not be described as imported.
 
 ## Work log
+
+- 2026-09-03: audited the original document-selection brief and added DOC-02 so
+  unsupported selection modes remain explicit. Unified chapter-set validation
+  across deterministic/live generators; invalid IDs are never silently dropped,
+  duplicates and invalid source ranges are rejected before generation. Backend
+  105 tests passed, including API 422 with no saved quiz/questions. Android
+  multi-selection, page/section/topic modes and device verification remain open;
+  see `document-selection.md`.
 
 - 2026-09-02: replacement goal created and this ledger established. Production
   and curriculum decisions requested; local development and QA can proceed.

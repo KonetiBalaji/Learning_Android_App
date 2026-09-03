@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 
 from .schemas import Chapter
+from .document_selection import resolve_chapters
 
 
 @dataclass(frozen=True)
@@ -19,9 +20,7 @@ class GeneratedQuestion:
 
 
 def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids: list[str], count: int) -> list[GeneratedQuestion]:
-    selected = [chapter for chapter in chapters if chapter.id in selected_ids]
-    if not selected:
-        raise ValueError("Select at least one valid chapter")
+    selected = resolve_chapters(text, chapters, selected_ids)
     candidates: list[tuple[Chapter, str]] = []
     for chapter in selected:
         chapter_text = text[chapter.start_character : chapter.end_character]
