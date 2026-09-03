@@ -9,7 +9,8 @@ param(
     [switch]$VerifyFailedResponse,
     [switch]$MalformedResponse,
     [switch]$VerifyUnlocks,
-    [switch]$VerifyStudyTime
+    [switch]$VerifyStudyTime,
+    [switch]$VerifyFreshPractice
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -184,10 +185,43 @@ if ($VerifyFractionModel) {
     Write-Output 'PASS: fraction slider changes the sum and reset restores the original model'
 }
 TapText 'I understand — practise now'
-EnterField 0 '6/8'
+$practiceAnswer = '6/8'
+if ($VerifyFreshPractice) {
+    $practiceLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+    $practiceHeaders = @{Authorization="Bearer $($practiceLogin.access_token)"}
+    [xml]$practicePreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $practiceSession = ($practicePreferences.map.ChildNodes | Where-Object name -eq "active_mastery:$qaEmail").InnerText
+    if (-not $practiceSession) { throw 'Missing saved mastery session' }
+    $practicePath = "http://127.0.0.1:8000/v1/mastery/sessions/$practiceSession"
+    $previousPrompt = (Invoke-RestMethod $practicePath -Headers $practiceHeaders).tutor.practice_prompt
+    foreach ($round in 1..2) {
+        EnterField 0 '0'
+        TapText 'Check answer'
+        $freshState = Invoke-RestMethod $practicePath -Headers $practiceHeaders
+        $freshPrompt = $freshState.tutor.practice_prompt
+        if ($freshState.status -ne 'practice' -or $freshPrompt -eq $previousPrompt) { throw 'Incorrect practice did not persist a fresh question' }
+        TextNode $freshPrompt | Out-Null
+        TextNode $freshState.tutor.hint | Out-Null
+        $field = (Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' } | Select-Object -First 1
+        if (-not $field -or $field.text -eq '0') { throw 'Old practice answer was not cleared' }
+        RestartApp
+        TextNode $freshPrompt | Out-Null
+        $afterRestart = Invoke-RestMethod $practicePath -Headers $practiceHeaders
+        if ($afterRestart.state_token -ne $freshState.state_token) { throw 'Restart changed the saved practice version' }
+        $previousPrompt = $freshPrompt
+    }
+    $terms = [regex]::Matches($freshPrompt, '(\d+)/(\d+)')
+    if ($terms.Count -ne 2 -or $terms[0].Groups[2].Value -ne $terms[1].Groups[2].Value) { throw 'Unexpected addition fixture shape' }
+    $numerator = [int]$terms[0].Groups[1].Value + [int]$terms[1].Groups[1].Value
+    $practiceAnswer = "$numerator/$($terms[0].Groups[2].Value)"
+    Adb shell screencap -p /sdcard/qa-fresh-practice.png | Out-Null
+    Adb pull /sdcard/qa-fresh-practice.png (Join-Path $repo 'artifacts\qa-fresh-practice.png') | Out-Null
+    Write-Output 'PASS: two incorrect practice answers produce distinct persisted prompts/hints; old input clears and each variant survives restart'
+}
+EnterField 0 $practiceAnswer
 TapText 'Check answer'
 TapText 'Explain it in your own words'
-EnterField 0 'We add the numerator parts with the same denominator to make one whole'
+EnterField 0 'We add the numerator parts with the same denominator and keep the denominator unchanged'
 TapText 'Submit my explanation'
 if ($ExpectRubricFeedback) { TextNode 'Last explanation: 4 / 4' | Out-Null }
 TextNode 'Question 2 of 3' | Out-Null
@@ -265,7 +299,8 @@ if ($VerifyWeeklyReport) {
     TextNode 'Unique chapters mastered' | Out-Null
     $reportLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail; password='qa-password-long-enough'} | ConvertTo-Json)
     $report = Invoke-RestMethod 'http://127.0.0.1:8000/v1/progress/weekly-report?grade=8' -Headers @{Authorization="Bearer $($reportLogin.access_token)"}
-    if ($report.questions_answered -ne 5 -or $report.mastered_chapters -ne 1 -or $report.readiness_is_calibrated -ne $false) { throw 'Weekly report did not match the scripted five responses and one unique mastered chapter' }
+    $expectedResponses = if ($VerifyFreshPractice) { 7 } else { 5 }
+    if ($report.questions_answered -ne $expectedResponses -or $report.mastered_chapters -ne 1 -or $report.readiness_is_calibrated -ne $false) { throw 'Weekly report did not match the scripted response count and one unique mastered chapter' }
     if ($VerifyStudyTime) {
         $seconds = [long]$report.observed_study_seconds
         if ($seconds -le 0) { throw 'Weekly study total is missing' }
@@ -284,7 +319,7 @@ if ($VerifyWeeklyReport) {
     Adb pull /sdcard/qa-weekly-report.png (Join-Path $repo 'artifacts\qa-weekly-report.png') | Out-Null
     TapText '‹ Back to subjects'
     TapText 'Mathematics'
-    Write-Output 'PASS: weekly report labels the heuristic and includes five learning responses, one unique chapter'
+    Write-Output "PASS: weekly report labels the heuristic and includes $expectedResponses learning responses, one unique chapter"
 }
 if ($VerifyDeletedSession) {
     # Delete only this run's disposable account via the public API. Never print its token.

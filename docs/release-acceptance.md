@@ -515,3 +515,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   old input. Backend 188 tests and Android build/lint/71 JVM tests passed. Device
   checks, general subject coverage and failed-rewrite variant generation remain
   open; TUT-02 is partial. See `shared/contracts/fresh-practice.md`.
+- API 36 addition practice QA passed two wrong-answer/new-question cycles,
+  matching hints, cleared input and restart preservation. The displayed variant's
+  calculated answer advanced to rewrite; remaining diagnostics and the seven-response
+  weekly report passed. Screenshot inspected. Other concepts on-device, response
+  loss, broader subjects and failed-rewrite fresh practice remain open; TUT-02 is
+  still partial. See the fresh-practice contract.

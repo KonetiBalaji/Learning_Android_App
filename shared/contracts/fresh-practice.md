@@ -30,3 +30,25 @@ persisted resume, original attempt history, stale retry rejection, correct next
 answer progression and unchanged legacy behavior. No live AI requests were made.
 Device wrong-answer/new-question/restart behavior, broader concept coverage,
 difficulty calibration and educator/user acceptance remain open. TUT-02 is partial.
+
+## API 36 repeated-practice device evidence
+
+`scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyFreshPractice
+-VerifyWeeklyReport` passed on LearnSmart_API36 with the isolated backend. Android
+submitted two wrong practice answers, each produced a distinct saved prompt/hint,
+the old input cleared, and force-stop/restart restored each variant without changing
+the server state token. The inspected `artifacts/qa-fresh-practice.png` shows the
+second variant `4/11 + 2/11` with an empty answer field. The script computed `6/11`
+from the displayed operands, submitted it through Android, and advanced to rewrite.
+
+The general explanation used for QA now states that adding numerator parts keeps
+the denominator unchanged, without incorrectly claiming every sum makes one whole.
+Question 2 restart and completion of all remaining diagnostics passed. The weekly
+report recorded seven responses (including the two wrong practice attempts) and
+one unique mastered chapter. No duration or answer-key fixture injection was used
+for these new practice answers, and there were no live AI calls.
+
+This verifies the addition workflow only. Subtraction/equivalence device flows,
+post-commit practice response loss, other subjects, fresh failed-rewrite coaching
+and educator/UAT acceptance remain open. Backend arithmetic coverage does not
+prove those untested device or curriculum outcomes.
