@@ -17,8 +17,8 @@ No questions are regenerated during restoration.
 Evidence: backend **59 tests passed**, including the new initial/answered/completed
 resume, owner rejection, pending-answer protection and deletion regression.
 Android build/lint and **19 JVM tests passed**; these JVM tests do not exercise
-the new ViewModel recovery path. Document-picker/forced-process-death testing of
-this workflow remains pending, so this is not device-QA or UAT acceptance.
+the new ViewModel recovery path. Later device evidence is recorded below; this
+initial test result was not device-QA or UAT acceptance.
 
 Subsequent verification (2026-09-03): backend **74 tests passed**. Answer submission
 now serializes competing writes and replays identical retries without rewriting
@@ -26,8 +26,8 @@ timestamps. Different choices cannot overwrite committed answers; future questio
 are rejected until earlier questions are answered. Tests reproduced all three
 previous defects before the fix. See `../shared/contracts/document-answers.md`.
 Tests cover identical and differing concurrent submissions, sequential retry,
-immutability, ordering, and owner/auth boundaries. Device network-loss/multi-device
-recovery remains unverified.
+immutability, ordering, and owner/auth boundaries. Device network-loss recovery
+remains unverified; the later conflict injection evidence is recorded below.
 
 Android conflict handling now opts in at the four answer submission operations:
 document answers resume the document quiz; diagnostic/practice/rewrite answers
@@ -54,8 +54,31 @@ stale upload pointer and returns to upload. Offline failures retain the pointer.
 A saved chapter absent from the restored list falls back to the first available
 chapter. Backend **75 tests passed** including summary shape, owner/auth and
 deletion checks. Android build/lint/**30 JVM tests passed**, including chapter
-fallback policy. These checks do not prove forced-process-death/device-picker
-recovery; that device test remains required.
+fallback policy. These automated checks alone did not prove device recovery.
+
+## Android emulator recovery evidence
+
+On 2026-09-03, `scripts/qa-document-recovery.ps1 -ResetTestAppData` passed on
+the dedicated LearnSmart_API36 emulator with the current debug APK and isolated
+scripted QA backend. The test uses only `scripts/fixtures/qa-biology.txt` and a
+new synthetic account. It verifies:
+
+- Actual Android document-picker upload, Chapter 2 selection, forced app stop and
+  restart, restored selection, and exactly one server document.
+- Quiz creation from that selected chapter, quiz-pointer replacement of the
+  upload pointer, and question 1 restoration after another restart.
+- A different answer committed through the API while question 1 is visible in
+  Android. The stale UI submission receives 409 (confirmed in server logs), then
+  performs GET resume and shows saved feedback without changing the committed
+  answer. Restart and Continue lead to question 2.
+- Completed-quiz result restoration. Remaining answers were submitted through
+  the public API fixture, not ten manual UI question interactions.
+
+Chapter-selection and resumed-question screenshots were visually inspected under
+`artifacts/qa-document-chapters.png` and `artifacts/qa-document-resumed-question.png`.
+The status-bar icon contrast remains poor on the light background. This run does
+not establish dark-mode/accessibility acceptance, real-provider question quality,
+network-loss recovery, a second physical device, or user UAT.
 
 Remaining DOC-01 gaps include unsent answer drafts and unknown-outcome upload or
 quiz creation (server success before the client receives/persists the ID).

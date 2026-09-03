@@ -213,3 +213,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   Backend 75 tests and Android build/lint/30 JVM tests passed. Process-death/device
   picker verification and unknown-outcome upload/create reconciliation remain
   open; see `document-quiz-recovery.md`.
+- API 36 document recovery QA now passed actual file-picker upload, selected
+  chapter persistence, restart before/after quiz creation, a confirmed stale
+  answer 409 followed by automatic saved-feedback recovery, question 2 continuation
+  and completed-results restoration. Synthetic fixture only; remaining answers
+  were API-driven. Screenshots inspected. Network loss, physical-device coverage,
+  status-bar contrast and UAT remain open. See `document-quiz-recovery.md`.
