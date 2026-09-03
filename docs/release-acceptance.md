@@ -70,7 +70,8 @@ feature to UAT accepted or production verified. All release gates below remain o
 - Baseline student dashboards contained static percentages; current code uses
   grade-filtered backend chapter/subject results. Adaptive session recovery is
   now wired to the server; document-flow recovery is still missing. Shared local
-  unlock values are no longer trusted; profile and token-storage work remains.
+  unlock values are no longer trusted; bearer tokens now use Keystore-backed
+  encryption. Profile privacy and additional device-failure testing remain.
 - Baseline defect: SQLite foreign keys were enabled during schema creation but
   not each runtime connection, allowing dependent records to survive deletion.
   Fixed with per-connection enforcement and explicit transaction rollback.
@@ -121,3 +122,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   localhost-only, isolated runtime): score/feedback display after process death,
   pending question 2, and remaining assessment before mastery. Screenshot
   inspected. This is not UAT acceptance and the fixture server is not production.
+- 2026-09-03: Android bearer-token encryption, legacy migration, explicit backup
+  exclusions and release HTTPS guard implemented. Build, lint and eight JVM tests
+  passed; emulator restored an authenticated tutor session from encrypted storage
+  after process death, with no plaintext token preference. Missing and HTTP release
+  endpoints were rejected. See `android-session-security.md` for coverage limits;
+  this is not a signed production APK, security certification or UAT sign-off.

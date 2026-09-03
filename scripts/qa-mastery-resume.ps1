@@ -72,6 +72,14 @@ TextNode 'Your answer: 1/2' | Out-Null
 RestartApp
 TextNode 'Your answer: 1/2' | Out-Null
 Write-Output 'PASS: forced process restart restores the tutor and selected answer'
+$savedPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+[xml]$savedXml = $savedPreferences
+$savedNames = @($savedXml.map.ChildNodes | ForEach-Object { $_.name })
+$sealedSession = @($savedXml.map.ChildNodes | Where-Object name -eq 'session_ciphertext')
+if ($savedNames -contains 'token' -or $sealedSession.Count -ne 1 -or -not $sealedSession[0].InnerText.StartsWith('v1:')) {
+    throw 'Session is not stored exclusively as a versioned encrypted envelope'
+}
+Write-Output 'PASS: restarted session uses encrypted storage with no legacy plaintext token (secret values omitted)'
 TapText 'I understand — practise now'
 EnterField 0 '6/8'
 TapText 'Check answer'

@@ -89,10 +89,11 @@ data class AppUiState(
 
 class LearningViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = application.getSharedPreferences("learn-smart", Context.MODE_PRIVATE)
-    private val api = LearningApi(preferences.getString("token", null)) { token -> preferences.edit().putString("token", token).apply() }
+    private val tokenStore = SessionTokenStore(preferences)
+    private val api = LearningApi(null, tokenStore::write)
     private val savedGrade = preferences.getInt("grade", 0).takeIf { it in 1..12 }
     private val mutableState = MutableStateFlow(AppUiState(
-        screen = if (api.hasToken) (if (savedGrade == null) Screen.Grade else Screen.Subjects) else Screen.SignIn,
+        screen = Screen.SignIn, loading = true,
         grade = savedGrade, darkMode = preferences.getBoolean("dark_mode", false),
         accountEmail = preferences.getString("email", "").orEmpty(),
         canResumeMastery = preferences.contains("active_mastery:${preferences.getString("email", "").orEmpty().lowercase()}"),
@@ -100,8 +101,15 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     val state: StateFlow<AppUiState> = mutableState.asStateFlow()
 
     init {
-        if (api.hasToken && preferences.contains(activeSessionKey())) resumeLearning()
-        else if (api.hasToken && savedGrade != null) refreshProgress()
+        viewModelScope.launch {
+            val restored = withContext(Dispatchers.IO) { runCatching { tokenStore.read() } }
+            api.restoreToken(restored.getOrNull())
+            mutableState.value = mutableState.value.copy(loading = false,
+                screen = if (api.hasToken) (if (savedGrade == null) Screen.Grade else Screen.Subjects) else Screen.SignIn,
+                error = if (restored.isFailure) "Unable to restore the saved session. Please sign in." else null)
+            if (api.hasToken && preferences.contains(activeSessionKey())) resumeLearning()
+            else if (api.hasToken && savedGrade != null) refreshProgress()
+        }
     }
 
     private suspend fun loadProgress() {
@@ -223,8 +231,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     }
     fun openSettings() { mutableState.value = mutableState.value.copy(screen = Screen.Settings) }
     fun setDarkMode(enabled: Boolean) { preferences.edit().putBoolean("dark_mode", enabled).apply(); mutableState.value = mutableState.value.copy(darkMode = enabled) }
-    fun signOut() { api.signOut(); preferences.edit().remove("token").remove("email").remove("grade").remove("unlocked").apply(); mutableState.value = AppUiState(darkMode = mutableState.value.darkMode) }
-    fun deleteAccount() = perform(null) { api.deleteAccount(); preferences.edit().clear().apply(); mutableState.value = AppUiState() }
+    fun signOut() = perform(Screen.SignIn) { tokenStore.clear(); api.signOut(); preferences.edit().remove("email").remove("grade").remove("unlocked").apply(); mutableState.value = AppUiState(darkMode = mutableState.value.darkMode) }
+    fun deleteAccount() = perform(null) { api.deleteAccount(); tokenStore.clear(); preferences.edit().clear().apply(); mutableState.value = AppUiState() }
     fun changeGrade() { mutableState.value = mutableState.value.copy(screen = Screen.Grade) }
     fun backToSubjects() { mutableState.value = mutableState.value.copy(screen = Screen.Subjects) }
     fun startDocumentStudy() { mutableState.value = mutableState.value.copy(screen = Screen.Home) }
@@ -247,7 +255,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
 private class LearningApi(initialToken: String?, private val saveToken: (String) -> Unit) {
     private var token: String? = initialToken; private val baseUrl = BuildConfig.API_BASE_URL
     val hasToken: Boolean get() = token != null
-    private fun acceptToken(response: JSONObject) { token = response.getString("access_token"); saveToken(requireNotNull(token)) }
+    fun restoreToken(value: String?) { token = value }
+    private fun acceptToken(response: JSONObject) { val accepted = response.getString("access_token"); saveToken(accepted); token = accepted }
     fun register(email: String, password: String) = acceptToken(request("POST", "/v1/auth/register", JSONObject().put("email", email).put("password", password).toString()))
     fun login(email: String, password: String) = acceptToken(request("POST", "/v1/auth/login", JSONObject().put("email", email).put("password", password).toString()))
     fun signOut() { token = null }

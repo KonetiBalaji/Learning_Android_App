@@ -1,6 +1,26 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val releaseApiBaseUrl = providers.gradleProperty("releaseApiBaseUrl").orNull
+val validateReleaseEndpoint = tasks.register("validateReleaseEndpoint") {
+    doLast {
+        val raw = releaseApiBaseUrl ?: error("Release requires -PreleaseApiBaseUrl=https://your-confirmed-backend. No production target is configured.")
+        val uri = runCatching { URI(raw) }.getOrElse { error("Release API URL is invalid") }
+        require(uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.query == null && uri.fragment == null) {
+            "Release API URL must use HTTPS with a host and no credentials, query or fragment"
+        }
+        val host = uri.host.lowercase().trimEnd('.')
+        require(host !in setOf("localhost", "10.0.2.2", "::1", "[::1]") && !host.startsWith("127.") && (uri.port == -1 || uri.port in 1..65535)) {
+            "Release API URL cannot target the local emulator backend"
+        }
+    }
+}
+tasks.configureEach {
+    if (name == "preReleaseBuild") dependsOn(validateReleaseEndpoint)
 }
 
 android {
@@ -13,12 +33,18 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")
+            manifestPlaceholders["cleartextAllowed"] = "true"
+        }
         release {
+            val endpoint = releaseApiBaseUrl.orEmpty().trimEnd('/').replace("\\", "\\\\").replace("\"", "\\\"")
+            buildConfigField("String", "API_BASE_URL", "\"$endpoint\"")
+            manifestPlaceholders["cleartextAllowed"] = "false"
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
