@@ -12,6 +12,25 @@ def queue_file_deletion(db: sqlite3.Connection, stored_path: str) -> None:
     db.execute('INSERT OR IGNORE INTO pending_file_deletions (stored_path) VALUES (?)', (stored_path,))
 
 
+def discard_uncommitted_upload(settings: Settings, stored: Path) -> None:
+    """Best-effort immediate cleanup, with durable retry if the file is locked."""
+    if stored.resolve().parent != settings.uploads_dir.resolve():
+        raise ValueError('Upload cleanup target is outside configured storage')
+    try:
+        with connection(settings.database_path) as db:
+            db.execute('BEGIN IMMEDIATE')
+            # A commit error can have an uncertain outcome; preserve a live record.
+            if db.execute('SELECT 1 FROM documents WHERE stored_path = ?', (str(stored),)).fetchone():
+                return
+            try:
+                stored.unlink(missing_ok=True)
+            except OSError:
+                queue_file_deletion(db, str(stored))
+    except sqlite3.Error:
+        # Cannot establish whether the file is live: preserve it and alert operators.
+        logging.getLogger(__name__).critical('Uncommitted upload cleanup could not be persisted; storage repair is required')
+
+
 def cleanup_pending_files(settings: Settings, limit: int = 100) -> int:
     removed = 0
     with connection(settings.database_path) as db:

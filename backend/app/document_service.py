@@ -13,6 +13,7 @@ from fastapi import HTTPException, UploadFile, status
 from .config import Settings
 from .schemas import Chapter
 from .document_limits import validate_docx_archive
+from .file_cleanup import discard_uncommitted_upload
 
 ALLOWED_SUFFIXES = {".pdf", ".docx", ".txt"}
 HEADING_PATTERN = re.compile(r"(?m)^(?:chapter|unit|section)\s+(?:\d+|[ivxlcdm]+)\b[^\n]*|^\d+(?:\.\d+)*\s+[^\n]{3,}$", re.IGNORECASE)
@@ -29,16 +30,18 @@ async def validate_and_store(upload: UploadFile, settings: Settings) -> tuple[Pa
     if not content:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The uploaded file is empty")
     stored = settings.uploads_dir / f"{uuid.uuid4()}-{os_safe_stem(filename)}{suffix}"
-    stored.write_bytes(content)
     try:
         text = extract_text(content, suffix)
     except Exception as error:
-        stored.unlink(missing_ok=True)
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                             detail="The document could not be processed. It may be corrupt, protected, or exceed processing limits.") from error
     if len(text.strip()) < 80:
-        stored.unlink(missing_ok=True)
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The document has too little extractable text; scanned or protected files are not supported in this MVP")
+    try:
+        stored.write_bytes(content)
+    except OSError as error:
+        discard_uncommitted_upload(settings, stored)
+        raise HTTPException(status_code=503, detail="Document storage is temporarily unavailable. Please retry.") from error
     return stored, filename, text
 
 

@@ -40,3 +40,25 @@ Production acceptance still requires real permission/disk-failure drills, backlo
 alerting and deletion SLAs, deployment/restart checks, and backup retention policy.
 Legacy orphan files created before this queue are not automatically discovered.
 This does not erase provider records or backups, or establish a retention policy.
+
+## Failed uploads
+
+Extraction and minimum-text validation now finish before the source file is
+written. A partial filesystem write or failed document persistence triggers
+cleanup of the uncommitted upload. Cleanup first takes a database write lock and
+checks for a live document reference, preserving the file if a commit outcome
+was uncertain but the record exists. An unreferenced file is removed immediately;
+if locked, its path is queued for retry. Storage/database failures return a safe
+503 message without raw filesystem or database details.
+
+If the database cannot be accessed to establish whether a file is referenced,
+cleanup preserves the file and emits a generic critical operator log. It does
+not guess and delete a potentially live file. This condition needs operator repair.
+A hard process crash between file creation and database commit is still an
+unreconciled window; no claim of universally orphan-free storage is made.
+
+On 2026-09-03, **85 backend tests passed**. New failure injections cover commit
+rollback with normal/locked files, eventual queued cleanup, partial writes,
+invalid content never written to upload storage, sanitized error responses and
+preservation of live referenced files. Real disk-full/permission drills and
+process-crash reconciliation remain production gates.

@@ -245,3 +245,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   including failure injection and actual startup cleanup. Production failure
   drills, legacy orphan reconciliation, alerts and backup retention remain open.
   See `upload-cleanup.md`.
+- Upload validation now precedes file creation, and partial-write/persistence
+  failures clean unreferenced files or queue locked files. Live references are
+  protected when commit outcomes are uncertain. Backend 85 tests passed with
+  failure injection. Process-crash reconciliation and real storage-failure drills
+  remain open; see `upload-cleanup.md`.

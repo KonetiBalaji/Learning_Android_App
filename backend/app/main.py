@@ -56,7 +56,7 @@ from .schemas import (
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
 from .mastery_transactions import lock_mastery_snapshot
-from .file_cleanup import queue_file_deletion, cleanup_pending_files
+from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -174,14 +174,21 @@ async def upload_document(
     settings: Settings = Depends(get_settings),
 ) -> DocumentSummary:
     stored, filename, extracted_text = await validate_and_store(file, settings)
-    chapters = detect_chapters(extracted_text)
-    document_id = str(uuid.uuid4())
-    with connection(settings.database_path) as db:
-        db.execute(
-            """INSERT INTO documents (id, owner_id, original_name, media_type, stored_path, extracted_text, chapters_json, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (document_id, user_id, filename, file.content_type or "application/octet-stream", str(stored), extracted_text, json_value([chapter.model_dump() for chapter in chapters]), now()),
-        )
+    try:
+        chapters = detect_chapters(extracted_text)
+        document_id = str(uuid.uuid4())
+        with connection(settings.database_path) as db:
+            db.execute(
+                """INSERT INTO documents (id, owner_id, original_name, media_type, stored_path, extracted_text, chapters_json, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (document_id, user_id, filename, file.content_type or "application/octet-stream", str(stored), extracted_text, json_value([chapter.model_dump() for chapter in chapters]), now()),
+            )
+    except sqlite3.Error as error:
+        discard_uncommitted_upload(settings, stored)
+        raise HTTPException(status_code=503, detail='Document storage is temporarily unavailable. Please retry.') from error
+    except BaseException:
+        discard_uncommitted_upload(settings, stored)
+        raise
     return DocumentSummary(id=document_id, original_name=filename, chapters=chapters)
 
 
