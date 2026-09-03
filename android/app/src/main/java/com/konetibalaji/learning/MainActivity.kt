@@ -4,8 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.compose.LocalActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,22 +73,38 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.view.WindowCompat
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { LearnSmartApp() } }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); enableEdgeToEdge(); setContent { LearnSmartApp() } }
 }
 
-private val Indigo = Color(0xFF4F46E5)
-private val Blue = Color(0xFF2563EB)
-private val Success = Color(0xFF10B981)
-private val Warning = Color(0xFFF59E0B)
-private val Muted = Color(0xFF64748B)
-private val Canvas = Color(0xFFF8FAFC)
+private val Indigo: Color @Composable get() = MaterialTheme.colorScheme.primary
+private val Blue: Color @Composable get() = MaterialTheme.colorScheme.secondary
+private val Success: Color @Composable get() = MaterialTheme.colorScheme.tertiary
+private val Warning: Color @Composable get() = MaterialTheme.colorScheme.error
+private val Muted: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+
+fun learningColorScheme(dark: Boolean) = if (dark) {
+    darkColorScheme(primary = Color(0xFFA5B4FC), secondary = Color(0xFF93C5FD), tertiary = Color(0xFF6EE7B7))
+} else {
+    lightColorScheme(primary = Color(0xFF4F46E5), secondary = Color(0xFF2563EB), tertiary = Color(0xFF065F46),
+        background = Color(0xFFF8FAFC), surface = Color.White)
+}
 
 @Composable
 private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val colors = if (state.darkMode) darkColorScheme(primary = Color(0xFFA5B4FC), secondary = Color(0xFF93C5FD), tertiary = Color(0xFF6EE7B7)) else lightColorScheme(primary = Indigo, secondary = Blue, tertiary = Success, background = Canvas, surface = Color.White)
+    val colors = learningColorScheme(state.darkMode)
+    val activity = LocalActivity.current
+    SideEffect {
+        activity?.let {
+            WindowCompat.getInsetsController(it.window, it.window.decorView).apply {
+                isAppearanceLightStatusBars = !state.darkMode
+                isAppearanceLightNavigationBars = !state.darkMode
+            }
+        }
+    }
     MaterialTheme(colorScheme = colors) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
@@ -112,8 +131,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                 }
             }
         }
+        state.error?.let { ErrorDialog(it, viewModel::clearError) }
     }
-    state.error?.let { ErrorDialog(it, viewModel::clearError) }
 }
 
 @Composable
@@ -139,7 +158,7 @@ private fun PrimaryButton(label: String, enabled: Boolean = true, onClick: () ->
 private fun SignInScreen(loading: Boolean, onAuthenticate: (String, String, Boolean) -> Unit) {
     var email by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }; var createAccount by remember { mutableStateOf(false) }
     Page(modifier = Modifier.padding(top = 22.dp)) {
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE9FE)), shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("✦", style = MaterialTheme.typography.displayMedium, color = Indigo)
                 Text("LEARN SMART AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Indigo)
@@ -237,7 +256,7 @@ private fun AnswerChoice(option: String, selected: Boolean, onClick: () -> Unit)
 private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
     val lesson = state.tutorLesson
     Page {
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("✦ AI Teacher", color = Warning, fontWeight = FontWeight.Bold)
             Text("Not quite — let’s build it together.", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -271,7 +290,7 @@ private fun PracticeScreen(state: AppUiState, onHint: () -> Unit, onCheck: (Stri
         VoiceInputButton("Speak my answer") { answer = it }
         if (state.showHint) TipCard("Hint", state.tutorLesson?.hint ?: "Review the tutor explanation, then try again.")
         when (state.practiceResult) {
-            true -> Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)), shape = RoundedCornerShape(16.dp)) { Text("Correct! You are ready to explain the idea.", Modifier.padding(16.dp), color = Success, fontWeight = FontWeight.Bold) }
+            true -> Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer), shape = RoundedCornerShape(16.dp)) { Text("Correct! You are ready to explain the idea.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onTertiaryContainer, fontWeight = FontWeight.Bold) }
             false -> Text("Almost. Use the hint, then try again.", color = Warning, fontWeight = FontWeight.Medium)
             null -> Unit
         }
@@ -316,7 +335,7 @@ private fun VoiceInputButton(label: String, onResult: (String) -> Unit) {
 @Composable
 private fun MasteryScreen(state: AppUiState, onContinue: () -> Unit) = Page(modifier = Modifier.padding(top = 38.dp)) {
     RewriteAssessmentFeedback(state)
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)), shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("🏆", style = MaterialTheme.typography.displaySmall)
             Text("Great job!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = Success)
@@ -400,7 +419,7 @@ private fun SettingsScreen(state: AppUiState, onBack: () -> Unit, onDarkMode: (B
 }
 
 @Composable
-private fun TipCard(title: String, body: String) = Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(title, color = Blue, fontWeight = FontWeight.Bold); Text(body, color = Muted) } }
+private fun TipCard(title: String, body: String) = Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(title, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold); Text(body, color = MaterialTheme.colorScheme.onSecondaryContainer) } }
 
 @Composable
 private fun StudyMaterialScreen(loading: Boolean, onUpload: (android.content.Context, android.net.Uri) -> Unit, onBack: () -> Unit) {

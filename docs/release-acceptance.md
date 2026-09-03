@@ -219,3 +219,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   and completed-results restoration. Synthetic fixture only; remaining answers
   were API-driven. Screenshots inspected. Network loss, physical-device coverage,
   status-bar contrast and UAT remain open. See `document-quiz-recovery.md`.
+- Corrected system-bar icon appearance for the app theme, replaced fixed pale
+  highlight backgrounds and text accents with theme colors, and moved error
+  dialogs inside the theme. Build/lint/32 JVM tests passed, including selected
+  4.5:1 text-pair checks in both themes. API 36 settings-toggle/restart QA passed;
+  light/dark settings screenshots inspected. Full-screen accessibility coverage
+  remains open; see `theme-readability.md`.
