@@ -498,3 +498,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   tests and Android build/lint/69 JVM tests passed. Device timing and report display
   still need verification; sampling can undercount and is not proof of attention.
   See `shared/contracts/study-presence.md` for lifecycle and deployment constraints.
+- The Android seven-day report now displays server-reported study presence for
+  the selected grade, distinguishes unavailable from zero, and explains coverage
+  limits without equating presence to attention. Build/lint/71 JVM tests passed;
+  device timing and report rendering still need verification. Parent access and
+  UAT gates remain open. See the study-presence contract.

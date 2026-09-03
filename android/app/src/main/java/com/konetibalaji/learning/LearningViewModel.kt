@@ -37,6 +37,7 @@ data class ProgressSnapshot(
     val examReadiness: Int = 0, val readinessLabel: String = "Needs support",
     val chapterScores: Map<String, Int> = emptyMap(), val masteredChapterIds: Set<String> = emptySet(),
     val unlockedChapterIds: Set<String> = emptySet(),
+    val weeklyObservedStudySeconds: Long? = null,
 )
 
 sealed interface Screen {
@@ -663,8 +664,15 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             if (response.isNull("unlocked_chapter_ids")) null else response.getJSONArray("unlocked_chapter_ids").strings())
         return ProgressSnapshot(subjects, response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), chapterScores = scores, masteredChapterIds = mastered, unlockedChapterIds = unlocked)
     }
-    fun weeklyReport(grade: Int): ProgressSnapshot { val response = request("GET", "/v1/progress/weekly-report?grade=$grade", null); return ProgressSnapshot(emptyMap(), response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), response.getInt("questions_answered"), (response.getDouble("accuracy") * 100).toInt(), response.getInt("mastered_chapters"), response.getDouble("estimated_exam_readiness").toInt(), response.getString("readiness_label").replace('_', ' ').replaceFirstChar(Char::uppercase)) }
-    fun progressWithWeekly(grade: Int): ProgressSnapshot { val dashboard = progressDashboard(grade); val weekly = weeklyReport(grade); return dashboard.copy(questionsAnswered = weekly.questionsAnswered, accuracy = weekly.accuracy, masteredChapters = weekly.masteredChapters, examReadiness = weekly.examReadiness, readinessLabel = weekly.readinessLabel) }
+    fun weeklyReport(grade: Int): ProgressSnapshot {
+        val response = request("GET", "/v1/progress/weekly-report?grade=$grade", null)
+        val studySeconds = parseWeeklyStudySeconds(if (response.isNull("observed_study_seconds")) null else response.get("observed_study_seconds"))
+        return ProgressSnapshot(emptyMap(), response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(),
+            response.getInt("questions_answered"), (response.getDouble("accuracy") * 100).toInt(), response.getInt("mastered_chapters"),
+            response.getDouble("estimated_exam_readiness").toInt(), response.getString("readiness_label").replace('_', ' ').replaceFirstChar(Char::uppercase),
+            weeklyObservedStudySeconds = studySeconds)
+    }
+    fun progressWithWeekly(grade: Int): ProgressSnapshot { val dashboard = progressDashboard(grade); val weekly = weeklyReport(grade); return dashboard.copy(questionsAnswered = weekly.questionsAnswered, accuracy = weekly.accuracy, masteredChapters = weekly.masteredChapters, examReadiness = weekly.examReadiness, readinessLabel = weekly.readinessLabel, weeklyObservedStudySeconds = weekly.weeklyObservedStudySeconds) }
     private fun request(method: String, path: String, body: String?): JSONObject {
         val sessionId = Regex("^/v1/mastery/sessions/([^/]+)(?:/(diagnostic-answer|practice|rewrite))?$")
             .matchEntire(path)?.groupValues?.get(1)

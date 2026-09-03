@@ -75,3 +75,19 @@ idle threshold and exclusion of loading/background/non-learning screens. Real
 device foreground/background/idle timing, account switching during in-flight
 requests and the time display remain pending. Deploy the updated backend before
 this client; an older backend may ignore reset and is not supported for tracking.
+
+## Weekly Android display
+
+The seven-day report now displays `Recorded study presence` from the server's
+weekly total for the selected grade. It does not substitute the all-time dashboard
+total. Missing legacy data is `Unavailable`, zero is `No recorded time`, and
+positive totals use seconds/minutes/hours (whole minutes for hour-scale values).
+The accompanying text states that this is recorded learning-screen activity,
+not total study time or proof of attention, and that idle, offline and older
+untracked activity may be missing. Existing parent access limitations are unchanged.
+
+The decoder accepts only nonnegative integer seconds up to the 604,800-second
+weekly window; negative, fractional, string and overflowing totals are rejected.
+Android debug build, lint and 71 JVM tests passed, covering unavailable/zero
+distinction, formatting boundaries and malformed values. Device timing and visual
+report verification remain outstanding; no actual learner time is claimed here.

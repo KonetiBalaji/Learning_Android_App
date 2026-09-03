@@ -396,6 +396,8 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
                 Text("Includes diagnostic answers, guided practice and explanations in the last 7 days (UTC).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Metric("Response accuracy", if (snapshot.questionsAnswered == 0) "No responses yet" else "${snapshot.accuracy}%", Success)
                 Metric("Unique chapters mastered", snapshot.masteredChapters.toString(), Indigo)
+                Metric("Recorded study presence", weeklyStudyTimeLabel(snapshot.weeklyObservedStudySeconds), Indigo)
+                Text("Last 7 days, selected grade. Counts recorded activity on learning screens only, not total study time or proof of attention. Idle, offline and older untracked activity may be missing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
