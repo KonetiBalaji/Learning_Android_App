@@ -40,16 +40,21 @@ def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids
     rng.shuffle(unique)
     output: list[GeneratedQuestion] = []
     for position, (chapter, answer) in enumerate(unique[:count]):
-        distractors = [sentence for _, sentence in unique if sentence != answer]
+        # Credential-free QA uses exact-text recall, not a fabricated semantic assessment.
+        term = max(re.findall(r'[A-Za-z]{4,}', answer), key=len)
+        distractors = list(dict.fromkeys(word for _, sentence in unique for word in re.findall(r'[A-Za-z]{4,}', sentence)
+                                        if word.casefold() != term.casefold()))
         rng.shuffle(distractors)
-        options = [answer, *distractors[:3]]
+        options = [term, *distractors[:3]]
+        if len(options) != 4:
+            continue
         rng.shuffle(options)
         output.append(
             GeneratedQuestion(
-                prompt=f"Which statement is directly supported by {chapter.title}?",
+                prompt=f'Which word completes this exact sentence from the selected text? "{answer.replace(term, "____", 1)}"',
                 options=options,
-                correct_option=answer,
-                explanation=f"This is stated in the selected source material. Review the supporting passage before continuing.",
+                correct_option=term,
+                explanation=f'The source sentence is: {answer}',
                 source_reference=f"{chapter.title} (source characters {chapter.start_character}-{chapter.end_character})",
             )
         )

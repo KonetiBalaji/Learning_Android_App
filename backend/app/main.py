@@ -13,6 +13,7 @@ from .config import Settings, get_settings
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .quiz_service import generate_grounded_questions, question_id
+from .document_question_provider import generate_document_questions, QuestionGenerationUnavailable
 from .mastery_service import (
     diagnostic_bank,
     confidence_for,
@@ -182,7 +183,14 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
     document = owned_document(document_id, user_id, settings)
     chapters = [Chapter.model_validate(item) for item in parse_json(document["chapters_json"])]
     try:
-        generated = generate_grounded_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count)
+        if settings.ai_mode == 'openai':
+            generated = generate_document_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count, settings)
+        elif settings.ai_mode == 'deterministic':
+            generated = generate_grounded_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count)
+        else:
+            raise QuestionGenerationUnavailable('Unsupported provider mode')
+    except QuestionGenerationUnavailable as error:
+        raise HTTPException(status_code=503, detail='Could not validate this quiz. Please retry; no quiz was saved.') from error
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     quiz_id = str(uuid.uuid4())

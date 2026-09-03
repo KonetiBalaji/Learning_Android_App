@@ -166,3 +166,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   recovery verification remains pending. Audit also found source-supported
   distractors in the document generator; question ambiguity is a release blocker.
   See `document-quiz-recovery.md`; DOC-01 is still partial.
+- User explicitly approved existing API-key reuse. Added source-quoted structured
+  document-question generation plus blind model review; rejected batches are not
+  saved. Replaced ambiguous deterministic questions with explicit source-word
+  recall for QA. Live synthetic five-question generation/review passed; this is
+  narrow evidence, not calibrated reliability. Legacy ambiguous quizzes and broad
+  validation remain open; see `document-question-validation.md`.
