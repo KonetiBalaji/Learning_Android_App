@@ -6,6 +6,21 @@ Unknown difficulty strings return 422. Omission/null preserves legacy behavior.
 Creation and `GET /v1/quizzes/{id}` return the saved requested difficulty.
 Existing quizzes migrate to null, meaning unspecified, not inferred Easy.
 
+`question_type` selects one format for the quiz: `multiple_choice` (default),
+`true_false`, or `yes_no`. Unknown values and explicit null return 422. Creation,
+resume and individual question payloads expose the saved type; existing records
+migrate to `multiple_choice`. A mixed-format quiz is not currently supported.
+
+Multiple choice requires four distinct options. True/False requires exactly
+`["True", "False"]`; Yes/No requires exactly `["Yes", "No"]`. Binary option order
+is fixed, while multiple-choice options remain shuffled. The server rejects wrong
+cardinality, wrong binary labels/order and an out-of-range correct-answer index.
+The same owner-scoped grading, retry, recovery and results flow applies to all
+formats. False/No requires contradictory evidence, not mere absence of support.
+All live formats use blind answer verification and the separate quality audit.
+Offline generation currently supports multiple choice only and rejects binary
+requests before saving a quiz. Android format selection is not yet implemented.
+
 Difficulty describes requested cognitive demand, not calibrated learner ability:
 
 - Easy: recognize/recall one explicitly stated fact.

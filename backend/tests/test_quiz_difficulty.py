@@ -58,7 +58,8 @@ def test_live_route_passes_and_persists_requested_difficulty(monkeypatch, tmp_pa
     from app.quiz_service import generate_grounded_questions
     client, headers = registered_client(monkeypatch, tmp_path)
     seen = []
-    def generated(text, chapters, ids, count, settings, requested):
+    def generated(text, chapters, ids, count, settings, requested, question_type):
+        assert question_type == 'multiple_choice'
         seen.append(requested)
         return generate_grounded_questions(text, chapters, ids, count)
     try:

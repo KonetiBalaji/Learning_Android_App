@@ -62,6 +62,11 @@ def initialize(path: Path) -> None:
         quiz_columns = {row[1] for row in connection.execute("PRAGMA table_info(quizzes)")}
         if 'difficulty' not in quiz_columns:
             connection.execute('ALTER TABLE quizzes ADD COLUMN difficulty TEXT')
+        if 'question_type' not in quiz_columns:
+            connection.execute("ALTER TABLE quizzes ADD COLUMN question_type TEXT NOT NULL DEFAULT 'multiple_choice'")
+        question_columns = {row[1] for row in connection.execute("PRAGMA table_info(questions)")}
+        if 'question_type' not in question_columns:
+            connection.execute("ALTER TABLE questions ADD COLUMN question_type TEXT NOT NULL DEFAULT 'multiple_choice'")
         columns = {row[1] for row in connection.execute("PRAGMA table_info(mastery_sessions)")}
         if "questions_json" not in columns:
             connection.execute("ALTER TABLE mastery_sessions ADD COLUMN questions_json TEXT NOT NULL DEFAULT ''")

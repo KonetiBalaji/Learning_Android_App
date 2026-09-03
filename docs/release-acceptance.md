@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: implemented backend True/False and Yes/No configuration, strict
+  option validation, persisted type metadata, grading and recovery. 150 backend
+  tests passed (34 relevant tests rerun after final guidance). Two live five-item
+  samples passed automated checks and answer review; Easy calibration and excerpt
+  labels still need work. Android controls/device QA remain pending; see
+  `document-question-types.md`. DOC-03 remains partial.
 - 2026-09-03: replaced model-transcribed quotes with server-reconstructed
   contiguous source-excerpt selections; repeated text retains its selected offset.
   Backend 138 tests passed. Live Mixed generation passed all three checks with

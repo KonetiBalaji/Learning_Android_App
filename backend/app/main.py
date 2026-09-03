@@ -105,7 +105,7 @@ def owned_document(document_id: str, user_id: str, settings: Settings) -> sqlite
 
 
 def question_payload(row: sqlite3.Row) -> QuizQuestion:
-    return QuizQuestion(id=row["id"], ordinal=row["ordinal"], prompt=row["prompt"], options=parse_json(row["options_json"]), source_reference=row["source_reference"])
+    return QuizQuestion(id=row["id"], ordinal=row["ordinal"], prompt=row["prompt"], options=parse_json(row["options_json"]), source_reference=row["source_reference"], question_type=row['question_type'])
 
 
 def owned_mastery_session(session_id: str, user_id: str, settings: Settings) -> sqlite3.Row:
@@ -238,8 +238,10 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
     chapters = [Chapter.model_validate(item) for item in parse_json(document["chapters_json"])]
     try:
         if settings.ai_mode == 'openai':
-            generated = generate_document_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count, settings, request.difficulty)
+            generated = generate_document_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count, settings, request.difficulty, request.question_type)
         elif settings.ai_mode == 'deterministic':
+            if request.question_type != 'multiple_choice':
+                raise ValueError('This offline generator supports multiple choice only; binary questions require live generation')
             if request.difficulty not in {None, 'easy'}:
                 raise ValueError('This offline generator supports recall questions only; choose Easy or use live generation')
             generated = generate_grounded_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count)
@@ -251,15 +253,15 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     quiz_id = str(uuid.uuid4())
     with connection(settings.database_path) as db:
-        db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at, difficulty) VALUES (?, ?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now(), request.difficulty))
+        db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at, difficulty, question_type) VALUES (?, ?, ?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now(), request.difficulty, request.question_type))
         for ordinal, question in enumerate(generated, start=1):
             db.execute(
-                """INSERT INTO questions (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation, source_reference)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (question_id(), quiz_id, ordinal, question.prompt, json_value(question.options), question.correct_option, question.explanation, question.source_reference),
+                """INSERT INTO questions (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation, source_reference, question_type)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (question_id(), quiz_id, ordinal, question.prompt, json_value(question.options), question.correct_option, question.explanation, question.source_reference, request.question_type),
             )
         first = db.execute("SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal LIMIT 1", (quiz_id,)).fetchone()
-    return QuizSummary(id=quiz_id, title=f"Quiz: {document['original_name']}", question_count=len(generated), first_question=question_payload(first) if first else None, difficulty=request.difficulty)
+    return QuizSummary(id=quiz_id, title=f"Quiz: {document['original_name']}", question_count=len(generated), first_question=question_payload(first) if first else None, difficulty=request.difficulty, question_type=request.question_type)
 
 
 @app.post("/v1/quizzes/{quiz_id}/questions/{question_id}/answer", response_model=Feedback)
@@ -299,7 +301,7 @@ def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user
 @app.get("/v1/quizzes/{quiz_id}", response_model=DocumentQuizState)
 def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DocumentQuizState:
     with connection(settings.database_path) as db:
-        document = db.execute("""SELECT documents.*, quizzes.difficulty AS quiz_difficulty FROM documents JOIN quizzes ON quizzes.document_id = documents.id
+        document = db.execute("""SELECT documents.*, quizzes.difficulty AS quiz_difficulty, quizzes.question_type AS quiz_question_type FROM documents JOIN quizzes ON quizzes.document_id = documents.id
                                  WHERE quizzes.id = ? AND quizzes.owner_id = ? AND documents.owner_id = ?""",
                               (quiz_id, user_id, user_id)).fetchone()
         if document is None:
@@ -312,7 +314,7 @@ def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), s
     feedback = Feedback(correct=last['answered_option'] == last['correct_option'], selected_option=last['answered_option'],
                         correct_option=last['correct_option'], explanation=last['explanation'],
                         source_reference=last['source_reference'], next_question=next_question) if last else None
-    return DocumentQuizState(id=quiz_id, difficulty=document['quiz_difficulty'], document=DocumentSummary(id=document['id'], original_name=document['original_name'],
+    return DocumentQuizState(id=quiz_id, difficulty=document['quiz_difficulty'], question_type=document['quiz_question_type'], document=DocumentSummary(id=document['id'], original_name=document['original_name'],
                              chapters=[Chapter.model_validate(item) for item in parse_json(document['chapters_json'])]),
                              total=len(rows), answered=len(answered), question=next_question, last_feedback=feedback)
 

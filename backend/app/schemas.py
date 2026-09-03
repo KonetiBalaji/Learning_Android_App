@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from .quiz_difficulty import Difficulty
+from .question_types import QuestionType
 
 
 class Credentials(BaseModel):
@@ -29,12 +30,14 @@ class DocumentSummary(BaseModel):
 
 
 class QuizRequest(BaseModel):
+    question_type: QuestionType = 'multiple_choice'
     difficulty: Difficulty | None = None
     chapter_ids: list[str] = Field(min_length=1)
     question_count: int = Field(default=10, ge=5, le=20)
 
 
 class QuizQuestion(BaseModel):
+    question_type: QuestionType = 'multiple_choice'
     id: str
     ordinal: int
     prompt: str
@@ -43,6 +46,7 @@ class QuizQuestion(BaseModel):
 
 
 class QuizSummary(BaseModel):
+    question_type: QuestionType = 'multiple_choice'
     difficulty: Difficulty | None = None
     id: str
     title: str
@@ -73,6 +77,7 @@ class QuizResults(BaseModel):
 
 
 class DocumentQuizState(BaseModel):
+    question_type: QuestionType = 'multiple_choice'
     difficulty: Difficulty | None = None
     id: str
     document: DocumentSummary

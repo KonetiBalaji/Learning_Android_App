@@ -8,7 +8,7 @@ from app.schemas import Chapter
 TEXT = 'Mitochondria release usable energy for cellular work.'
 
 
-def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text=TEXT):
+def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text=TEXT, question_type='multiple_choice'):
     item = item or dict(prompt='Which structure releases usable energy for cellular work?',
         options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'], correct_index=0,
         explanation=TEXT, chapter_id='cells', first_excerpt=0, last_excerpt=0)
@@ -27,7 +27,7 @@ def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text
             return SimpleNamespace(output_text=next(outputs))
     monkeypatch.setattr(provider, 'OpenAI', Client)
     result = provider.generate_document_questions(text, [Chapter(id='cells', title='Cells', start_character=0,
-        end_character=len(text), confidence=1)], ['cells'], 1, SimpleNamespace(openai_api_key='synthetic', openai_model='synthetic'), difficulty)
+        end_character=len(text), confidence=1)], ['cells'], 1, SimpleNamespace(openai_api_key='synthetic', openai_model='synthetic'), difficulty, question_type)
     return result, calls
 
 
@@ -56,6 +56,29 @@ def test_repeated_source_text_keeps_selected_occurrence_offset(monkeypatch):
     start = len(TEXT) + 1
     assert f'{start}-{start + len(TEXT)}' in result[0].source_reference
     assert json.loads(calls[2]['input'])['questions'][0]['quote'] == TEXT
+
+
+@pytest.mark.parametrize('kind,options', [('true_false', ['True', 'False']), ('yes_no', ['Yes', 'No'])])
+@pytest.mark.parametrize('answer', [0, 1])
+def test_binary_choices_keep_canonical_order_and_answer(monkeypatch, kind, options, answer):
+    item = dict(prompt='Do mitochondria release energy for cellular work?', options=options,
+        correct_index=answer, explanation=TEXT, chapter_id='cells', first_excerpt=0, last_excerpt=0)
+    result, calls = run(monkeypatch, item=item, question_type=kind, review=[answer])
+    assert result[0].options == options
+    assert result[0].correct_option == options[answer]
+    assert json.loads(calls[0]['input'])['question_type'] == kind
+    assert len(calls) == 3  # Includes both reviews; stubs test routing, not factual quality.
+
+
+@pytest.mark.parametrize('kind,options,index', [
+    ('true_false', ['False', 'True'], 0), ('yes_no', ['Yes', 'Maybe'], 0),
+    ('multiple_choice', ['Yes', 'No'], 0), ('true_false', ['True', 'False'], 2),
+    ('yes_no', ['Yes', 'No', 'Maybe'], 0)])
+def test_invalid_type_options_fail_closed(monkeypatch, kind, options, index):
+    item = dict(prompt='Does the source support this statement?', options=options,
+        correct_index=index, explanation=TEXT, chapter_id='cells', first_excerpt=0, last_excerpt=0)
+    with pytest.raises(provider.QuestionGenerationUnavailable):
+        run(monkeypatch, item=item, question_type=kind)
 
 
 @pytest.mark.parametrize('difficulty', ['easy', 'medium', 'hard', 'mixed'])

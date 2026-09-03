@@ -33,6 +33,8 @@ def main():
     parser.add_argument('--live', action='store_true', help='Enable up to twelve metered synthetic requests')
     parser.add_argument('--levels', nargs='+', choices=['easy', 'medium', 'hard', 'mixed'],
                         default=['easy', 'medium', 'hard', 'mixed'])
+    parser.add_argument('--question-type', choices=['multiple_choice', 'true_false', 'yes_no'],
+                        default='multiple_choice')
     args = parser.parse_args()
     if not args.live:
         parser.error('Supply --live to enable metered requests')
@@ -44,7 +46,7 @@ def main():
 
     def evaluate(level):
         try:
-            items = generate_document_questions(SOURCE, [chapter], ['tanks'], 5, settings, level)
+            items = generate_document_questions(SOURCE, [chapter], ['tanks'], 5, settings, level, args.question_type)
             return {'difficulty': level, 'accepted_by_existing_checks': True,
                     'questions': [asdict(item) for item in items]}
         except Exception as error:
@@ -58,7 +60,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(evaluate, list(dict.fromkeys(args.levels))))
-    report = {'model': settings.openai_model, 'source': SOURCE,
+    report = {'model': settings.openai_model, 'source': SOURCE, 'question_type': args.question_type,
               'requires_content_review': True, 'results': results}
     folder = Path(__file__).resolve().parents[2] / 'artifacts'
     folder.mkdir(exist_ok=True)
