@@ -93,6 +93,7 @@ data class AppUiState(
     val canResumeDocumentQuiz: Boolean = false,
     val documentQuestionTotal: Int = 10,
     val documentQuestionCountInput: String = "10",
+    val documentDifficulty: String = "easy", val savedQuizDifficulty: String? = null,
     val assessmentPoints: Int? = null, val assessmentFeedback: String? = null,
 )
 
@@ -142,6 +143,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private fun documentKey() = "active_document:${mutableState.value.accountEmail.lowercase()}"
     private fun documentChapterKey() = "active_document_chapter:${mutableState.value.accountEmail.lowercase()}"
     private fun documentCountKey() = "document_question_count:${mutableState.value.accountEmail.lowercase()}"
+    private fun documentDifficultyKey() = "document_difficulty:${mutableState.value.accountEmail.lowercase()}"
     private fun activeFlowKey() = "active_flow:${mutableState.value.accountEmail.lowercase()}"
 
     fun resumeDocumentQuiz() {
@@ -161,7 +163,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             preferences.edit().putString(activeFlowKey(), "document").apply()
             val completed = resumed.question == null
             mutableState.value = mutableState.value.copy(document = resumed.document, quizId = id,
-                documentQuestionTotal = resumed.total, question = resumed.question, feedback = resumed.feedback,
+                documentQuestionTotal = resumed.total, savedQuizDifficulty = resumed.difficulty, question = resumed.question, feedback = resumed.feedback,
                 results = if (completed) api.results(id) else null, canResumeDocumentQuiz = true,
                 screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
         }
@@ -186,6 +188,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             preferences.edit().putString(activeFlowKey(), "document").apply()
             mutableState.value = mutableState.value.copy(document = document, selectedChapterIds = chapters,
                 documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
+                documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
                 quizId = null, question = null, feedback = null, results = null,
                 canResumeDocumentQuiz = true, screen = Screen.Chapters)
         }
@@ -358,6 +361,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             .remove(documentQuizKey()).putString(activeFlowKey(), "document").commit())
         mutableState.value = mutableState.value.copy(document = document, selectedChapterIds = setOfNotNull(chapter),
             documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
+            documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
             quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = true)
     }
     fun selectChapter(chapterId: String) {
@@ -376,15 +380,20 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         preferences.edit().putString(documentCountKey(), input).apply()
         mutableState.value = mutableState.value.copy(documentQuestionCountInput = input)
     }
+    fun setDocumentDifficulty(value: String) {
+        if (mutableState.value.loading || value !in documentDifficulties) return
+        preferences.edit().putString(documentDifficultyKey(), value).apply()
+        mutableState.value = mutableState.value.copy(documentDifficulty = value)
+    }
     fun createQuiz() = perform(Screen.Question) {
         val current = mutableState.value
         require(current.selectedChapterIds.isNotEmpty()) { "Select at least one chapter" }
         val count = requireNotNull(validDocumentQuestionCount(current.documentQuestionCountInput)) { "Choose 5 to 20 questions" }
-        val quiz = api.createQuiz(requireNotNull(current.document).id, current.selectedChapterIds.toList(), count)
-        check(preferences.edit().putString(documentQuizKey(), quiz.first).putString(activeFlowKey(), "document")
+        val quiz = api.createQuiz(requireNotNull(current.document).id, current.selectedChapterIds.toList(), count, current.documentDifficulty)
+        check(preferences.edit().putString(documentQuizKey(), quiz.id).putString(activeFlowKey(), "document")
             .remove(documentKey()).remove(documentChapterKey()).commit())
-        mutableState.value = current.copy(quizId = quiz.first, question = quiz.second, feedback = null, results = null,
-            documentQuestionTotal = quiz.third, canResumeDocumentQuiz = true)
+        mutableState.value = current.copy(quizId = quiz.id, question = quiz.question, feedback = null, results = null,
+            documentQuestionTotal = quiz.total, savedQuizDifficulty = quiz.difficulty, canResumeDocumentQuiz = true)
     }
     fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
@@ -481,12 +490,16 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val response = JSONArray(readApiResponse(connection("GET", "/v1/documents", "application/json")))
         return (0 until response.length()).map { document(response.getJSONObject(it)) }
     }
-    fun createQuiz(documentId: String, chapterIds: List<String>, count: Int): Triple<String, QuizQuestion, Int> { val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray(chapterIds)).put("question_count", count).toString()); return Triple(response.getString("id"), question(response.getJSONObject("first_question")), response.getInt("question_count")) }
-    data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?)
+    data class StartedDocumentQuiz(val id: String, val question: QuizQuestion, val total: Int, val difficulty: String?)
+    fun createQuiz(documentId: String, chapterIds: List<String>, count: Int, difficulty: String): StartedDocumentQuiz {
+        val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray(chapterIds)).put("question_count", count).put("difficulty", difficulty).toString())
+        return StartedDocumentQuiz(response.getString("id"), question(response.getJSONObject("first_question")), response.getInt("question_count"), if (response.isNull("difficulty")) null else response.getString("difficulty"))
+    }
+    data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?, val difficulty: String?)
     fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {
         val response = request("GET", "/v1/quizzes/$id", null)
         val feedback = response.optJSONObject("last_feedback")?.let { value -> Feedback(value.getBoolean("correct"), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"), value.getString("source_reference"), value.optJSONObject("next_question")?.let(::question)) }
-        return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), response.optJSONObject("question")?.let(::question), feedback)
+        return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), response.optJSONObject("question")?.let(::question), feedback, if (response.isNull("difficulty")) null else response.getString("difficulty"))
     }
     fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)) }
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").toQuestionList()) }

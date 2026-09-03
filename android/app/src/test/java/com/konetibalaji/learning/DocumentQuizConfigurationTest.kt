@@ -4,6 +4,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DocumentQuizConfigurationTest {
+    @Test fun difficultyPreferenceOnlyRestoresSupportedChoices() {
+        documentDifficulties.keys.forEach { assertEquals(it, restoredDocumentDifficulty(it)) }
+        assertEquals("easy", restoredDocumentDifficulty(null))
+        assertEquals("easy", restoredDocumentDifficulty("expert"))
+    }
+    @Test fun legacyQuizDifficultyIsNotInferredFromCurrentPreference() {
+        assertEquals("Requested difficulty: unspecified", requestedDifficultyLabel(null))
+        assertEquals("Requested difficulty: unspecified", requestedDifficultyLabel("unknown"))
+        assertTrue(requestedDifficultyLabel("hard").contains("Hard"))
+    }
     @Test fun allSupportedCountsAreAccepted() {
         (5..20).forEach { assertEquals(it, validDocumentQuestionCount(it.toString())) }
         assertEquals(7, validDocumentQuestionCount(" 7 "))

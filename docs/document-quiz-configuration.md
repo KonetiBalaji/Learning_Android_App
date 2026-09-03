@@ -48,7 +48,21 @@ cover enum validation, routing, prompt guidance, persistence, repeated startup,
 legacy migration and refusal without saved quizzes. Mocked provider checks are
 not evidence of achieved difficulty. See `shared/contracts/document-configuration.md`.
 
-Android difficulty controls, difficulty quality evaluation, true/false and yes/no
-question modes remain missing. Custom counts
+Android now includes accessible single-choice Easy/Medium/Hard/Mixed controls
+with short descriptions. New preferences default to Easy and persist per account
+on the device. The selected value is sent on creation; question and result screens
+display server-returned requested difficulty, including after resume, rather than
+using the current preference. Legacy quizzes are labelled unspecified. The UI
+discloses that difficulty is not measured ability and that offline generation
+supports only Easy recall. Invalid saved preference values fall back to Easy.
+
+Android build/lint/49 JVM tests passed on 2026-09-03. New tests cover valid and
+invalid preference restoration and unspecified legacy labels. No live AI requests
+were made. Device selection/restart/account-switch tests, failure recovery for
+unsupported offline levels, visual/accessibility review and live difficulty
+quality evaluation remain pending. This is implemented UI, not completed QA.
+
+Difficulty quality evaluation, true/false and yes/no question modes remain
+incomplete. Custom counts
 outside 5–20 are not supported. Full quiz configuration, UAT and production
 completion are not claimed.

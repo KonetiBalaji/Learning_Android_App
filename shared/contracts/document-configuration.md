@@ -20,4 +20,6 @@ records the request; it is not proof that each generated item meets that demand.
 
 Deterministic mode accepts only null/Easy recall. Other explicit levels return
 422 before saving a quiz; it must not label unchanged recall content as Hard.
-Android controls/display and actual difficulty evaluation are pending.
+Android now sends the selected difficulty and displays saved request metadata on
+question/results screens. Device verification and actual difficulty evaluation
+remain pending. Deploy the updated backend before testing the updated APK.

@@ -83,6 +83,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: added Android difficulty controls and account-scoped device
+  preference. Generation sends the selected value; question/results screens show
+  the saved server value, with legacy quizzes labelled unspecified. Offline and
+  uncalibrated-demand limitations are disclosed. Build/lint/49 JVM tests passed.
+  Device selection/failure/restart checks and live quality evaluation remain open.
+  See `document-quiz-configuration.md`.
+
 - 2026-09-03: added backend Easy/Medium/Hard/Mixed request metadata, generation
   guidance and persisted/resumed difficulty. Old quizzes retain unspecified
   difficulty. Deterministic mode refuses unsupported cognitive demand instead of
