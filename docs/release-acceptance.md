@@ -67,6 +67,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Baseline evidence and known defects
 
+- A bounded live `gpt-5-mini` Grade 8 Fractions check generated/reviewed one bank
+  and rejected one deliberately incorrect key. Sampled arithmetic was independently
+  checked; wording, equivalent-answer grading, production latency, broad accuracy
+  and curriculum alignment remain unproven. Evaluator regression suite: 307 backend
+  tests passed, 1 existing Windows skip. See `docs/diagnostic-live-smoke.md`.
+
 - Generated diagnostic banks now require a blind answer-key review before
   persistence, with strict rejection of disagreement, ambiguity, off-topic or
   grade-unsuitable judgments and malformed/partial review output. Tests cover

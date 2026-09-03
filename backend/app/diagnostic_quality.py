@@ -4,6 +4,10 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 
+class DiagnosticReviewRejected(ValueError):
+    """A complete, parsed review disagreed; distinct from outage or malformed output."""
+
+
 class DiagnosticReviewItem(BaseModel):
     model_config = ConfigDict(extra='forbid')
     item_index: StrictInt = Field(ge=0, le=2)
@@ -41,4 +45,4 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
         or item.answer_index != items[index].options.index(items[index].correct_option)
         for index, item in enumerate(reviewed)
     ):
-        raise ValueError('Diagnostic answer review rejected the generated bank')
+        raise DiagnosticReviewRejected('Diagnostic answer review rejected the generated bank')
