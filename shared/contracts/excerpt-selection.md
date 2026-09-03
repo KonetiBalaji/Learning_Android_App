@@ -113,3 +113,29 @@ corrupt preferences, overlap limits, scope-aware request IDs and deletion cleanu
 No live calls were made. Device text-highlight usability, restart/account-switch,
 lost-response recovery, malformed-response injection and accessibility QA remain
 open. This implementation is not yet device-verified or UAT accepted.
+
+## API 36 excerpt recovery evidence
+
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyCreationRetry
+-VerifyExcerpts` passed on LearnSmart_API36 with APK source `689807a` and the
+updated isolated scripted-QA backend. It uploaded the synthetic preview fixture
+through Android's picker, selected the first Plants preview part using Android's
+Ctrl+A text-selection command, and explicitly confirmed excerpt mode. This
+selected characters **307–2307**, leaving the remainder of the chapter excluded.
+Confirmed preferences and the displayed boundaries survived force-stop/restart.
+`artifacts/qa-document-excerpt.png` was visually inspected and its labels were
+readable; the image is a local QA artifact, not a committed learner document.
+
+The test injected HTTP 503 after quiz creation committed. The pending identity
+survived restart; retry opened the same quiz, with exactly one server quiz and
+the exact saved source range. Accepted creation cleared pending local excerpt
+metadata. Question restart, conflicting-answer recovery and feedback restart
+passed. All ten question references matched only the selected excerpt. Remaining
+answers were submitted by the API fixture, then Android restored the completed
+results. This is not a claim that every answer was entered through Android.
+
+Transient `null root node` dump errors recovered; the document harness now retries
+for a fresh dump instead of reading stale XML. No live AI calls occurred. This
+verifies one whole-preview-part excerpt, not touch-handle dragging, partial-part
+selection, multiple excerpts, account switching, TalkBack/large text, live quality
+or UAT. Those device/acceptance checks and original page/topic retrieval remain open.

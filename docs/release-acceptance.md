@@ -83,6 +83,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- API 36 excerpt QA passed: Android selection/confirmation of one preview part,
+  restart persistence, committed-creation HTTP 503 recovery with one saved quiz,
+  exact source boundaries on resume and all ten question references within them.
+  Conflict/feedback/results restoration passed; remaining answers used the API
+  fixture. Screenshot inspected. Selection used Android Ctrl+A, not touch-handle
+  dragging. Multiple/partial excerpts, accessibility, account switching and UAT
+  remain open. See `shared/contracts/excerpt-selection.md` for exact scope.
+
 - Android now supports explicit highlighted-source excerpts, disjoint additions,
   account/document-scoped persistence, Unicode-safe boundaries and scope-aware
   request identity. Creation and resume must confirm the requested bounds before

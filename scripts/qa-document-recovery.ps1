@@ -1,9 +1,10 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
-$fixtureName = if ($VerifyPreview) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
+$fixtureName = if ($VerifyPreview -or $VerifyExcerpts) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
+if ($VerifyExcerpts -and (-not $VerifyCreationRetry -or $VerifyPreview -or $VerifyMultiChapter -or $VerifyStructureRepair -or $BinaryFixtureType)) { throw 'Excerpt QA requires creation retry and cannot combine with preview, multi-chapter, repair or binary modes' }
 if ($VerifyPreview -and (-not $VerifyCreationRetry -or $VerifyStructureRepair)) { throw 'Preview check requires creation retry and cannot combine with the legacy repair fixture' }
 $expectedCount = if ($VerifyQuestionCount) { 7 } else { 10 }
 $expectedFormat = if ($BinaryFixtureType) { $BinaryFixtureType } else { 'multiple_choice' }
@@ -15,8 +16,12 @@ function Adb {
     if ($LASTEXITCODE -ne 0) { throw "ADB failed: $($args[0])" }
 }
 function Ui {
-    Adb shell uiautomator dump /sdcard/qa-document.xml | Out-Null
-    [xml]((Adb shell cat /sdcard/qa-document.xml) -join "`n")
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
+        $dump = (Adb shell uiautomator dump /sdcard/qa-document.xml) -join "`n"
+        if ($dump -match 'dumped to') { return [xml]((Adb shell cat /sdcard/qa-document.xml) -join "`n") }
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'Could not capture fresh document UI state'
 }
 function Center($node) {
     $bounds = [regex]::Matches($node.bounds, '\d+') | ForEach-Object { [int]$_.Value }
@@ -164,6 +169,33 @@ if ($VerifyQuestionType) {
     TapText 'Multiple choice'
 }
 if ($BinaryFixtureType) { TapText $formatLabel }
+if ($VerifyExcerpts) {
+    $excerptPart = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview" -Headers $headers
+    if ($excerptPart.total_pages -lt 2) { throw 'Excerpt fixture must leave some chapter text unselected' }
+    TapText 'Preview: Chapter 2 Plants'
+    TextNode 'Source preview' | Out-Null
+    $sourceField = (Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' } | Select-Object -First 1
+    if (-not $sourceField) { throw 'Missing read-only source selection field' }
+    $point = Center $sourceField
+    Adb shell input tap $point[0] $point[1] | Out-Null
+    # Select the displayed source part through Android's text selection command,
+    # not through an API or direct preference write.
+    Adb shell input keycombination 113 29 | Out-Null
+    TextNode "Selected source characters $($excerptPart.start_character)–$($excerptPart.end_character)" | Out-Null
+    TapText 'Use highlighted excerpt instead of whole chapters'
+    TextNode 'Excerpt mode: 1 selected text ranges only' | Out-Null
+    [xml]$excerptPrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $excerptKey = "document_excerpts:$($document.id):$qaEmail"
+    $savedExcerpt = ($excerptPrefs.map.ChildNodes | Where-Object name -eq $excerptKey).InnerText
+    if (-not $savedExcerpt) { throw 'Confirmed excerpt was not saved' }
+    RestartApp
+    TextNode 'Excerpt mode: 1 selected text ranges only' | Out-Null
+    [xml]$restoredExcerpts = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if (($restoredExcerpts.map.ChildNodes | Where-Object name -eq $excerptKey).InnerText -ne $savedExcerpt) { throw 'Restart changed confirmed excerpt selection' }
+    Adb shell screencap -p /sdcard/qa-document-excerpt.png | Out-Null
+    Adb pull /sdcard/qa-document-excerpt.png (Join-Path $repo 'artifacts\qa-document-excerpt.png') | Out-Null
+    Write-Output 'PASS: Android source highlight confirmation enters excerpt mode; saved boundaries survive restart'
+}
 if ($VerifyCreationRetry) {
     $creationAudit = "http://127.0.0.1:8000/__qa/documents/$($document.id)/created-quizzes"
     if (@((Invoke-RestMethod $creationAudit -Headers $headers).quiz_ids).Count -ne 0) { throw 'Expected no quiz before creation fault test' }
@@ -265,6 +297,12 @@ if ($VerifyCreationRetry) {
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
 $quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers
+if ($VerifyExcerpts) {
+    $ranges = @($state.source_ranges)
+    if ($ranges.Count -ne 1 -or $ranges[0].chapter_id -ne $selectedChapter.id -or $ranges[0].start_character -ne $excerptPart.start_character -or $ranges[0].end_character -ne $excerptPart.end_character) { throw 'Recovered quiz changed the requested excerpt boundaries' }
+    if ($preferences.map.ChildNodes | Where-Object name -eq $excerptKey) { throw 'Accepted quiz retained local pending excerpt metadata' }
+    Write-Output 'PASS: committed-response failure and restart recover the same quiz with exact saved source boundaries'
+}
 if ($VerifyQuestionType -or $BinaryFixtureType) {
     if ($state.question_type -ne $expectedFormat -or $state.question.question_type -ne $expectedFormat) { throw 'Saved quiz format differs from the selected format' }
     TextNode "Question type: $formatLabel" | Out-Null
@@ -326,6 +364,11 @@ if ($VerifyMultiChapter) {
     }
     if ($sourceReferences | Where-Object { $_ -notmatch '^Chapter [12] (Cells|Plants) \(source characters \d+-\d+\)$' }) { throw 'Unexpected source outside the selected fixture chapters' }
     Write-Output "PASS: Android multi-chapter generation produced $expectedCount questions with sources from both selected chapters"
+}
+if ($VerifyExcerpts) {
+    $expectedSource = "Chapter 2 Plants (selected excerpt) (source characters $($excerptPart.start_character)-$($excerptPart.end_character))"
+    if ($sourceReferences.Count -ne $expectedCount -or @($sourceReferences | Where-Object { $_ -ne $expectedSource }).Count -ne 0) { throw 'A quiz question referenced material outside the selected excerpt' }
+    Write-Output "PASS: all $expectedCount question references remain within the confirmed excerpt"
 }
 RestartApp
 TextNode 'Session complete' | Out-Null
