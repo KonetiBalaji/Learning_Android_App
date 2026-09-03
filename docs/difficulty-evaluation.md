@@ -72,9 +72,35 @@ requested labels, diverse/held-out material, independent educator review,
 citation completeness and measured difficulty.
 No UAT or production acceptance is claimed.
 
+## Separate quality audit added after the fourth round
+
+Generation now retains the blind answer review, then makes a separate structured
+quality-review request. It checks actual demand, assumptions against full source
+conditions, completeness of the cited excerpt, and every explanation step. All
+four verdicts must be true for every item, with matching count/order; malformed
+responses and provider failures fail closed. The blind reviewer still does not
+receive the answer key or explanation. No deterministic quote checks were loosened.
+
+129 backend tests passed, including each negative quality verdict, malformed
+responses, item-index mismatch, strict boolean handling and unchanged blind-review
+inputs. This validates orchestration/rejection behavior, not model accuracy.
+
+Five live `gpt-5-mini` requests using `scripts/evaluate_document_quality.py --live`
+tested known synthetic examples. The audit accepted an explicit collect-remaining-
+water-then-divide-by-demand question and rejected an incomplete citation, incorrect
+explanation, weak Hard demand and ignored-drainage assumption. All five expected
+outcomes matched with no operational failures. These are deliberately constructed
+regressions based on observed defects, not a holdout. A rejection alone does not
+prove which specific criterion the model used.
+
+Fresh generation through all three requests, diverse held-out material, false
+rejection rates, timing/device behavior and independent educator review remain
+unverified. This added safeguard does not close the overall difficulty requirement.
+
 Local evidence files:
 
 - `artifacts/difficulty-eval-20260903T082001884549Z.json`
 - `artifacts/difficulty-eval-20260903T082110244688Z.json`
 - `artifacts/difficulty-eval-20260903T082239652891Z.json`
 - `artifacts/difficulty-eval-20260903T082901412293Z.json`
+- `artifacts/document-quality-eval-20260903T083247745632Z.json`

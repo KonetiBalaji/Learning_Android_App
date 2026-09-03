@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: added a separate fail-closed document quality audit after blind
+  answer verification. Checks cover demand, assumptions, cited evidence and
+  explanations. Backend 129 tests passed; five live synthetic regression cases
+  matched expected acceptance/rejection. This does not establish holdout accuracy,
+  new full-generation/device behavior, educator approval or UAT. See
+  `difficulty-evaluation.md` and the updated document configuration contract.
 - 2026-09-03: reran the revised demand plan on five Hard and five Mixed items
   with four metered requests using the approved existing key. Both batches passed
   automated checks, but manual review still rejects difficulty quality and found

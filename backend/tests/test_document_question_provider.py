@@ -8,11 +8,15 @@ from app.schemas import Chapter
 TEXT = 'Mitochondria release usable energy for cellular work.'
 
 
-def run(monkeypatch, item=None, review=None, difficulty=None):
+def run(monkeypatch, item=None, review=None, difficulty=None, quality=None):
     item = item or dict(prompt='Which structure releases usable energy for cellular work?',
         options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'], correct_index=0,
         explanation=TEXT, chapter_id='cells', quote=TEXT)
-    outputs = iter([json.dumps({'questions': [item]}), json.dumps({'answers': [0] if review is None else review})])
+    accepted = dict(item_index=0, demand_matches=True, assumptions_supported=True,
+                    citation_complete=True, explanation_correct=True)
+    outputs = iter([json.dumps({'questions': [item]}),
+                    json.dumps({'answers': [0] if review is None else review}),
+                    json.dumps({'items': [accepted] if quality is None else quality})])
     calls = []
     class Client:
         def __init__(self, **kwargs): self.responses = self
@@ -36,6 +40,12 @@ def test_generation_requires_grounding_and_separate_blind_review(monkeypatch):
     assert 'Never stitch separate excerpts together' in calls[0]['instructions']
     reviewed = json.loads(calls[1]['input'])['questions'][0]
     assert set(reviewed) == {'prompt', 'options'}
+    assert len(calls) == 3
+    assert calls[1]['timeout'] == calls[2]['timeout'] == 30.0
+    audited = json.loads(calls[2]['input'])['questions'][0]
+    assert audited['quote'] == TEXT
+    assert audited['requested_demand'] is None
+    assert audited['explanation'] == TEXT
 
 
 @pytest.mark.parametrize('difficulty', ['easy', 'medium', 'hard', 'mixed'])
@@ -48,6 +58,27 @@ def test_difficulty_guidance_reaches_generation_without_changing_blind_review(mo
     assert len(payload['demand_plan']) == 1
     assert payload['difficulty_definitions'] == DIFFICULTY_GUIDANCE
     assert 'difficulty_guidance' not in json.loads(calls[1]['input'])
+    assert json.loads(calls[2]['input'])['questions'][0]['requested_demand'] == (
+        'easy' if difficulty == 'mixed' else difficulty)
+
+
+@pytest.mark.parametrize('field', ['demand_matches', 'assumptions_supported', 'citation_complete', 'explanation_correct'])
+def test_each_quality_failure_rejects_otherwise_accepted_answers(monkeypatch, field):
+    verdict = dict(item_index=0, demand_matches=True, assumptions_supported=True,
+                   citation_complete=True, explanation_correct=True)
+    verdict[field] = False
+    with pytest.raises(provider.QuestionGenerationUnavailable) as error:
+        run(monkeypatch, quality=[verdict])
+    assert str(error.value.__cause__) == 'Quality review rejected questions'
+
+
+@pytest.mark.parametrize('quality', [[], [{}], [dict(item_index=1, demand_matches=True,
+    assumptions_supported=True, citation_complete=True, explanation_correct=True)],
+    [dict(item_index=0, demand_matches='true', assumptions_supported=True,
+          citation_complete=True, explanation_correct=True)]])
+def test_malformed_quality_review_fails_closed(monkeypatch, quality):
+    with pytest.raises(provider.QuestionGenerationUnavailable):
+        run(monkeypatch, quality=quality)
 
 
 @pytest.mark.parametrize('review', [[-1], [1], [0, 0], []])

@@ -30,7 +30,7 @@ SOURCE = (
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--live', action='store_true', help='Enable up to eight metered synthetic requests')
+    parser.add_argument('--live', action='store_true', help='Enable up to twelve metered synthetic requests')
     parser.add_argument('--levels', nargs='+', choices=['easy', 'medium', 'hard', 'mixed'],
                         default=['easy', 'medium', 'hard', 'mixed'])
     args = parser.parse_args()
@@ -50,7 +50,7 @@ def main():
         except Exception as error:
             cause = error.__cause__
             known = {'Incorrect question count', 'Invalid choices', 'Ungrounded quote',
-                     'Duplicate question', 'Independent review rejected questions'}
+                     'Duplicate question', 'Independent review rejected questions', 'Quality review rejected questions'}
             return {'difficulty': level, 'accepted_by_existing_checks': False,
                     'error_type': type(error).__name__, 'cause_type': type(cause).__name__,
                     'validation_reason': str(cause) if type(cause) is ValueError and str(cause) in known else None}
