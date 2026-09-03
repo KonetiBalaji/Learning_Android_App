@@ -4,7 +4,8 @@ param(
     [switch]$ExpectRubricFeedback,
     [switch]$VerifyDeletedSession,
     [switch]$VerifyWeeklyReport,
-    [switch]$VerifyFractionModel
+    [switch]$VerifyFractionModel,
+    [switch]$VerifyStaleSubmission
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -120,9 +121,32 @@ if ($ExpectRubricFeedback) {
 }
 TextNode 'Question 2 of 3' | Out-Null
 Write-Output 'PASS: remediation advances to question 2 and survives restart, without early mastery'
+if ($VerifyStaleSubmission) {
+    # Advance this disposable session through another client while Android keeps Q2.
+    [xml]$sessionPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $activeKey = "active_mastery:$($qaEmail.ToLowerInvariant())"
+    $sessionId = ($sessionPreferences.map.ChildNodes | Where-Object name -eq $activeKey).InnerText
+    if (-not $sessionId) { throw 'Disposable mastery session pointer unavailable' }
+    $qaLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail; password='qa-password-long-enough'} | ConvertTo-Json)
+    $qaHeaders = @{Authorization="Bearer $($qaLogin.access_token)"}
+    $sessionUrl = "http://127.0.0.1:8000/v1/mastery/sessions/$sessionId"
+    $beforeStale = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
+    if ($beforeStale.question.ordinal -ne 2 -or -not $beforeStale.state_token) { throw 'Expected token-bearing question 2' }
+    $otherAnswer = Invoke-RestMethod "$sessionUrl/diagnostic-answer" -Method Post -Headers $qaHeaders -ContentType 'application/json' -Body (@{selected_option='3/6'; expected_state=$beforeStale.state_token} | ConvertTo-Json)
+    if ($otherAnswer.next_question.ordinal -ne 3) { throw 'Second client did not advance to question 3' }
+}
 TapText '3/6'
 TapText 'Submit answer'
 TextNode 'Question 3 of 3' | Out-Null
+if ($VerifyStaleSubmission) {
+    $afterStale = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
+    if ($afterStale.state_token -ne $otherAnswer.state_token -or $afterStale.status -ne 'diagnostic') { throw 'Stale Android answer changed server state' }
+    Adb shell screencap -p /sdcard/qa-mastery-stale.png | Out-Null
+    Adb pull /sdcard/qa-mastery-stale.png (Join-Path $repo 'artifacts\qa-mastery-stale.png') | Out-Null
+    RestartApp
+    TextNode 'Question 3 of 3' | Out-Null
+    Write-Output 'PASS: stale Android Q2 submission recovers Q3 without mutation and survives restart'
+}
 TapText '4/8'
 TapText 'Submit answer'
 TextNode 'Concept mastered' | Out-Null

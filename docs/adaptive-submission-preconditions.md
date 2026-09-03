@@ -30,6 +30,38 @@ three concurrent-submission tests now send preconditions as well.
 Limitations: this is conditional mutation, not idempotent response replay. Legacy
 requests without a token remain accepted and lack delayed-retry protection.
 Mandatory enforcement needs a coordinated client/QA-script migration. A real
-Android lost-response/stale-screen test and account-switch test remain pending.
+Android network-response-loss test and account-switch test remain pending.
 No physical-device, UAT or production completion is claimed. No live AI calls
 or credential changes were made in this slice.
+
+## Android stale-screen verification
+
+On 2026-09-03, ran:
+
+```powershell
+.\scripts\qa-mastery-resume.ps1 -ResetTestAppData -ExpectRubricFeedback -VerifyWeeklyReport -VerifyStaleSubmission
+```
+
+Passed on the dedicated LearnSmart_API36 emulator with the updated debug APK
+and refreshed localhost scripted QA backend. Only disposable test-app data was
+reset; the test created a new synthetic account. Scripted grading is not evidence
+of live AI quality.
+
+The app submitted the initial wrong answer, restored its tutor after force stop,
+completed practice and rewrite, and restored question 2 with rubric feedback.
+The script then answered question 2 through a second authenticated API client,
+using the current state token, while Android still displayed question 2.
+Android's stale submission produced an actual HTTP 409 in the server log,
+followed by its automatic GET resume. The app showed question 3 without an error
+dialog or an additional attempt; the server token remained equal to the second
+client's resulting token. Another force stop restored question 3 correctly.
+
+The screenshot `artifacts/qa-mastery-stale.png` was inspected: question 3, its
+four choices and the saved rubric feedback were readable; no option was selected.
+The script then completed question 3 and verified 100% chapter progress.
+The weekly API report contained exactly five learning responses and one unique
+mastered chapter, with the uncalibrated-readiness disclosure visible in Android.
+
+This proves the tested diagnostic stale-screen/409 recovery path, not dropped
+response bytes, repeated practice/rewrite recovery on device, account switching,
+or legacy-client protection. Those cases remain distinct QA work.

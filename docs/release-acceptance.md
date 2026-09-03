@@ -273,3 +273,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   guard. Backend 92 tests and Android build/lint/40 JVM tests passed. Legacy clients remain compatible
   but unprotected against delayed retries; mandatory migration and Android
   lost-response device QA remain open. See `adaptive-submission-preconditions.md`.
+- API 36 device QA now verifies adaptive stale-screen recovery: a second client
+  advances question 2, Android receives an actual 409 and restores question 3
+  without mutation, then preserves it across restart. Full remediation/completion
+  and a weekly total of five responses/one chapter passed; screenshot inspected.
+  Actual network-response loss, practice/rewrite device conflicts, account switch
+  and legacy-client enforcement remain open. See `adaptive-submission-preconditions.md`.
