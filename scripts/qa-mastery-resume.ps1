@@ -1,7 +1,8 @@
 param(
     [string]$Serial = 'emulator-5554',
     [switch]$ResetTestAppData,
-    [switch]$ExpectRubricFeedback
+    [switch]$ExpectRubricFeedback,
+    [switch]$VerifyDeletedSession
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -58,7 +59,8 @@ Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.a
 Adb shell pm clear $package | Out-Null
 RestartApp
 TapText 'New student? Create a private account'
-EnterField 0 ("resume-" + [Guid]::NewGuid().ToString('N') + '@example.com')
+$qaEmail = "resume-" + [Guid]::NewGuid().ToString('N') + '@example.com'
+EnterField 0 $qaEmail
 EnterField 1 'qa-password-long-enough'
 TapText 'Create account'
 TapText "Grade`n8"
@@ -109,3 +111,26 @@ TextNode '100%' | Out-Null
 Adb shell screencap -p /sdcard/qa-mastery-progress.png | Out-Null
 Adb pull /sdcard/qa-mastery-progress.png (Join-Path $repo 'artifacts\qa-mastery-progress.png') | Out-Null
 Write-Output 'PASS: all questions are completed before mastery; chapter progress is 100% from backend evidence'
+if ($VerifyDeletedSession) {
+    # Delete only this run's disposable account via the public API. Never print its token.
+    $loginBody = @{ email = $qaEmail; password = 'qa-password-long-enough' } | ConvertTo-Json
+    $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body $loginBody
+    Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers @{Authorization = "Bearer $($login.access_token)"} | Out-Null
+    TapText '‹ All subjects'
+    TapText 'View parent & teacher progress'
+    TextNode 'Your session has expired or is no longer valid. Please sign in again.' | Out-Null
+    TapText 'Try again'
+    TextNode 'Sign in' | Out-Null
+    [xml]$afterExpiry = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $remainingNames = @($afterExpiry.map.ChildNodes | ForEach-Object { $_.name })
+    if ($remainingNames -contains 'token' -or $remainingNames -contains 'session_ciphertext') { throw 'Invalid session credentials remained on disk' }
+    RestartApp
+    TextNode 'Sign in' | Out-Null
+    EnterField 0 $qaEmail
+    EnterField 1 'qa-password-long-enough'
+    TapText 'Sign in'
+    TextNode 'Email or password is incorrect. Please try again.' | Out-Null
+    TapText 'Try again'
+    TextNode 'Sign in' | Out-Null
+    Write-Output 'PASS: deleted-account 401 returns to sign-in, clears tokens across restart, and rejects invalid login safely'
+}

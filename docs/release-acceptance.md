@@ -35,7 +35,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
-| SEC-02 | Production hardening | Missing | HTTPS-only release, secrets, abuse/rate/cost limits, logs without sensitive content, backup/restore |
+| SEC-02 | Production hardening | Partial | HTTPS-only release guard implemented; production secrets, abuse/rate/cost limits, logs without sensitive content, backup/restore still need verification |
 | UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading adaptation pinned/licensed/tested; remaining relevant upstream capabilities still need separate evidence |
 | QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
@@ -58,7 +58,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 ## Decisions needed (not blockers for local engineering)
 
 - Curriculum, country/education board and authoritative materials.
-- Production hosting/domain and private APK versus Google Play distribution.
+- Production hosting/domain (private APK distribution is confirmed).
 - Google OAuth project configuration and release signing ownership.
 - Parent/teacher access and consent model; retention policy for student material.
 - Monthly infrastructure/provider budget and acceptable usage limits.
@@ -128,3 +128,14 @@ feature to UAT accepted or production verified. All release gates below remain o
   after process death, with no plaintext token preference. Missing and HTTP release
   endpoints were rejected. See `android-session-security.md` for coverage limits;
   this is not a signed production APK, security certification or UAT sign-off.
+- Authentication recovery: authenticated 401 resets visible learner state and
+  clears saved credentials; login 401 stays on sign-in. Server error bodies are
+  no longer displayed, redirects are disabled, and connections are closed.
+  Backend 42 tests and Android build/lint/14 JVM tests passed. Expired-token API
+  regression proves denied read/mutation/deletion and unchanged tutor state on
+  reauthentication. See `authentication-recovery.md` for device scope and gaps.
+- API 36 emulator QA passed the full scripted learning flow plus external deletion
+  of its disposable account: authenticated progress request returned 401, Android
+  showed the safe sign-in message, tokens were absent from saved preferences,
+  restart stayed signed out, and invalid login displayed the credential message.
+  This tests deleted-account invalidation, not timed expiry on a real device.

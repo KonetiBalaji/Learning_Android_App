@@ -7,6 +7,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -246,9 +248,34 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun startAnotherDocument() { mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, quizId = null, results = null) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
+    private var operationInFlight = false
     private fun perform(destination: Screen?, block: suspend () -> Unit) = viewModelScope.launch {
+        if (operationInFlight) return@launch
+        operationInFlight = true
         mutableState.value = mutableState.value.copy(loading = true, error = null)
-        runCatching { withContext(Dispatchers.IO) { block() } }.onSuccess { mutableState.value = mutableState.value.copy(screen = destination ?: mutableState.value.screen, loading = false) }.onFailure { mutableState.value = mutableState.value.copy(loading = false, error = it.message ?: "Something went wrong. Please try again.") }
+        try {
+            withContext(Dispatchers.IO) { block() }
+            mutableState.value = mutableState.value.copy(screen = destination ?: mutableState.value.screen, loading = false)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (failure is ApiFailure && failure.sessionExpired) {
+                api.signOut()
+                val cleared = withContext(Dispatchers.IO) { runCatching { tokenStore.clear() } }.isSuccess
+                // Keep account-scoped resume pointers. Reauthentication can restore server progress.
+                mutableState.value = AppUiState(darkMode = mutableState.value.darkMode,
+                    error = if (cleared) failure.message else "Your session is invalid. Saved credentials could not be cleared. Please sign in again.")
+            } else {
+                val message = when (failure) {
+                    is ApiFailure -> failure.message
+                    is IOException -> "Could not reach the learning service. Check your connection and try again."
+                    else -> "Something went wrong. Please try again."
+                }
+                mutableState.value = mutableState.value.copy(loading = false, error = message)
+            }
+        } finally {
+            operationInFlight = false
+        }
     }
 }
 
@@ -264,8 +291,10 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun upload(resolver: ContentResolver, uri: Uri): StudyDocument {
         val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> cursor.moveToFirst(); cursor.getString(cursor.getColumnIndexOrThrow(android.provider.OpenableColumns.DISPLAY_NAME)) } ?: "study-material.txt"
         val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: error("The selected file could not be read"); val boundary = "Learnly-${UUID.randomUUID()}"; val connection = connection("POST", "/v1/documents", "multipart/form-data; boundary=$boundary")
-        BufferedOutputStream(connection.outputStream).use { output -> output.write("--$boundary\r\n".toByteArray()); output.write("Content-Disposition: form-data; name=\"file\"; filename=\"${name.replace("\"", "")}\"\r\n".toByteArray()); output.write("Content-Type: ${resolver.getType(uri) ?: "application/octet-stream"}\r\n\r\n".toByteArray()); output.write(bytes); output.write("\r\n--$boundary--\r\n".toByteArray()) }
-        return document(readJson(connection))
+        try {
+            BufferedOutputStream(connection.outputStream).use { output -> output.write("--$boundary\r\n".toByteArray()); output.write("Content-Disposition: form-data; name=\"file\"; filename=\"${name.replace("\"", "")}\"\r\n".toByteArray()); output.write("Content-Type: ${resolver.getType(uri) ?: "application/octet-stream"}\r\n\r\n".toByteArray()); output.write(bytes); output.write("\r\n--$boundary--\r\n".toByteArray()) }
+            return document(readJson(connection))
+        } finally { connection.disconnect() }
     }
     fun createQuiz(documentId: String, chapterId: String): Pair<String, QuizQuestion> { val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray().put(chapterId)).put("question_count", 10).toString()); return response.getString("id") to question(response.getJSONObject("first_question")) }
     fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)) }
@@ -313,10 +342,16 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     }
     fun weeklyReport(grade: Int): ProgressSnapshot { val response = request("GET", "/v1/progress/weekly-report?grade=$grade", null); return ProgressSnapshot(emptyMap(), response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), response.getInt("questions_answered"), (response.getDouble("accuracy") * 100).toInt(), response.getInt("mastered_chapters"), response.getDouble("estimated_exam_readiness").toInt(), response.getString("readiness_label").replace('_', ' ').replaceFirstChar(Char::uppercase)) }
     fun progressWithWeekly(grade: Int): ProgressSnapshot { val dashboard = progressDashboard(grade); val weekly = weeklyReport(grade); return dashboard.copy(questionsAnswered = weekly.questionsAnswered, accuracy = weekly.accuracy, masteredChapters = weekly.masteredChapters, examReadiness = weekly.examReadiness, readinessLabel = weekly.readinessLabel, weakAreas = weekly.weakAreas.ifEmpty { dashboard.weakAreas }, recommendations = weekly.recommendations.ifEmpty { dashboard.recommendations }) }
-    private fun request(method: String, path: String, body: String?): JSONObject { val connection = connection(method, path, "application/json"); if (body != null) connection.outputStream.use { it.write(body.toByteArray()) }; return readJson(connection) }
-    private fun requestNoContent(method: String, path: String) { val response = connection(method, path, "application/json"); val status = response.responseCode; if (status !in 200..299) throw IllegalStateException("Request failed ($status)") }
-    private fun connection(method: String, path: String, contentType: String): HttpURLConnection = (URL(baseUrl + path).openConnection() as HttpURLConnection).apply { requestMethod = method; connectTimeout = 15_000; readTimeout = 30_000; doInput = true; setRequestProperty("Content-Type", contentType); token?.let { setRequestProperty("Authorization", "Bearer $it") }; if (method == "POST" || method == "PUT" || method == "PATCH") doOutput = true }
-    private fun readJson(connection: HttpURLConnection): JSONObject { val status = connection.responseCode; val text = (if (status in 200..299) connection.inputStream else connection.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty(); if (status !in 200..299) throw IllegalStateException(JSONObject(text.ifBlank { "{}" }).optString("detail", "Request failed ($status)")); return JSONObject(text) }
+    private fun request(method: String, path: String, body: String?): JSONObject {
+        val connection = connection(method, path, "application/json")
+        try {
+            if (body != null) connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            return readJson(connection, path.startsWith("/v1/auth/"))
+        } finally { connection.disconnect() }
+    }
+    private fun requestNoContent(method: String, path: String) { readApiResponse(connection(method, path, "application/json")) }
+    private fun connection(method: String, path: String, contentType: String): HttpURLConnection = (URL(baseUrl + path).openConnection() as HttpURLConnection).apply { requestMethod = method; instanceFollowRedirects = false; connectTimeout = 15_000; readTimeout = 30_000; doInput = true; setRequestProperty("Content-Type", contentType); token?.let { setRequestProperty("Authorization", "Bearer $it") }; if (method == "POST" || method == "PUT" || method == "PATCH") doOutput = true }
+    private fun readJson(connection: HttpURLConnection, authenticationRequest: Boolean = false): JSONObject = JSONObject(readApiResponse(connection, authenticationRequest))
     private fun document(value: JSONObject) = StudyDocument(value.getString("id"), value.getString("original_name"), value.getJSONArray("chapters").let { array -> (0 until array.length()).map { index -> array.getJSONObject(index).let { Chapter(it.getString("id"), it.getString("title"), it.getDouble("confidence").toFloat()) } } })
     private fun question(value: JSONObject) = QuizQuestion(value.getString("id"), value.getInt("ordinal"), value.getString("prompt"), value.getJSONArray("options").let { array -> (0 until array.length()).map(array::getString) }, value.getString("source_reference"))
     private fun adaptiveQuestion(value: JSONObject) = DiagnosticQuestion(value.getString("prompt"), value.getJSONArray("options").strings(), "")
