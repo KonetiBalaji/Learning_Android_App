@@ -88,6 +88,12 @@ the supplied lesson, not verified factual confidence. Failure returns no raw
 provider error or partial response. No grade, assessment attempt, mastery score,
 unlock or coaching round is changed by conversation.
 
+Unsupported replies use a server-owned recovery message tied to **Back to lesson**,
+not free-form model instructions that could invent upload or assessment features.
+Supported replies remain model-generated. This policy applies to new replies and
+history presentation/context without rewriting older rows. See
+`docs/tutor-conversation-live-smoke.md` for the live evidence and limitations.
+
 ## Persistence and retries
 
 An atomic database reservation precedes provider work. Reusing an ID with the same

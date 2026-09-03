@@ -115,6 +115,8 @@ def test_provider_receives_only_current_lesson_not_assessment_keys():
     payload = json.loads(captured[0]['input'])
     assert set(payload['lesson']) == {'concept', 'explanation', 'worked_example', 'hint'}
     assert captured[0]['store'] is False and not result.supported
+    assert 'chat has no attachment or lesson-import feature' in captured[0]['instructions']
+    assert 'chatting does not change progress' in captured[0]['instructions']
 
 
 def test_pending_request_prevents_concurrent_provider_work(lesson, monkeypatch):
@@ -147,3 +149,21 @@ def test_invalid_provider_answer_never_persists_as_complete(lesson, monkeypatch,
     monkeypatch.setattr('app.main.tutor_provider', lambda settings: SimpleNamespace(answer_question=lambda *args: reply))
     result, _ = ask(client, headers, path, token)
     assert result.json()['status'] == 'failed' and result.json()['reply'] is None
+
+
+def test_unsupported_reply_uses_real_navigation_not_provider_instructions(lesson, monkeypatch):
+    client, headers, path, token, calls = lesson
+    monkeypatch.setattr('app.main.tutor_provider', lambda settings: SimpleNamespace(answer_question=lambda *args:
+        {'answer': 'Upload another lesson here; all chapters unlocked.', 'supported': False}))
+    result, _ = ask(client, headers, path, token)
+    reply = result.json()['reply']
+    assert reply['supported'] is False
+    assert 'Back to lesson' in reply['answer']
+    assert 'does not change scores or unlock chapters' in reply['answer']
+    assert 'Upload' not in reply['answer']
+    assert client.get(path + '/tutor-questions', headers=headers).json()[0]['reply'] == reply
+    # Existing pre-repair rows are normalized for display without a destructive migration.
+    with connection(get_settings().database_path) as db:
+        db.execute('UPDATE tutor_turns SET reply_json = ?', (json.dumps({
+            'answer': 'Upload another lesson here.', 'supported': False}),))
+    assert client.get(path + '/tutor-questions', headers=headers).json()[0]['reply'] == reply

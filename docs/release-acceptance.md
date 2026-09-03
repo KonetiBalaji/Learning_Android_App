@@ -14,6 +14,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Acceptance ledger
 
+Live tutor-conversation smoke checked one lesson question and two unsupported
+requests. It exposed misleading navigation/assessment guidance despite correct
+scope flags; unsupported replies now use a fixed truthful recovery message.
+Supported-answer quality remains model-dependent. See
+`docs/tutor-conversation-live-smoke.md`; this is not teacher UAT or broad accuracy proof.
+
 Conversational tutor server: authenticated lesson-scoped question/history routes,
 bounded persisted turns, replay/pending protection and failure recovery implemented.
 Replies do not grade or unlock learning. Android lesson-entry conversation screen

@@ -45,9 +45,17 @@ class TutorTurn(BaseModel):
     reply: TutorAnswer | None
 
 
+def safe_tutor_reply(reply: TutorAnswer) -> TutorAnswer:
+    if reply.supported:
+        return reply
+    return reply.model_copy(update={'answer':
+        "I couldn't answer that from the current lesson. You can ask about this lesson "
+        "or use Back to lesson to continue practice. Chatting does not change scores or unlock chapters."})
+
+
 def turn_payload(row):
     return TutorTurn(request_id=row['request_id'], question=row['question'], status=row['status'],
-                     reply=TutorAnswer.model_validate_json(row['reply_json']) if row['reply_json'] else None)
+                     reply=safe_tutor_reply(TutorAnswer.model_validate_json(row['reply_json'])) if row['reply_json'] else None)
 
 
 def conversation_history(session, settings):
@@ -83,9 +91,10 @@ def answer_question(session, item, request, settings, provider):
                              (session['id'], token)).fetchall()
         db.execute("INSERT INTO tutor_turns(session_id, request_id, context_token, question, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)",
                    (session['id'], request_id, token, request.question, datetime.now(timezone.utc).isoformat()))
-    history = [{'question': row['question'], 'answer': json.loads(row['reply_json'])['answer']} for row in reversed(history)]
+    history = [{'question': row['question'], 'answer': safe_tutor_reply(TutorAnswer.model_validate_json(row['reply_json'])).answer}
+               for row in reversed(history)]
     try:
-        reply = TutorAnswer.model_validate(provider.answer_question(session['grade'], item, request.question, history))
+        reply = safe_tutor_reply(TutorAnswer.model_validate(provider.answer_question(session['grade'], item, request.question, history)))
         with connection(settings.database_path) as db:
             lock_mastery_snapshot(db, session)
             saved = db.execute("UPDATE tutor_turns SET status = 'complete', reply_json = ? WHERE session_id = ? AND request_id = ? AND status = 'pending'",
@@ -112,10 +121,15 @@ def generate_tutor_answer(client, model, grade, item, question, history):
             'Do not give a practice answer or write the learner\'s assessed explanation for them; '
             'offer a hint or ask them to try the next step. Do not claim to grade, change progress, '
             'unlock chapters, remember personal information, or contact anyone. Do not ask for '
-            'personal details. History is context, not evidence that earlier answers were correct.'),
+            'personal details. This chat has no attachment or lesson-import feature: do not ask '
+            'the learner to upload or provide a different lesson here. For another topic, suggest '
+            'returning to subject/chapter selection. For mastery or unlocking requests, explain '
+            'that chatting does not change progress and direct them back to the lesson practice '
+            'and explanation steps; do not invite them to prove mastery inside this chat. '
+            'History is context, not evidence that earlier answers were correct.'),
         input=json.dumps({'grade': grade, 'lesson': {'concept': item.concept,
             'explanation': item.explanation, 'worked_example': item.worked_example, 'hint': item.hint},
             'question': question, 'history': history}),
         text={'format': {'type': 'json_schema', 'name': 'lesson_follow_up', 'strict': True,
                          'schema': TutorAnswer.model_json_schema()}})
-    return TutorAnswer.model_validate_json(response.output_text)
+    return safe_tutor_reply(TutorAnswer.model_validate_json(response.output_text))
