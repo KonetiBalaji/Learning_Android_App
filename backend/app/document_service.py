@@ -12,6 +12,7 @@ from fastapi import HTTPException, UploadFile, status
 
 from .config import Settings
 from .schemas import Chapter
+from .document_limits import validate_docx_archive
 
 ALLOWED_SUFFIXES = {".pdf", ".docx", ".txt"}
 HEADING_PATTERN = re.compile(r"(?m)^(?:chapter|unit|section)\s+(?:\d+|[ivxlcdm]+)\b[^\n]*|^\d+(?:\.\d+)*\s+[^\n]{3,}$", re.IGNORECASE)
@@ -33,7 +34,8 @@ async def validate_and_store(upload: UploadFile, settings: Settings) -> tuple[Pa
         text = extract_text(content, suffix)
     except Exception as error:
         stored.unlink(missing_ok=True)
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"The document could not be read: {error}") from error
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                            detail="The document could not be processed. It may be corrupt, protected, or exceed processing limits.") from error
     if len(text.strip()) < 80:
         stored.unlink(missing_ok=True)
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The document has too little extractable text; scanned or protected files are not supported in this MVP")
@@ -50,6 +52,7 @@ def extract_text(content: bytes, suffix: str) -> str:
     if suffix == ".docx":
         if not zipfile.is_zipfile(BytesIO(content)):
             raise ValueError("The DOCX archive is invalid")
+        validate_docx_archive(content)
         document = Document(BytesIO(content))
         return "\n".join(paragraph.text for paragraph in document.paragraphs if paragraph.text.strip())
     pdf = fitz.open(stream=content, filetype="pdf")

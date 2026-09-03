@@ -155,3 +155,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   headers. Android build/lint/19 JVM tests and backend 45 tests passed. Streamed
   incomplete multipart was rejected without stored documents; complete multipart
   succeeded. Device provider and proxy checks remain; see `document-upload-safety.md`.
+- DOCX extraction now has archive entry/expanded-size/ratio/path/compression
+  admission checks and bounded CRC verification before parsing. Parser details
+  are not returned to clients. Backend **58 tests passed**, including ordinary
+  DOCX acceptance and rejected-upload cleanup. Worker isolation and PDF resource
+  limits remain; see `document-processing-limits.md`.
