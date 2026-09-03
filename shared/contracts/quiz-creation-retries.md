@@ -50,6 +50,24 @@ needs improvement; it must not silently discard uncertain server work.
 
 Build/lint/58 JVM tests passed for Android, including identity reconstruction,
 chapter-order stability, changed settings, write failure and corrupt identity.
-These tests do not simulate an actual post-commit network loss or process death.
-Remaining: device lost-response injection, account-switch verification, in-progress
-generation coordination, and deployment verification.
+These unit tests do not simulate an actual post-commit network loss or process death.
+
+## API 36 post-commit HTTP failure verification
+
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyCreationRetry -VerifyLibrary`
+passed against the isolated deterministic QA server. The explicitly installed QA
+middleware replaces one successful creation response with HTTP 503 after endpoint
+commit. Owner-checked QA observation confirms one saved quiz before retry.
+Android retains the pending ID without accepting a quiz pointer, restores the
+same identity after force-stop/restart, retries and opens that same server quiz.
+The server still contains exactly one quiz, and Android removes the pending ID
+after accepting recovery. Further question restart/conflict, completed results
+and library reopening passed; remaining answers used API fixtures rather than
+Android taps. `artifacts/qa-creation-retry.png` was visually inspected.
+
+158 backend tests passed; the QA fault test passed again after an additional
+unauthorized observation assertion. No live AI calls were made. QA routes are
+not installed by normal application startup. This is HTTP response substitution,
+not a TCP disconnect, partial response or kill-during-write simulation.
+Remaining: real network-loss/partial-body cases, account-switch verification,
+in-progress generation coordination and deployment verification.

@@ -1,4 +1,4 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
@@ -161,6 +161,25 @@ if ($VerifyQuestionType) {
     TapText 'Multiple choice'
 }
 if ($BinaryFixtureType) { TapText $formatLabel }
+if ($VerifyCreationRetry) {
+    $creationAudit = "http://127.0.0.1:8000/__qa/documents/$($document.id)/created-quizzes"
+    if (@((Invoke-RestMethod $creationAudit -Headers $headers).quiz_ids).Count -ne 0) { throw 'Expected no quiz before creation fault test' }
+    Invoke-RestMethod "http://127.0.0.1:8000/__qa/documents/$($document.id)/fail-next-creation-response" -Method Post -Headers $headers | Out-Null
+    TapText "Generate $expectedCount questions"
+    TextNode 'The learning service is temporarily unavailable. Please try again.' | Out-Null
+    [xml]$failedCreationPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $pendingCreation = ($failedCreationPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText
+    if (-not $pendingCreation -or $pendingCreation -notmatch '^[0-9a-f-]{36}\|[0-9a-f]{64}$') { throw 'Creation request identity was not persisted' }
+    if ($failedCreationPreferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail") { throw 'Failed response was prematurely accepted' }
+    $committedIds = @((Invoke-RestMethod $creationAudit -Headers $headers).quiz_ids)
+    if ($committedIds.Count -ne 1) { throw 'Expected exactly one committed quiz behind failed response' }
+    $committedQuizId = $committedIds[0]
+    RestartApp
+    TextNode 'Choose chapters' | Out-Null
+    [xml]$restoredCreationPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if (($restoredCreationPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText -ne $pendingCreation) { throw 'Creation identity changed across restart' }
+    Write-Output 'PASS: committed creation returns 503; pending identity survives restart without accepting the failed response'
+}
 TapText "Generate $expectedCount questions"
 TextNode "QUESTION 1 OF $expectedCount" | Out-Null
 RestartApp
@@ -168,6 +187,15 @@ TextNode "QUESTION 1 OF $expectedCount" | Out-Null
 [xml]$preferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
 $quizId = ($preferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail").InnerText
 if (-not $quizId) { throw 'Quiz pointer is missing' }
+if ($VerifyCreationRetry) {
+    if ($quizId -ne $committedQuizId) { throw 'Creation retry opened a different quiz' }
+    if ($preferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail") { throw 'Accepted quiz retained pending identity' }
+    $afterRetryIds = @((Invoke-RestMethod $creationAudit -Headers $headers).quiz_ids)
+    if ($afterRetryIds.Count -ne 1 -or $afterRetryIds[0] -ne $quizId) { throw 'Creation retry duplicated the saved quiz' }
+    Adb shell screencap -p /sdcard/qa-creation-retry.png | Out-Null
+    Adb pull /sdcard/qa-creation-retry.png (Join-Path $repo 'artifacts\qa-creation-retry.png') | Out-Null
+    Write-Output 'PASS: retry resumes the original quiz; exactly one server quiz exists and pending identity is cleared'
+}
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
 $quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers

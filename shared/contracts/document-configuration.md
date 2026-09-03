@@ -4,7 +4,8 @@
 default 10) and optional `difficulty`: `easy`, `medium`, `hard`, `mixed`, or null.
 Optional `request_id` enables committed creation retry deduplication; see
 `quiz-creation-retries.md`. Android persists and sends request IDs, then fetches
-saved state before accepting creation. Lost-response device QA remains pending.
+saved state before accepting creation. Device QA passes a post-commit HTTP 503
+plus restart/retry with exactly one server quiz. Real transport-loss QA remains open.
 Unknown difficulty strings return 422. Omission/null preserves legacy behavior.
 Creation and `GET /v1/quizzes/{id}` return the saved requested difficulty.
 Existing quizzes migrate to null, meaning unspecified, not inferred Easy.

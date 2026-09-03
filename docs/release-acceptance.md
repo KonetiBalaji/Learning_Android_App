@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: API 36 creation-retry QA passed: one quiz commits behind an
+  injected HTTP 503, Android preserves the request ID across restart, and retry
+  opens the same quiz with no duplicate. Pending identity clears only after
+  recovery; downstream conflict/results/library checks pass. Screenshot inspected.
+  Backend 158 tests passed. This is not TCP-loss simulation; no live calls.
+  See `quiz-creation-retries.md` for remaining transport/deployment work.
 - 2026-09-03: Android now durably saves a creation UUID before POST, reuses it
   for unchanged pending settings, and GETs authoritative state before accepting
   the quiz and clearing the pending identity. Build/lint/58 JVM tests passed.
