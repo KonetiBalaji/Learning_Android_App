@@ -6,6 +6,8 @@ import java.io.OutputStream
 const val MAX_DOCUMENT_BYTES = 50L * 1024 * 1024
 class DocumentUploadException(message: String) : Exception(message)
 
+fun uncertainUploadFailure() = DocumentUploadException("Upload could not be confirmed. Check My uploaded documents before trying again; the file may already be saved.")
+
 fun validateDocumentSize(size: Long?) {
     if (size != null && size > MAX_DOCUMENT_BYTES) throw DocumentUploadException("The selected file is too large. Choose a file up to 50 MB.")
     if (size == 0L) throw DocumentUploadException("The selected file is empty. Choose a document with learning material.")

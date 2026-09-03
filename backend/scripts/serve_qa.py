@@ -18,9 +18,12 @@ def main():
     parser.add_argument("--qa-only", action="store_true")
     parser.add_argument("--binary-fixtures", action="store_true")
     parser.add_argument("--upload-response-delay", type=int, choices=range(0, 21), default=0)
+    parser.add_argument("--fail-saved-upload-response", action="store_true")
     args = parser.parse_args()
     if not args.qa_only:
         parser.error("This scripted evaluator is only for QA; supply --qa-only")
+    if args.fail_saved_upload_response and not args.upload_response_delay:
+        parser.error("Upload response fault requires --upload-response-delay")
     os.environ["LEARNING_AI_MODE"] = "openai" if args.binary_fixtures else "deterministic"
     os.environ["LEARNING_RUNTIME_DIR"] = str(Path(__file__).resolve().parents[2] / "artifacts" / "qa-scripted-runtime")
     os.environ["LEARNING_JWT_SECRET"] = secrets.token_hex(32)
@@ -47,7 +50,7 @@ def main():
     install_response_fault(api.app)
     if args.upload_response_delay:
         from scripts.qa_upload_delay import install_upload_delay
-        install_upload_delay(api.app, args.upload_response_delay)
+        install_upload_delay(api.app, args.upload_response_delay, args.fail_saved_upload_response)
     uvicorn.run(api.app, host="127.0.0.1", port=8000)
 
 

@@ -67,6 +67,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Baseline evidence and known defects
 
+- Uncertain upload responses now direct learners to the library before retrying.
+  API 36 QA injected a 503 after the file was saved, verified overlay removal,
+  readable recovery copy, library reopening and a single saved document with no
+  automatic replay. Android build/lint and 110 JVM tests passed; backend suite:
+  288 passed, 1 existing Windows skip. Real network-loss/process-death paths and
+  server upload idempotency remain open; see `docs/upload-progress.md`.
+
 - Added Android byte-based upload progress and a distinct server-analysis wait
   phase, with unknown/incorrect-size handling and failure cleanup. Build/lint and
   109 JVM tests passed on 2026-09-03. Follow-up API 36 real-picker QA verified

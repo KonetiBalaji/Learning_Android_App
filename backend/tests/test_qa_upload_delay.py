@@ -30,3 +30,24 @@ def test_production_does_not_install_delay():
     for value in [0, -1, 21]:
         with pytest.raises(ValueError):
             install_upload_delay(FastAPI(), value)
+
+
+def test_failure_happens_after_save_and_keeps_rejected_upload_unchanged(monkeypatch):
+    app = FastAPI()
+    saved = []
+    async def sleep(seconds):
+        pass
+    monkeypatch.setattr('scripts.qa_upload_delay.asyncio.sleep', sleep)
+    @app.post('/v1/documents', status_code=201)
+    def upload(reject: bool = False):
+        if reject:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({'detail': 'rejected'}, status_code=422)
+        saved.append('document')
+        return {'id': 'document'}
+    install_upload_delay(app, 1, True)
+    with TestClient(app) as client:
+        assert client.post('/v1/documents').status_code == 503
+        assert saved == ['document']
+        assert client.post('/v1/documents?reject=true').status_code == 422
+        assert saved == ['document']

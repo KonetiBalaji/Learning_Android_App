@@ -1,8 +1,9 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
+if ($VerifySavedUploadFailure) { $VerifyUploadProgress = $true }
 if ($VerifyUploadProgress -and ($VerifyLibrary -or $VerifyMultiChapter -or $VerifyQuestionCount -or $VerifyDifficulty -or $VerifyQuestionType -or $BinaryFixtureType -or $VerifyCreationRetry -or $VerifyStructureRepair -or $VerifyPreview -or $VerifyExcerpts -or $VerifySourceSearch -or $VerifyPdfPages)) { throw 'Upload progress QA is a standalone check' }
 if ($VerifySourceSearch) { $VerifyExcerpts = $true }
 $fixtureName = if ($VerifyPdfPages) { 'page-boundary-fixture.pdf' } elseif ($VerifyPreview -or $VerifyExcerpts) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
@@ -101,13 +102,27 @@ if ($VerifyUploadProgress) {
     Adb pull /sdcard/qa-upload-analysis-wait.png (Join-Path $repo 'artifacts\qa-upload-analysis-wait.png') | Out-Null
     Start-Sleep -Seconds 20
 }
+if ($VerifySavedUploadFailure) {
+    TextNode 'Upload could not be confirmed. Check My uploaded documents before trying again; the file may already be saved.' | Out-Null
+    if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Waiting for document analysis…') { throw 'Wait overlay remained behind upload error' }
+    Adb shell screencap -p /sdcard/qa-upload-uncertain-error.png | Out-Null
+    Adb pull /sdcard/qa-upload-uncertain-error.png (Join-Path $repo 'artifacts\qa-upload-uncertain-error.png') | Out-Null
+    TapText 'Try again'
+    TapText 'My uploaded documents'
+    TapText "Open $fixtureName"
+    # Check saved server count: dismissing the message must not replay the upload.
+    $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+    $saved = @(Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers @{Authorization="Bearer $($login.access_token)"})
+    if ($saved.Count -ne 1) { throw 'Uncertain response created duplicate or missing documents' }
+}
 TapText 'Entire document'
 TextNode '2 of 2 chapters selected' | Out-Null
 if ($VerifyUploadProgress) {
     if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Waiting for document analysis…') { throw 'Upload wait remained after success' }
     Adb shell screencap -p /sdcard/qa-upload-analysis-complete.png | Out-Null
     Adb pull /sdcard/qa-upload-analysis-complete.png (Join-Path $repo 'artifacts\qa-upload-analysis-complete.png') | Out-Null
-    Write-Output 'PASS: real picker upload shows analysis-wait copy during delayed response, then clears it and opens selectable chapters. Not transfer percentage or failure QA.'
+    if ($VerifySavedUploadFailure) { Write-Output 'PASS: saved-upload 503 clears wait, shows library-first recovery, and opens the single saved document without reupload.' }
+    else { Write-Output 'PASS: real picker upload shows analysis-wait copy during delayed response, then clears it and opens selectable chapters. Not transfer percentage or failure QA.' }
     return
 }
 RestartApp

@@ -54,3 +54,32 @@ passed **287 tests, 1 existing Windows symlink-privilege skip**, with the existi
 Starlette/httpx warning. The QA server was returned to its normal no-delay mode
 after the device run. As usual, restarting this disposable runner rotates its
 session secret; subsequent device tests must reauthenticate their synthetic user.
+
+## Uncertain upload responses
+
+Upload HTTP 5xx, transport exceptions and malformed JSON now produce a
+client-owned message directing the learner to **My uploaded documents before
+retrying**, because the server may have saved the file. Existing 4xx session and
+validation handling remains intact. Progress still clears in `finally`; no upload
+is automatically replayed. This is recovery guidance, not upload idempotency.
+The existing error dialog's "Try again" control dismisses the message only.
+
+The opted-in QA runner supports `--fail-saved-upload-response` together with
+`--upload-response-delay 20`. It substitutes 503 only after a 201 upload response,
+leaving the committed document intact; validation failures keep their original
+status. Production does not install this fixture. A unit test verifies the save
+occurs before the substituted failure. Android build/lint and 110 JVM tests passed;
+the full backend suite passed 288 tests with one existing Windows privilege skip
+and the existing Starlette/httpx warning on 2026-09-03.
+
+The dedicated API 36 emulator passed `-ResetTestAppData -VerifySavedUploadFailure`
+using the actual picker and TXT fixture. It verified wait-overlay removal, the
+library-first error message, reopening the saved file and exactly one document
+in the synthetic user's server library. The screenshot
+`artifacts/qa-upload-uncertain-error.png` was visually inspected and is readable
+without clipping at the tested scale. An initial QA-script target used the filename
+label instead of its Open button; that run was stopped and not counted. The corrected
+run passed, recovering a transient null automation root via the existing retry.
+The server was restored to normal no-fault mode afterward. This proves the injected
+post-save 503 path, not real connection-loss/malformed-response recovery, cancellation,
+process death, automatic deduplication or user acceptance.

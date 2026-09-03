@@ -7,6 +7,11 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 class DocumentUploadTest {
+    @Test fun uncertainUploadDirectsToLibraryBeforeRetry() {
+        val message = uncertainUploadFailure().message!!
+        assertTrue(message.contains("Check My uploaded documents before trying again"))
+        assertTrue(message.contains("may already be saved"))
+    }
     @Test fun exactLimitIsAccepted() {
         val output = ByteArrayOutputStream()
         assertEquals(8L, copyDocument(ByteArrayInputStream(ByteArray(8) { 3 }), output, 8))

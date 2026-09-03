@@ -704,6 +704,13 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             } ?: throw DocumentUploadException("The selected file could not be read. Please select it again.")
             onProgress(DocumentUploadProgress(copied, knownSize, awaitingAnalysis = true))
             return document(readJson(connection))
+        } catch (failure: ApiFailure) {
+            if (failure.status >= 500) throw uncertainUploadFailure()
+            throw failure
+        } catch (_: IOException) {
+            throw uncertainUploadFailure()
+        } catch (_: org.json.JSONException) {
+            throw uncertainUploadFailure()
         } finally { connection.disconnect() }
     }
     fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
