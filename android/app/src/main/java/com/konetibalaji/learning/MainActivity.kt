@@ -124,7 +124,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters)
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
                         Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects)
@@ -495,11 +495,11 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit) {
     val document = state.document ?: return
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
-        Header("Study material", "Choose chapters", "Select one or more chapters from ${document.name} for a ten-question session.")
+        Header("Study material", "Choose chapters", "Select one or more chapters from ${document.name} and configure your quiz.")
         Row { TextButton(onClick = onAll, enabled = !state.loading) { Text("Entire document") }; TextButton(onClick = onClear, enabled = !state.loading) { Text("Clear selection") } }
         Text("${state.selectedChapterIds.size} of ${document.chapters.size} chapters selected")
         document.chapters.forEach { chapter ->
@@ -513,7 +513,14 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
             }
         }
         Text("Large selections may need to be split into smaller quizzes. Questions use only the selected chapters.")
-        PrimaryButton("Generate 10 questions", state.selectedChapterIds.isNotEmpty() && !state.loading, onCreate)
+        val count = validDocumentQuestionCount(state.documentQuestionCountInput)
+        Text("Number of questions")
+        Row { listOf(5, 10, 15, 20).forEach { preset -> TextButton(onClick = { onCount(preset.toString()) }, enabled = !state.loading) { Text(preset.toString()) } } }
+        OutlinedTextField(value = state.documentQuestionCountInput, onValueChange = onCount,
+            label = { Text("Custom count (5–20)") }, singleLine = true, enabled = !state.loading,
+            isError = count == null, modifier = Modifier.fillMaxWidth(),
+            supportingText = { Text(if (count == null) "Enter a whole number from 5 to 20." else "Default: 10. Saved for this account on this device.") })
+        PrimaryButton(if (count == null) "Generate quiz" else "Generate $count questions", state.selectedChapterIds.isNotEmpty() && count != null && !state.loading, onCreate)
     }
 }
 

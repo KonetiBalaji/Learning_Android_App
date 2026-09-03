@@ -33,6 +33,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, source-grounding checks, deletion, interrupted-flow recovery |
 | DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Backend chapter-set validation; Android multi-selection and persistence; page/section/topic retrieval boundaries and device QA |
+| DOC-03 | Question count, difficulty and question-type configuration | Partial | Preset/custom count device QA; easy/medium/hard/mixed difficulty; multiple-choice, true/false and yes/no generation, grading and recovery |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
@@ -81,6 +82,13 @@ feature to UAT accepted or production verified. All release gates below remain o
   upstream engines must not be described as imported.
 
 ## Work log
+
+- 2026-09-03: added saved Android 5/10/15/20/custom (5–20) question count controls
+  and removed the hard-coded request count. Invalid input prevents generation.
+  Deterministic generation now rejects insufficient material rather than returning
+  fewer questions. Backend 111 tests and Android build/lint/47 tests passed.
+  Device checks and difficulty/question-type support remain open; DOC-03 makes
+  the full original configuration scope explicit. See `document-quiz-configuration.md`.
 
 - 2026-09-03: API 36 multi-chapter generation QA passed. Both independently
   selected chapter IDs survived restart; Android generated ten questions whose

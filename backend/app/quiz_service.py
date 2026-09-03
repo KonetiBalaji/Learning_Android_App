@@ -57,6 +57,8 @@ def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids
                 source_reference=f"{chapter.title} (source characters {chapter.start_character}-{chapter.end_character})",
             )
         )
+    if len(output) != count:
+        raise ValueError('The selected material cannot support the requested number of distinct questions; select more material or fewer questions')
     return output
 
 
