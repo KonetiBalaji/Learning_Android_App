@@ -632,6 +632,31 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val response = JSONArray(readApiResponse(connection("GET", "/v1/documents", "application/json")))
         return (0 until response.length()).map { document(response.getJSONObject(it)) }
     }
+    fun pdfPageCatalog(documentId: String): PdfPageCatalog {
+        val response = request("GET", "/v1/documents/$documentId/pdf-pages", null)
+        val values = response.getJSONArray("pages")
+        require(values.length() in 1..1000)
+        val pages = (0 until values.length()).map { index ->
+            val value = values.getJSONObject(index)
+            fun integer(key: String): Int { val raw = value.get(key); require(raw is Int); return raw }
+            val hasText = value.get("has_text"); require(hasText is Boolean)
+            OriginalPdfPage(integer("page"), integer("start_character"), integer("end_character"), hasText)
+        }
+        return validatePdfPageCatalog(PdfPageCatalog(response.getString("document_id"), pages), documentId)
+    }
+    fun resolvePdfPages(catalog: PdfPageCatalog, first: Int, last: Int, chapterIds: Set<String>): PdfPageScope {
+        validatePdfPageCatalog(catalog, catalog.documentId)
+        require(first in 1..last && last <= catalog.pages.size)
+        val response = request("POST", "/v1/documents/${catalog.documentId}/pdf-pages/selection",
+            JSONObject().put("first_page", first).put("last_page", last).toString())
+        fun integer(key: String): Int { val raw = response.get(key); require(raw is Int); return raw }
+        val empty = response.getJSONArray("empty_pages")
+        require(empty.length() <= catalog.pages.size)
+        val emptyPages = (0 until empty.length()).map { val raw = empty.get(it); require(raw is Int); raw }
+        val ids = response.getJSONArray("chapter_ids").strings()
+        return validatePdfPageScope(PdfPageScope(response.getString("document_id"), integer("first_page"), integer("last_page"),
+            ids, responseExcerpts(response), emptyPages), catalog, first, last, chapterIds)
+    }
     fun searchDocumentSource(documentId: String, chapterIds: Set<String>, query: String): DocumentSearch {
         val response = request("POST", "/v1/documents/$documentId/search", JSONObject().put("chapter_ids", JSONArray(chapterIds.sorted())).put("query", query).put("limit", 20).toString())
         val matches = response.getJSONArray("matches")

@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Added Android typed PDF-page API methods and validation for page order,
+  identity, blank-page reports, requested boundaries and returned excerpt scope.
+  Debug build/lint and 91 JVM tests passed. The methods are not yet wired to page
+  controls; learner-facing review/confirmation, persistence and device QA remain
+  open. See `shared/contracts/pdf-page-selection.md`.
+
 - Added original physical PDF-page indexing and read-only page-range resolution
   into exact chapter/excerpt boundaries. Re-extracted text must match stored text;
   blank pages are preserved and blank-only/unsafe/omitted-source selections fail.

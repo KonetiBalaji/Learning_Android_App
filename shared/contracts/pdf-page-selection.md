@@ -70,3 +70,23 @@ Android page-range controls, explicit review/confirmation, persistence/recovery
 device QA, complex-layout PDFs, scanned-material support, accessibility and user
 acceptance remain open. The PDF is re-read on each request; safe cache/index
 persistence is not implemented. DOC-02 and production gates remain partial.
+
+## Android page API validation layer
+
+Android now has typed page-index and page-scope models plus API methods for both
+routes. These methods are not yet connected to page controls. Before accepting
+an index, the client checks document identity, 1-based sequential pages, upload's
+inter-page newline offsets, size limits and consistency of nonempty-page flags.
+Page inputs reject noninteger/out-of-bounds/reversed values.
+
+Before accepting a resolved scope, Android checks the requested document/pages,
+exact empty-page report, known chapter IDs, canonical disjoint excerpt ranges,
+range containment within the requested pages and at least one intersecting range
+for every selected page marked as containing text. These checks detect malformed
+responses but do not independently prove full text coverage: the server's verified
+extraction and gap checks remain authoritative for that.
+
+Debug build/lint and **91 JVM tests** passed, including six new page-validation
+tests. No live API calls or PDF artifact changes occurred in this Android slice.
+UI review/confirmation, durable page-selection workflow and emulator QA remain
+open; this API layer alone does not make PDF page selection available to learners.
