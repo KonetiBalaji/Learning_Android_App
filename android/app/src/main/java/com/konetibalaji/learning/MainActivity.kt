@@ -78,7 +78,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.view.WindowCompat
 
 class MainActivity : ComponentActivity() {
+    private val learningModel: LearningViewModel get() = androidx.lifecycle.ViewModelProvider(this)[LearningViewModel::class.java]
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); enableEdgeToEdge(); setContent { LearnSmartApp() } }
+    override fun onResume() { super.onResume(); learningModel.studyActivityResumed(true) }
+    override fun onPause() { learningModel.studyActivityResumed(false); super.onPause() }
+    override fun onUserInteraction() { super.onUserInteraction(); learningModel.studyInteraction() }
 }
 
 private val Indigo: Color @Composable get() = MaterialTheme.colorScheme.primary

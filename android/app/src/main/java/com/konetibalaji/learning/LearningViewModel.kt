@@ -116,8 +116,40 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             preferences.contains("active_document:${preferences.getString("email", "").orEmpty().lowercase()}"),
     ))
     val state: StateFlow<AppUiState> = mutableState.asStateFlow()
+    private val presenceSchedule = StudyPresenceSchedule()
+    private var studyForeground = false
+    private var lastStudyInteraction = 0L
+
+    fun studyActivityResumed(resumed: Boolean) {
+        studyForeground = resumed
+        presenceSchedule.reset()
+        if (resumed) studyInteraction()
+    }
+    fun studyInteraction() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastStudyInteraction > 45_000) presenceSchedule.reset()
+        lastStudyInteraction = now
+    }
 
     init {
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(5_000)
+                val snapshot = mutableState.value
+                val observedAt = android.os.SystemClock.elapsedRealtime()
+                val active = presenceEligible(studyForeground, snapshot.loading, snapshot.screen, observedAt, lastStudyInteraction)
+                val command = presenceSchedule.next(if (active) snapshot.masterySessionId else null, observedAt) ?: continue
+                try {
+                    withContext(Dispatchers.IO) { api.reportStudyPresence(command.sessionId, command.reset) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Do not queue old observations or interrupt answer submission.
+                    // The next successful request establishes a fresh interval.
+                    presenceSchedule.reset()
+                }
+            }
+        }
         viewModelScope.launch {
             val restored = withContext(Dispatchers.IO) { runCatching { tokenStore.read() } }
             api.restoreToken(restored.getOrNull())
@@ -536,6 +568,10 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         } finally { connection.disconnect() }
     }
     fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
+    fun reportStudyPresence(sessionId: String, reset: Boolean) {
+        val value = request("POST", "/v1/mastery/sessions/$sessionId/presence?reset=$reset", null)
+        require(value.getString("session_id") == sessionId && value.getLong("observed_study_seconds") >= 0)
+    }
     fun previewDocumentChapter(documentId: String, chapterId: String, page: Int): DocumentPreview {
         val encoded = java.net.URLEncoder.encode(chapterId, "UTF-8").replace("+", "%20")
         val value = request("GET", "/v1/documents/$documentId/chapters/$encoded/preview?page=$page", null)

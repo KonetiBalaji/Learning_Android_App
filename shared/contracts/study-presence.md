@@ -49,3 +49,29 @@ both weekly boundaries, intervals fully outside the window, grade-specific versu
 aggregate totals, empty grades and other-owner exclusion. Android presence
 emission and the time display are still not connected; this is report infrastructure,
 not evidence that real foreground study has been measured or accepted in UAT.
+
+## Android observation lifecycle
+
+Android now observes only Diagnostic, Tutor, Practice and Rewrite screens while
+the activity is resumed, not loading, and user interaction occurred within the
+last 45 seconds. A monotonic scheduler checks every five seconds and sends at
+most one observation per 15 seconds. Backgrounding resets scheduling immediately;
+idle return, session changes, long scheduling gaps and any request failure start
+a new interval. There is no persistent queue or replay of old observations.
+No observation error interrupts answer submission or changes saved quiz state.
+
+The first request uses `?reset=true`. This advances the server cursor without
+crediting even a short background gap; default subsequent requests credit bounded
+intervals as before. Late completion observations remain clipped to completion.
+Android currently sends no final flush on pause/exit, so short sessions and the
+last partial interval can be undercounted. Network transit and sampling affect
+precision. Touch/key-driven activity is not proof of attention; passive reading
+over 45 seconds without interaction stops accruing time. Speech/accessibility
+interaction coverage has not been verified.
+
+Backend 185 tests and Android build/lint/69 JVM tests passed. Tests verify explicit
+reset skips sub-minute gaps, scheduler cadence, stop/switch/retry/long-gap resets,
+idle threshold and exclusion of loading/background/non-learning screens. Real
+device foreground/background/idle timing, account switching during in-flight
+requests and the time display remain pending. Deploy the updated backend before
+this client; an older backend may ignore reset and is not supported for tracking.

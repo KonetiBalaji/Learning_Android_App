@@ -5,6 +5,23 @@ from app.database import connection
 from test_mastery_loop import registered_client
 
 
+def test_explicit_reset_never_credits_a_short_background_gap(monkeypatch, tmp_path):
+    import app.main as api
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        session = client.post('/v1/mastery/diagnostics', headers=headers,
+            json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()['id']
+        path = f'/v1/mastery/sessions/{session}/presence'
+        base = datetime.now(UTC)
+        for elapsed, reset, expected in [(0, True, 0), (30, False, 30), (40, True, 30), (50, False, 40), (55, True, 40)]:
+            monkeypatch.setattr(api, 'now', lambda: (base + timedelta(seconds=elapsed)).isoformat())
+            response = client.post(path, params={'reset': reset}, headers=headers)
+            assert response.status_code == 200
+            assert response.json()['observed_study_seconds'] == expected
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_reports_clip_intervals_and_isolate_grade_and_owner(monkeypatch, tmp_path):
     import app.main as api
     client, headers = registered_client(monkeypatch, tmp_path)

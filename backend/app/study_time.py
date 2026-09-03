@@ -26,7 +26,7 @@ def session_seconds(db, session_id: str) -> int:
                           (session_id,)).fetchone()[0])
 
 
-def record_presence(db, owner_id: str, session_id: str, observed_at: datetime) -> int:
+def record_presence(db, owner_id: str, session_id: str, observed_at: datetime, reset: bool = False) -> int:
     """Caller owns the write transaction. One owner-level cursor prevents overlap."""
     session = db.execute('SELECT * FROM mastery_sessions WHERE id = ? AND owner_id = ?',
                          (session_id, owner_id)).fetchone()
@@ -42,7 +42,7 @@ def record_presence(db, owner_id: str, session_id: str, observed_at: datetime) -
         end = observed_at
         if session['completed_at']:
             end = min(end, datetime.fromisoformat(session['completed_at']))
-        if previous['session_id'] == session_id and gap <= MAX_PRESENCE_GAP_SECONDS and end > start:
+        if not reset and previous['session_id'] == session_id and gap <= MAX_PRESENCE_GAP_SECONDS and end > start:
             db.execute('INSERT INTO study_time_intervals (session_id, started_at, ended_at, seconds) VALUES (?, ?, ?, ?)',
                        (session_id, start.isoformat(), end.isoformat(), (end - start).total_seconds()))
     # A completed session cannot establish a new presence cursor or displace a

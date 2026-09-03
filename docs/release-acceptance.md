@@ -491,4 +491,10 @@ feature to UAT accepted or production verified. All release gates below remain o
   study seconds. Weekly totals clip each interval to the exact reporting window;
   untracked history stays zero. Backend 184 tests passed, including both boundaries,
   aggregate/grade and other-owner checks. Android emission/display and device QA
-  remain pending; MAST-01 is not complete. See the study-presence contract.
+ remain pending; MAST-01 is not complete. See the study-presence contract.
+- Android now emits bounded presence observations only on active learning screens
+  while resumed and recently interacted with. Pause/idle/session/failure transitions
+  reset the next server interval; no offline event queue is replayed. Backend 185
+  tests and Android build/lint/69 JVM tests passed. Device timing and report display
+  still need verification; sampling can undercount and is not proof of attention.
+  See `shared/contracts/study-presence.md` for lifecycle and deployment constraints.

@@ -403,12 +403,12 @@ def quiz_results(quiz_id: str, user_id: str = Depends(current_user_id), settings
 
 
 @app.post('/v1/mastery/sessions/{session_id}/presence', response_model=StudyPresence)
-def observe_study_presence(session_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+def observe_study_presence(session_id: str, reset: bool = False, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
     from .study_time import record_presence
     with connection(settings.database_path) as db:
         db.execute('BEGIN IMMEDIATE')
         try:
-            seconds = record_presence(db, user_id, session_id, datetime.fromisoformat(now()))
+            seconds = record_presence(db, user_id, session_id, datetime.fromisoformat(now()), reset=reset)
         except LookupError as error:
             raise HTTPException(status_code=404, detail='Session not found') from error
     return StudyPresence(session_id=session_id, observed_study_seconds=seconds)
