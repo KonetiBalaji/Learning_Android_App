@@ -71,9 +71,19 @@ $point = Center $downloads
 Adb shell input tap $point[0] $point[1] | Out-Null
 Start-Sleep -Milliseconds 900
 TapText 'qa-biology.txt'
+TapText 'Entire document'
+TextNode '2 of 2 chapters selected' | Out-Null
+RestartApp
+TextNode '2 of 2 chapters selected' | Out-Null
+TapText 'Clear selection'
+RestartApp
+TextNode '0 of 2 chapters selected' | Out-Null
+$generate = TextNode 'Generate 10 questions'
+# Disabled semantics may be merged into the text node or attached to its ancestor.
+if ($generate.enabled -ne 'false' -and -not $generate.SelectSingleNode("ancestor::node[@enabled='false']")) { throw 'Generation is not marked disabled with no selected chapters' }
 TapText 'Chapter 2 Plants'
 RestartApp
-TextNode 'Choose a chapter' | Out-Null
+TextNode 'Choose chapters' | Out-Null
 $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
 $headers = @{Authorization="Bearer $($login.access_token)"}
 $documents = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers
@@ -82,7 +92,8 @@ $document = $documents[0]
 $selectedChapter = $document.chapters | Where-Object title -eq 'Chapter 2 Plants'
 [xml]$preferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
 $chapterPointer = $preferences.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail"
-if ($chapterPointer.InnerText -ne $selectedChapter.id) { throw 'Chapter pointer was not restored' }
+$selectedIds = @($chapterPointer.InnerText | ConvertFrom-Json)
+if ($selectedIds.Count -ne 1 -or $selectedIds[0] -ne $selectedChapter.id) { throw 'Chapter selection was not restored' }
 Adb shell screencap -p /sdcard/qa-document-chapters.png | Out-Null
 Adb pull /sdcard/qa-document-chapters.png (Join-Path $repo 'artifacts\qa-document-chapters.png') | Out-Null
 Write-Output 'PASS: real picker upload and selected chapter survive process restart, with one server document'
@@ -129,9 +140,9 @@ TextNode 'qa-biology.txt' | Out-Null
 Adb shell screencap -p /sdcard/qa-document-library.png | Out-Null
 Adb pull /sdcard/qa-document-library.png (Join-Path $repo 'artifacts\qa-document-library.png') | Out-Null
 TapText 'Open qa-biology.txt'
-TextNode 'Choose a chapter' | Out-Null
+TextNode 'Choose chapters' | Out-Null
 RestartApp
-TextNode 'Choose a chapter' | Out-Null
+TextNode 'Choose chapters' | Out-Null
 $documents = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers
 if ($documents.Count -ne 1) { throw 'Opening the library unexpectedly duplicated the document' }
 if ((Invoke-RestMethod $quizPath -Headers $headers).answered -ne 10) { throw 'Reopening material changed the previous quiz' }

@@ -7,7 +7,7 @@ class DocumentLibraryStateTest {
     private val first = StudyDocument("first", "first.txt", emptyList())
     private val second = StudyDocument("second", "second.txt", emptyList())
     private val current = AppUiState(document = first, documentLibrary = listOf(first, second),
-        quizId = "quiz", selectedChapterId = "chapter", canResumeDocumentQuiz = true,
+        quizId = "quiz", selectedChapterIds = setOf("chapter"), canResumeDocumentQuiz = true,
         masterySessionId = "adaptive", accountEmail = "test@example.com")
 
     @Test fun deletingActiveDocumentClearsItsResumeStateOnly() {
@@ -15,7 +15,7 @@ class DocumentLibraryStateTest {
         assertEquals(listOf(second), result.documentLibrary)
         assertNull(result.document)
         assertNull(result.quizId)
-        assertNull(result.selectedChapterId)
+        assertTrue(result.selectedChapterIds.isEmpty())
         assertFalse(result.canResumeDocumentQuiz)
         assertEquals("adaptive", result.masterySessionId)
         assertEquals(current.accountEmail, result.accountEmail)

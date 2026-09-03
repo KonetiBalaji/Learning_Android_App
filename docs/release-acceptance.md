@@ -82,6 +82,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: added Android document chapter checkboxes, Entire document, Clear
+  selection and selected count. Selection persists across restart with legacy
+  single-ID migration; the API receives all selected IDs and empty selection
+  cannot generate. Build/lint/45 JVM tests passed. Updated recovery script still
+  needs execution; page/section/topic controls remain missing. See `document-selection.md`.
+
 - 2026-09-03: audited the original document-selection brief and added DOC-02 so
   unsupported selection modes remain explicit. Unified chapter-set validation
   across deterministic/live generators; invalid IDs are never silently dropped,

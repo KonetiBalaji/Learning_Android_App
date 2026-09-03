@@ -1,9 +1,9 @@
 # Document selection boundaries
 
 The original `Initial_plan.md` requires entire-document, single/multiple-chapter,
-section, page-range and custom-topic selection. The current Android UI exposes
-single-chapter selection only. The backend accepts multiple chapter IDs, but this
-does not establish full delivery of those selection modes.
+section, page-range and custom-topic selection. Android now exposes chapter
+checkboxes, Entire document and Clear selection. Section/page/topic selection
+remains missing; chapter-set support does not establish delivery of those modes.
 
 Both deterministic and live generation now use `resolve_chapters` to validate
 the complete selection. Unknown IDs, empty selections, repeated IDs, ambiguous
@@ -22,7 +22,21 @@ IDs, bounds, overlap, source order, all-chapter resolution, excluding unselected
 text, rejection before either generator runs, and API 422 without saving quizzes
 or questions. No live provider requests or Android edits were made.
 
-Remaining work: multi-chapter/entire-document Android controls and persisted
-selection; section/page/topic retrieval with explicit boundaries; selection
-review/recovery tests; and coverage/quality evaluation over selected material.
+Android selection is saved as a JSON array under the existing account-scoped
+active-document chapter preference. Legacy single-ID values are read as one
+selection. Explicit clearing survives restart; missing or corrupt IDs result in
+an empty selection, never silently choosing another chapter. A new/reopened
+document initially selects its first chapter. Generating a quiz sends all selected
+IDs. Empty selection disables generation; delete/reset paths clear selection.
+Entire document selects every detected chapter, subject to the existing live
+40,000-character input limit; the UI warns that large selections need splitting.
+
+Android build/lint and 45 JVM tests passed on 2026-09-03, including restoration
+order, clearing, missing IDs and document-deletion cleanup. The recovery script
+was updated for select-all/clear/restart and subsequent single-chapter generation,
+but the updated script has not yet run. Visual/accessibility and real device
+multi-selection/API generation checks remain pending.
+
+Remaining work: section/page/topic retrieval with explicit boundaries; selection
+review/recovery device tests; and coverage/quality evaluation over selected material.
 This is not UAT or production sign-off.

@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -122,7 +124,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy)
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
                         Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects)
@@ -493,9 +495,26 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit) {
     val document = state.document ?: return
-    Page { TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }; Header("Study material", "Choose a chapter", "Select one section from ${document.name} for a ten-question session."); document.chapters.forEach { chapter -> AnswerChoice(chapter.title, state.selectedChapterId == chapter.id) { onSelect(chapter.id) } }; PrimaryButton("Generate 10 questions", state.selectedChapterId != null && !state.loading, onCreate) }
+    Page {
+        TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
+        Header("Study material", "Choose chapters", "Select one or more chapters from ${document.name} for a ten-question session.")
+        Row { TextButton(onClick = onAll, enabled = !state.loading) { Text("Entire document") }; TextButton(onClick = onClear, enabled = !state.loading) { Text("Clear selection") } }
+        Text("${state.selectedChapterIds.size} of ${document.chapters.size} chapters selected")
+        document.chapters.forEach { chapter ->
+            val selected = chapter.id in state.selectedChapterIds
+            Row(Modifier.fillMaxWidth().toggleable(value = selected, enabled = !state.loading,
+                role = androidx.compose.ui.semantics.Role.Checkbox, onValueChange = { onSelect(chapter.id) }).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = selected, onCheckedChange = null, enabled = !state.loading)
+                Spacer(Modifier.width(12.dp))
+                Text(chapter.title, modifier = Modifier.weight(1f))
+            }
+        }
+        Text("Large selections may need to be split into smaller quizzes. Questions use only the selected chapters.")
+        PrimaryButton("Generate 10 questions", state.selectedChapterIds.isNotEmpty() && !state.loading, onCreate)
+    }
 }
 
 @Composable
