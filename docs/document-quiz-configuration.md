@@ -58,9 +58,22 @@ supports only Easy recall. Invalid saved preference values fall back to Easy.
 
 Android build/lint/49 JVM tests passed on 2026-09-03. New tests cover valid and
 invalid preference restoration and unspecified legacy labels. No live AI requests
-were made. Device selection/restart/account-switch tests, failure recovery for
-unsupported offline levels, visual/accessibility review and live difficulty
-quality evaluation remain pending. This is implemented UI, not completed QA.
+were made.
+
+Subsequent API 36 device QA passed using `scripts/qa-document-recovery.ps1
+-ResetTestAppData -VerifyLibrary -VerifyDifficulty` on 2026-09-03. Hard restored
+as selected after force-stop/restart. Attempting offline generation showed the
+safe validation error and left no active quiz pointer. Switching to Easy then
+generated ten questions; GET resume returned `difficulty: easy`, and the saved
+label appeared on the restarted question and results screens. Conflict recovery,
+results restoration and library reopening passed. The question screenshot
+`artifacts/qa-document-difficulty.png` was visually inspected and readable.
+The script now searches both down and up on the taller configuration page.
+
+This synthetic scripted run verifies Hard rejection and Easy workflow/display,
+not live difficulty quality. Medium/Mixed device selection, legacy-label device
+migration, account switching, comprehensive accessibility and live evaluation
+remain open. Agent-run QA does not substitute for user acceptance.
 
 Difficulty quality evaluation, true/false and yes/no question modes remain
 incomplete. Custom counts

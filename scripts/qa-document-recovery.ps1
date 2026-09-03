@@ -1,4 +1,4 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
@@ -17,10 +17,11 @@ function Center($node) {
     @([int](($bounds[0]+$bounds[2])/2), [int](($bounds[1]+$bounds[3])/2))
 }
 function TextNode([string]$text) {
-    for ($attempt=0; $attempt -lt 5; $attempt++) {
+    for ($attempt=0; $attempt -lt 10; $attempt++) {
         $node = (Ui).SelectNodes('//node') | Where-Object { $_.text -eq $text } | Select-Object -First 1
         if ($node) { return $node }
-        Adb shell input swipe 540 1850 540 750 400 | Out-Null
+        if ($attempt -lt 4) { Adb shell input swipe 540 1850 540 750 400 | Out-Null }
+        else { Adb shell input swipe 540 750 540 1850 400 | Out-Null }
         Start-Sleep -Milliseconds 500
     }
     throw "UI text not found: $text"
@@ -121,6 +122,19 @@ if ($VerifyQuestionCount) {
     Adb pull /sdcard/qa-document-count.png (Join-Path $repo 'artifacts\qa-document-count.png') | Out-Null
     Write-Output 'PASS: count presets update generation; invalid 21 is rejected; custom 7 survives restart'
 }
+if ($VerifyDifficulty) {
+    TapText 'Hard · combine facts'
+    RestartApp
+    $hard = TextNode 'Hard · combine facts'
+    if ($hard.checked -ne 'true' -and -not $hard.SelectSingleNode("ancestor::node[@checked='true']")) { throw 'Hard difficulty did not restore as selected' }
+    TapText "Generate $expectedCount questions"
+    TextNode 'Please check your input or selected document and try again.' | Out-Null
+    TapText 'Try again'
+    [xml]$failedPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if ($failedPreferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail") { throw 'Unsupported difficulty created a quiz pointer' }
+    TapText 'Easy · recall a fact'
+    Write-Output 'PASS: Hard preference restores; offline generation rejects it; learner can change to Easy'
+}
 TapText "Generate $expectedCount questions"
 TextNode "QUESTION 1 OF $expectedCount" | Out-Null
 RestartApp
@@ -131,6 +145,12 @@ if (-not $quizId) { throw 'Quiz pointer is missing' }
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
 $quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers
+if ($VerifyDifficulty) {
+    if ($state.difficulty -ne 'easy') { throw 'Saved quiz difficulty is not Easy' }
+    TextNode 'Requested difficulty: Easy · recall a fact' | Out-Null
+    Adb shell screencap -p /sdcard/qa-document-difficulty.png | Out-Null
+    Adb pull /sdcard/qa-document-difficulty.png (Join-Path $repo 'artifacts\qa-document-difficulty.png') | Out-Null
+}
 if ($state.total -ne $expectedCount) { throw 'Generated quiz total does not match requested count' }
 if (-not $VerifyMultiChapter -and $state.question.source_reference -notlike 'Chapter 2 Plants*') { throw 'Selected chapter was not used after restart' }
 $sourceReferences = [System.Collections.Generic.List[string]]::new()
@@ -168,6 +188,7 @@ if ($VerifyMultiChapter) {
 }
 RestartApp
 TextNode 'Session complete' | Out-Null
+if ($VerifyDifficulty) { TextNode 'Requested difficulty: Easy · recall a fact' | Out-Null }
 Write-Output 'PASS: completed quiz restores results after restart (remaining answers submitted by API fixture)'
 if ($VerifyLibrary) {
 TapText 'Study another document'

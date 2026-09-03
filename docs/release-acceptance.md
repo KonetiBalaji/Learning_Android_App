@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: difficulty device QA passed on API 36. Hard selection survives
+  restart and offline generation rejects it; switching to Easy generates a quiz
+  whose saved label restores on question/results screens. Conflict/results/library
+  recovery passed; screenshot inspected. Medium/Mixed, account switching and live
+  difficulty quality remain unverified. See `document-quiz-configuration.md`.
+
 - 2026-09-03: added Android difficulty controls and account-scoped device
   preference. Generation sends the selected value; question/results screens show
   the saved server value, with legacy quizzes labelled unspecified. Offline and
