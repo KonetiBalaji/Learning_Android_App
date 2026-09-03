@@ -470,3 +470,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   mismatched grades are rejected. Backend 180 tests and Android build/lint/66 JVM
   tests passed. Device transition/stale-denial checks and the full curriculum
   catalog remain open. See the learning-path prerequisite contract.
+- Added Android stale-unlock recovery and explicit Refresh progress. A 403 on a
+  new gated-chapter start clears only that cached unlock and preserves saved
+  learning; no automatic generation retry. Removed the silent Grade 6 start
+  fallback. Build/lint/67 JVM tests passed; on-device denial and refresh are still
+  unverified. See `shared/contracts/learning-path-prerequisites.md`.

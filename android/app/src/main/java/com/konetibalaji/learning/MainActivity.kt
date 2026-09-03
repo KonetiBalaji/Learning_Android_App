@@ -115,7 +115,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.SignIn -> SignInScreen(state.loading, viewModel::authenticate)
                         Screen.Grade -> GradeScreen(viewModel::selectGrade)
                         Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
-                        Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects)
+                        Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects, viewModel::refreshProgress)
                         Screen.Diagnostic -> DiagnosticScreen(state, viewModel::selectDiagnosticAnswer, viewModel::submitDiagnostic)
                         Screen.Tutor -> TutorScreen(state, viewModel::startPractice)
                         Screen.Practice -> PracticeScreen(state, viewModel::showHint, viewModel::checkPractice, viewModel::moveToRewrite)
@@ -216,7 +216,8 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
 }
 
 @Composable
-private fun ChapterScreen(state: AppUiState, onSelect: (MasteryChapter) -> Unit, onBack: () -> Unit) = Page {
+private fun ChapterScreen(state: AppUiState, onSelect: (MasteryChapter) -> Unit, onBack: () -> Unit, onRefresh: () -> Unit) = Page {
+    TextButton(onClick = onRefresh, enabled = !state.loading) { Text("Refresh progress") }
     TextButton(onClick = onBack) { Text("‹ All subjects") }
     Header(state.subject?.title ?: "Mathematics", "Choose a chapter", "Master a concept to unlock what comes next.")
     (chaptersBySubject[state.subject?.id] ?: emptyList()).forEach { chapter ->

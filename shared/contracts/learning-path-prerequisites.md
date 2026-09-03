@@ -58,3 +58,21 @@ the four unlock lists, latest-attempt relocking, grade-scoped versus aggregate
 responses, client wrong-grade rejection and legacy fail-closed behavior. Actual
 device unlock transitions and stale-screen denial remain pending. No live AI
 requests were made. This does not supply an authoritative curriculum catalog.
+
+## Stale Android unlock recovery
+
+The chapter list now has an explicit `Refresh progress` action. If a new start
+for a locally gated chapter receives 403, Android removes only that chapter's
+cached unlock from both UI state and the progress snapshot. It displays a local,
+actionable prerequisite/refresh message without exposing server response bodies.
+It does not automatically retry generation or replace the existing mastery session
+or its persisted resume pointer. A later successful refresh may restore the unlock.
+Other failures use the normal error path, and session-expired handling is unchanged.
+Starting a diagnostic now requires an explicitly selected grade rather than a
+silent Grade 6 fallback, and clicks while loading are ignored.
+
+Android debug build, lint and 67 JVM tests passed. The new state test verifies
+only the denied unlock is removed, other subject unlocks and saved learning remain,
+repeated denial is idempotent and an absent progress snapshot is safe. Actual
+403/refresh UI interaction still needs device verification. No backend/provider
+behavior changed in this increment and no live AI calls occurred.

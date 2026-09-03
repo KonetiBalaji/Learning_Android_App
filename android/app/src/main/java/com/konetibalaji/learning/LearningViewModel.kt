@@ -229,10 +229,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun selectSubject(subject: LearningSubject) { mutableState.value = mutableState.value.copy(subject = subject, screen = Screen.MasteryChapters) }
     fun selectMasteryChapter(chapter: MasteryChapter) {
         val current = mutableState.value
+        if (current.loading) return
         val chapterKey = "${current.subject?.id}:${chapter.id}"
         if (chapter.locked && chapterKey !in current.unlockedChapterIds) return
         perform(null) {
-            val started = api.startDiagnostic(current.grade ?: 6, requireNotNull(current.subject).id, chapter.id)
+            val started = try {
+                api.startDiagnostic(requireNotNull(current.grade), requireNotNull(current.subject).id, chapter.id)
+            } catch (failure: ApiFailure) {
+                if (failure.status != 403 || !chapter.locked) throw failure
+                mutableState.value = stateAfterChapterAccessDenied(mutableState.value, chapterKey)
+                throw ApiFailure(403, false, "This chapter is currently locked. Complete its prerequisite in this grade, then use Refresh progress. Your saved learning is unchanged.")
+            }
             preferences.edit().putString(activeSessionKey(), started.id).putString(activeFlowKey(), "mastery").apply()
             mutableState.value = current.copy(
                 masteryChapter = chapter, diagnosticIndex = 0, diagnosticCorrect = 0, coachingRound = 0,
