@@ -177,3 +177,12 @@ feature to UAT accepted or production verified. All release gates below remain o
   Stop and splits long inputs. Android build/lint/22 JVM tests passed. Real speech
   engine/microphone/animation and background lifecycle checks remain; this is not
   full conversational tutoring acceptance. See `voice-recovery.md`.
+- Added interactive same-denominator fraction bars/sliders with simplified sum,
+  whole/remainder display and reset. Exploration does not submit learner answers
+  or award mastery. Native implementation, not an OpenMAIC import. Android
+  build/lint/27 JVM tests passed; TUT-05 remains partial across other concepts and
+  the visible/conversational teacher. See `fraction-explorer.md`.
+- API 36 scripted QA passed the new fraction-slider/reset interaction and the
+  remaining tutor/practice/rewrite flow through all questions before mastery.
+  Fraction-model screenshot inspected. Broader accessibility and other concepts
+  remain unverified; the initial missed test tap was corrected, not waived.

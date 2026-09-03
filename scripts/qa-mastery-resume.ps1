@@ -3,7 +3,8 @@ param(
     [switch]$ResetTestAppData,
     [switch]$ExpectRubricFeedback,
     [switch]$VerifyDeletedSession,
-    [switch]$VerifyWeeklyReport
+    [switch]$VerifyWeeklyReport,
+    [switch]$VerifyFractionModel
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -83,6 +84,24 @@ if ($savedNames -contains 'token' -or $sealedSession.Count -ne 1 -or -not $seale
     throw 'Session is not stored exclusively as a versioned encrypted envelope'
 }
 Write-Output 'PASS: restarted session uses encrypted storage with no legacy plaintext token (secret values omitted)'
+if ($VerifyFractionModel) {
+    TextNode 'Explore equal-sized parts' | Out-Null
+    TextNode 'Reset fraction model' | Out-Null
+    TextNode 'First fraction: 3/4' | Out-Null
+    $slider = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -eq 'First numerator' } | Select-Object -First 1
+    if (-not $slider) { throw 'First numerator slider is not accessible' }
+    $bounds = [regex]::Matches($slider.bounds, '\d+') | ForEach-Object { [int]$_.Value }
+    $sliderWidth = $bounds[2] - $bounds[0]
+    $sliderY = [int](($bounds[1] + $bounds[3])/2)
+    Adb shell input swipe ([int]($bounds[0] + $sliderWidth * 0.75)) $sliderY ([int]($bounds[0] + $sliderWidth * 0.05)) $sliderY 400 | Out-Null
+    TextNode 'First fraction: 0/4' | Out-Null
+    TextNode '0/4 + 1/4 = 1/4 = 1/4' | Out-Null
+    TapText 'Reset fraction model'
+    TextNode '3/4 + 1/4 = 4/4 = 1' | Out-Null
+    Adb shell screencap -p /sdcard/qa-fraction-model.png | Out-Null
+    Adb pull /sdcard/qa-fraction-model.png (Join-Path $repo 'artifacts\qa-fraction-model.png') | Out-Null
+    Write-Output 'PASS: fraction slider changes the sum and reset restores the original model'
+}
 TapText 'I understand — practise now'
 EnterField 0 '6/8'
 TapText 'Check answer'

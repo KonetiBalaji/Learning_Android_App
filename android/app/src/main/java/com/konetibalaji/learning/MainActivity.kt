@@ -256,6 +256,7 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
     }
     TipCard("Your tutor is paying attention", if (state.coachingRound > 0) "Let’s try a different explanation and practise it once more." else "A short practice question will check that the idea clicked.")
     ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". "))
+    if (state.subject?.id == "math" && state.masteryChapter?.id == "fractions") FractionExplorer()
     PrimaryButton("I understand — practise now", onClick = onUnderstand)
     }
 }
