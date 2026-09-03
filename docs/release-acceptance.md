@@ -83,6 +83,15 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Added offline local backup/verify/restore tooling for SQLite and live uploads.
+  It includes committed WAL data, remaps stored file paths, checks integrity and
+  hashes, excludes configuration/orphan/deleted file bytes and refuses existing
+  destinations. Synthetic restored-app QA covers login, saved quiz/tutor state,
+  owner denial and deletion without touching the original runtime. Backend QA:
+  212 passed, 1 skipped (Windows symlink creation unavailable). This is not
+  encrypted/offsite backup or production recovery; host, retention/deletion
+  reconciliation and operator cutover remain open. See `backup-recovery.md`.
+
 - 2026-09-03: added explicit owner-scoped stored-structure gap repair. It keeps
   existing IDs/metadata and quiz rows, inserts low-confidence omitted-text ranges,
   and rejects unsafe structures without mutation. Backend 172 tests passed;
