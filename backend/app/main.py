@@ -403,12 +403,23 @@ def quiz_results(quiz_id: str, user_id: str = Depends(current_user_id), settings
 
 @app.post("/v1/mastery/diagnostics", response_model=DiagnosticSession, status_code=status.HTTP_201_CREATED)
 def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DiagnosticSession:
+    from .learning_path import missing_prerequisite
+    with connection(settings.database_path) as db:
+        required = missing_prerequisite(db, user_id, request.grade, request.subject_id, request.chapter_id)
+    if required is not None:
+        raise HTTPException(status_code=403, detail=f'Complete {required} in this grade before starting this chapter')
     try:
         bank = tutor_provider(settings).diagnostic_bank(request.grade, request.subject_id, request.chapter_id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     session_id = str(uuid.uuid4())
     with connection(settings.database_path) as db:
+        # Revalidate after generation: a newer prerequisite attempt may have
+        # started while the provider was working. Never hold a lock during AI work.
+        db.execute('BEGIN IMMEDIATE')
+        required = missing_prerequisite(db, user_id, request.grade, request.subject_id, request.chapter_id)
+        if required is not None:
+            raise HTTPException(status_code=403, detail=f'Complete {required} in this grade before starting this chapter')
         db.execute(
             """INSERT INTO mastery_sessions
                (id, owner_id, grade, subject_id, chapter_id, started_at, questions_json)
@@ -569,7 +580,7 @@ def mastery_session_state(session_id: str, user_id: str = Depends(current_user_i
 def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> ProgressDashboard:
     with connection(settings.database_path) as db:
         sessions = db.execute(
-            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?) ORDER BY started_at DESC", (user_id, grade, grade)
+            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?) ORDER BY started_at DESC, rowid DESC", (user_id, grade, grade)
         ).fetchall()
         attempts = db.execute(
             """SELECT mastery_attempts.*, mastery_attempts.rowid AS attempt_order FROM mastery_attempts

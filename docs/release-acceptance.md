@@ -459,3 +459,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   selection and pending quiz identity, and retry resumes the same quiz. Screenshot
   inspected. Remaining-answer completion was API-driven; preview-specific offline,
   malformed-response and accessibility checks remain open. See the preview contract.
+- The backend now enforces the four prerequisite gates already shown in Android
+  before diagnostic generation and again before session insertion. Latest-session
+  mastery is scoped to owner, grade and subject, with deterministic timestamp ties.
+  Backend 180 tests passed, including a generation-time eligibility race. This is
+  not a complete curriculum graph; time tracking, server catalog and device denial
+  checks remain open. See `shared/contracts/learning-path-prerequisites.md`.
