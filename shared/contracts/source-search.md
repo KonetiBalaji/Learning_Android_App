@@ -71,3 +71,38 @@ Android query/results controls, explicit result confirmation, restart/failure an
 accessibility QA remain to be implemented. This endpoint advances source lookup
 for topic selection but does not complete the original DOC-02 topic/page/section
 workflow, semantic relevance evaluation, UAT or production acceptance.
+
+## Android query and explicit result selection
+
+The chapter screen now includes **Find topic text**, a query field and **Search
+selected chapters**. Search is disabled for empty chapter selection or invalid
+query lengths. The screen states that matching is literal, not synonym/semantic
+lookup, and that it searches the whole checked chapters even when existing quiz
+selection is in excerpt mode. Search does not automatically change that selection.
+
+Results show full bounded source passages, chapter names, absolute character
+ranges and truncation warnings. Zero matches and additional-result limits have
+explicit messages. **Use passage N as excerpt** is the confirmation action: it
+replaces whole-chapter selection for the first excerpt or adds to existing
+excerpts, using the same overlap rejection and atomic preference save as manual
+highlight selection. After confirmation, the result list and query clear and the
+screen shows the saved excerpt scope. A passage may still contain insufficient
+information for the configured quiz count; selection does not bypass generation
+quality/quantity validation.
+
+Android validates document/query/match mode, checked chapter membership, result
+count/order, exact Unicode text/range lengths, complete match bounds and the
+matching phrase before accepting results. Confirmation additionally checks that
+document, query and selected chapters have not changed. Query/chapter edits and
+structure repair invalidate results. Account changes, document deletion/opening,
+quiz acceptance/resume and starting another document clear applicable in-memory
+query/results. Neither queries nor result passages are stored in preferences;
+only explicitly confirmed excerpt IDs/bounds use the existing durable contract.
+Unconfirmed searches are not restored after process death.
+
+On 2026-09-03, Android debug build/lint and **85 JVM tests** passed, including seven
+new search tests for Unicode matches, query validation, malformed/mismatched
+responses, empty/limited results, stale confirmation and deletion cleanup. No live
+AI calls were made. Emulator search/confirmation, restart/failure/account-switch,
+large-text/TalkBack usability and UAT remain unverified for this new UI. This is
+not completion of semantic topic retrieval, PDF page selection or DOC-02 overall.

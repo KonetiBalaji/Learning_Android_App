@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Added Android literal source search and explicit result-to-excerpt confirmation.
+  Results are validated against document/query/chapter scope and Unicode bounds;
+  stale results clear on relevant edits, and unconfirmed searches are not persisted.
+  Debug build/lint and 85 JVM tests passed. Search/confirmation on-device, failure,
+  accessibility and UAT checks remain open. See `shared/contracts/source-search.md`.
+
 - Added owner-scoped literal source search within selected chapters. Results
   contain bounded verbatim passages and Unicode match offsets, with explicit
   truncation/more-results indicators; search neither calls AI nor changes quizzes

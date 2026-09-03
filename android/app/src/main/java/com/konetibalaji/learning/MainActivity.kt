@@ -128,7 +128,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) })
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) }, viewModel::setSourceQuery, viewModel::searchDocumentSource, viewModel::useSourceSearchResult)
                         Screen.DocumentPreview -> DocumentPreviewScreen(state, viewModel::closeDocumentPreview, viewModel::changePreviewPage, viewModel::addDocumentExcerpt)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
@@ -503,7 +503,7 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit, onRepair: () -> Unit, onPreview: (String) -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit, onRepair: () -> Unit, onPreview: (String) -> Unit, onQuery: (String) -> Unit, onSearch: () -> Unit, onUseResult: (Int) -> Unit) {
     val document = state.document ?: return
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
@@ -562,7 +562,34 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
             }
         }
         Text("Choose one format per quiz. True / False and Yes / No require live generation.")
+        DocumentSourceSearchControls(state, onQuery, onSearch, onUseResult)
         PrimaryButton(if (count == null) "Generate quiz" else "Generate $count questions", state.selectedChapterIds.isNotEmpty() && count != null && !state.loading, onCreate)
+    }
+}
+
+@Composable
+private fun DocumentSourceSearchControls(state: AppUiState, onQuery: (String) -> Unit, onSearch: () -> Unit, onUseResult: (Int) -> Unit) {
+    Text("Find topic text", style = MaterialTheme.typography.titleLarge)
+    Text("Find a literal phrase in the checked chapters. This does not find synonyms or change your selection automatically. Search covers whole checked chapters, even in excerpt mode.")
+    OutlinedTextField(value = state.sourceQuery, onValueChange = onQuery, label = { Text("Source phrase (2–120 characters)") },
+        singleLine = true, enabled = !state.loading, modifier = Modifier.fillMaxWidth())
+    TextButton(onClick = onSearch, enabled = !state.loading && state.selectedChapterIds.isNotEmpty() && validSourceQuery(state.sourceQuery)) { Text("Search selected chapters") }
+    state.documentSearch?.let { result ->
+        if (result.hits.isEmpty()) Text("No literal matches. Try another phrase or chapter; no selection was changed.")
+        else Text("${result.hits.size} source passages found. Read a passage before using it as an excerpt.")
+        if (result.hasMore) Text("More passages match. Refine your phrase or select fewer chapters.")
+        result.hits.forEachIndexed { index, hit ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Result ${index + 1}: ${hit.title}", fontWeight = FontWeight.Bold)
+                    Text("Source characters ${hit.start}–${hit.end}", style = MaterialTheme.typography.bodySmall)
+                    Text(hit.text)
+                    if (hit.truncated) Text("Context is cut at a source boundary limit. Review whether this passage has enough information.")
+                    Text(if (state.documentExcerpts.isEmpty()) "Using this passage replaces whole-chapter selection." else "Using this passage adds an excerpt; overlapping selections are rejected.")
+                    TextButton(onClick = { onUseResult(index) }, enabled = !state.loading) { Text("Use passage ${index + 1} as excerpt") }
+                }
+            }
+        }
     }
 }
 
