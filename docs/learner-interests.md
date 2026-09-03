@@ -16,8 +16,8 @@ Previously saved tutor lessons remain unchanged on resume.
 
 The deterministic/scripted QA provider does not personalize examples. The live
 provider retains response storage disabled. The user's existing-key reuse approval
-remains in effect; no secret was changed or displayed, and this slice made no live
-provider calls.
+remains in effect; no secret was changed or displayed. Initial implementation used
+mocked checks; the subsequent live evaluation is documented below.
 
 Verification: **88 backend tests passed** on 2026-09-03. New tests cover defaults,
 save/read/clear, invalid inputs, owner isolation, account-deletion cascade, routing
@@ -37,7 +37,12 @@ initial empty state, three choices persisted to the API, restoration after force
 stop/restart, and clearing followed by another restart. The selector screenshot
 at `artifacts/qa-interests.png` was visually inspected. No live AI calls were made.
 
-TUT-03 remains partial: live age-appropriate example evaluation, offline/failing
+Nine synthetic live calls across three prompt revisions exposed tone, unit and
+whole/part errors. The final three cases passed development-agent review after
+guidance refinements; see `learner-interest-evaluation.md` for failures, evidence
+and limits. This is not an independent holdout or educator validation.
+
+TUT-03 remains partial: broader example evaluation, offline/failing
 save injection and device account-switch tests remain required. Existing saved
 examples do not change when interests are edited. No full personalization or UAT
 completion is claimed.

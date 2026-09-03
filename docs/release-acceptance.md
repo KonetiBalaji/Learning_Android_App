@@ -260,3 +260,10 @@ feature to UAT accepted or production verified. All release gates below remain o
   verified save-to-server, restart restoration and durable clearing with a
   disposable account; screenshot inspected. Live example quality and device
   failure/account-switch coverage remain open; see `learner-interests.md`.
+- Evaluated nine synthetic interest-framed fraction explanations across three
+  prompt revisions using the existing approved key. Initial tone, unit and
+  whole/part errors were rejected; final three cases passed development-agent
+  review. All practice prompts were preserved. Backend 88 tests passed, with
+  three interest tests rerun after final guidance changes. This reused sample is
+  not a holdout, educator review, UAT or production sign-off. Broader evaluation
+  remains open; see `learner-interest-evaluation.md`.

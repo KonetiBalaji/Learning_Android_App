@@ -64,5 +64,11 @@ def test_personalized_prompt_preserves_practice_question_and_disables_response_s
     lesson = provider.explain(8, item, '1/2')
     assert 'sports' in captured['input']
     assert 'Do not force an analogy' in captured['instructions']
+    assert 'explain the next step neutrally' in captured['instructions']
+    assert 'Do not assume how they made the error' in captured['instructions']
+    assert 'same whole and equal-sized parts' in captured['instructions']
+    assert 'Keep units consistent' in captured['instructions']
+    assert 'changes part size, not necessarily the whole' in captured['instructions']
+    assert 'not note values, time signatures or beat definitions' in captured['instructions']
     assert captured['store'] is False
     assert lesson.practice_prompt == item.practice_prompt
