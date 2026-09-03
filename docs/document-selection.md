@@ -48,9 +48,18 @@ documents or changes to the previous quiz.
 The screenshot `artifacts/qa-document-chapters.png` was visually inspected:
 checkboxes, count, selection controls and generation action were readable.
 This is agent-run workflow QA, not user UAT, full accessibility evaluation or
-live-provider quality evidence. Generation with multiple selected chapters,
-legacy preference migration on device, account-switch behavior, large-document
+live-provider quality evidence. Legacy preference migration on device, account-switch behavior, large-document
 limits and physical-device coverage remain pending.
+
+The subsequent API 36 run added `-VerifyMultiChapter` and passed on 2026-09-03.
+It selected Plants and Cells individually, restored both saved IDs after restart,
+and generated ten questions from Android. The test collected each question's
+source reference while completing the disposable quiz through the API: both
+selected fixture chapters were represented, and every reference matched one of
+them. The existing conflict/restart/results/library checks passed as well.
+`artifacts/qa-document-multi-chapters.png` was inspected with both boxes selected.
+This is deterministic synthetic-fixture evidence, not a guarantee of proportional
+chapter coverage or live generation quality for arbitrary documents.
 
 Remaining work: section/page/topic retrieval with explicit boundaries; selection
 review/recovery device tests; and coverage/quality evaluation over selected material.

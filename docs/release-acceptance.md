@@ -82,6 +82,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: API 36 multi-chapter generation QA passed. Both independently
+  selected chapter IDs survived restart; Android generated ten questions whose
+  collected source references included both fixture chapters and no others.
+  Conflict/restart/results/library checks also passed; screenshot inspected.
+  Synthetic deterministic content only, not live quality or proportional coverage
+  evidence. See `document-selection.md`.
+
 - 2026-09-03: updated document recovery QA passed on API 36. Entire-document and
   cleared selections persist through forced restarts; empty selection disables
   generation. Plants-only selection persists and its quiz uses the selected source.
