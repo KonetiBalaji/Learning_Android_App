@@ -14,6 +14,7 @@ from .config import Settings, get_settings
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .quiz_service import generate_grounded_questions, question_id
+from .quiz_creation import creation_fingerprint
 from .document_question_provider import generate_document_questions, QuestionGenerationUnavailable
 from .mastery_service import (
     diagnostic_bank,
@@ -232,9 +233,33 @@ def delete_document(document_id: str, user_id: str = Depends(current_user_id), s
     cleanup_pending_files(settings)
 
 
+def creation_replay(db, user_id, request_id, fingerprint):
+    if request_id is None:
+        return None
+    saved = db.execute('''SELECT quizzes.*, quiz_creation_requests.fingerprint FROM quiz_creation_requests
+        JOIN quizzes ON quizzes.id = quiz_creation_requests.quiz_id
+        WHERE quiz_creation_requests.owner_id = ? AND request_id = ? AND quizzes.owner_id = ?''',
+        (user_id, request_id, user_id)).fetchone()
+    if saved is None:
+        return None
+    if saved['fingerprint'] != fingerprint:
+        raise HTTPException(status_code=409, detail='This request ID was already used with different quiz settings')
+    first = db.execute('SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal LIMIT 1', (saved['id'],)).fetchone()
+    count = db.execute('SELECT COUNT(*) FROM questions WHERE quiz_id = ?', (saved['id'],)).fetchone()[0]
+    return QuizSummary(id=saved['id'], title=saved['title'], question_count=count,
+        first_question=question_payload(first) if first else None,
+        difficulty=saved['difficulty'], question_type=saved['question_type'])
+
+
 @app.post("/v1/documents/{document_id}/quizzes", response_model=QuizSummary, status_code=status.HTTP_201_CREATED)
 def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> QuizSummary:
     document = owned_document(document_id, user_id, settings)
+    request_id = str(request.request_id) if request.request_id is not None else None
+    fingerprint = creation_fingerprint(document_id, request)
+    with connection(settings.database_path) as db:
+        replay = creation_replay(db, user_id, request_id, fingerprint)
+        if replay is not None:
+            return replay
     chapters = [Chapter.model_validate(item) for item in parse_json(document["chapters_json"])]
     try:
         if settings.ai_mode == 'openai':
@@ -248,11 +273,16 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         else:
             raise QuestionGenerationUnavailable('Unsupported provider mode')
     except QuestionGenerationUnavailable as error:
-        raise HTTPException(status_code=503, detail='Could not validate this quiz. Please retry; no quiz was saved.') from error
+        raise HTTPException(status_code=503, detail='Could not validate this quiz request. Please retry.') from error
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     quiz_id = str(uuid.uuid4())
     with connection(settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        # Another request may have finished generation while this one was running.
+        replay = creation_replay(db, user_id, request_id, fingerprint)
+        if replay is not None:
+            return replay
         db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at, difficulty, question_type) VALUES (?, ?, ?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now(), request.difficulty, request.question_type))
         for ordinal, question in enumerate(generated, start=1):
             db.execute(
@@ -261,6 +291,9 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
                 (question_id(), quiz_id, ordinal, question.prompt, json_value(question.options), question.correct_option, question.explanation, question.source_reference, request.question_type),
             )
         first = db.execute("SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal LIMIT 1", (quiz_id,)).fetchone()
+        if request_id is not None:
+            db.execute('INSERT INTO quiz_creation_requests (owner_id, request_id, fingerprint, quiz_id) VALUES (?, ?, ?, ?)',
+                       (user_id, request_id, fingerprint, quiz_id))
     return QuizSummary(id=quiz_id, title=f"Quiz: {document['original_name']}", question_count=len(generated), first_question=question_payload(first) if first else None, difficulty=request.difficulty, question_type=request.question_type)
 
 

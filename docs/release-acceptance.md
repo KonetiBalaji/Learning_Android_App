@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: added optional owner-scoped quiz creation request IDs. Committed
+  retries return the original quiz without generation; settings conflicts return
+  409 and concurrent commits save one quiz. Backend 158 tests passed; 35 focused
+  tests rerun after final edits. Concurrent provider work can still duplicate.
+  Android durable IDs and lost-response QA remain open; see the shared
+  `quiz-creation-retries.md` contract. No live calls in this slice.
 - 2026-09-03: hardened Android format decoding against unconfirmed binary
   creation, unknown formats and malformed/mismatched choices while retaining
   legacy four-option quizzes. Build/lint/54 JVM tests passed. No live requests.

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from .quiz_difficulty import Difficulty
@@ -30,6 +31,7 @@ class DocumentSummary(BaseModel):
 
 
 class QuizRequest(BaseModel):
+    request_id: UUID | None = None
     question_type: QuestionType = 'multiple_choice'
     difficulty: Difficulty | None = None
     chapter_ids: list[str] = Field(min_length=1)

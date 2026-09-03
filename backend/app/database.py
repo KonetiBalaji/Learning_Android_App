@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS pending_file_deletions (
   stored_path TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
   last_error TEXT
 );
+CREATE TABLE IF NOT EXISTS quiz_creation_requests (
+  owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
+  quiz_id TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  PRIMARY KEY(owner_id, request_id)
+);
 CREATE TABLE IF NOT EXISTS mastery_sessions (
   id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   grade INTEGER NOT NULL, subject_id TEXT NOT NULL, chapter_id TEXT NOT NULL,

@@ -2,6 +2,8 @@
 
 `POST /v1/documents/{id}/quizzes` accepts `chapter_ids`, `question_count` (5–20,
 default 10) and optional `difficulty`: `easy`, `medium`, `hard`, `mixed`, or null.
+Optional `request_id` enables committed creation retry deduplication; see
+`quiz-creation-retries.md`. Android request-ID integration remains pending.
 Unknown difficulty strings return 422. Omission/null preserves legacy behavior.
 Creation and `GET /v1/quizzes/{id}` return the saved requested difficulty.
 Existing quizzes migrate to null, meaning unspecified, not inferred Easy.
