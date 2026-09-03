@@ -14,6 +14,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Acceptance ledger
 
+Read-aloud lifecycle repair stops queued speech when backgrounded or lesson text
+changes, ignores stale callbacks, and provides completion/stop/error status with
+an accessibility live region. Android build/lint and 115 JVM tests pass. Real
+audio, background/restart and TalkBack verification remain open; TUT-06 is partial.
+See `docs/voice-recovery.md`.
+
 Practice matcher hardening: meaningful symbols/word boundaries are preserved,
 with persisted opt-in rational equivalence for curated arithmetic and exact
 matching for denominator-constrained exercises. Legacy banks remain exact. New
