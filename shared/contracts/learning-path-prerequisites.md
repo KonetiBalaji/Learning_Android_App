@@ -76,3 +76,29 @@ only the denied unlock is removed, other subject unlocks and saved learning rema
 repeated denial is idempotent and an absent progress snapshot is safe. Actual
 403/refresh UI interaction still needs device verification. No backend/provider
 behavior changed in this increment and no live AI calls occurred.
+
+## API 36 unlock device evidence
+
+`scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyUnlocks` passed on the
+dedicated LearnSmart_API36 emulator. Owner-only localhost QA endpoints insert
+explicit fixture Algebra states for Grade 8; they are absent from production.
+These fixtures are not evidence of actual Algebra teaching or mastery quality.
+
+Verified: Geometry initially disabled; server fixture mastery plus Refresh
+progress enables it; a newer unfinished prerequisite while the screen stays open
+causes the actual Android start to receive 403; Geometry is disabled and the server
+has zero Geometry sessions; restart preserves the lock; later eligible state plus
+refresh restores access. Screenshot `artifacts/qa-chapter-unlock.png` inspected.
+Other score cards remain the last fetched snapshot until refreshed; clearing a
+denied unlock does not fabricate a new prerequisite score.
+
+The same run then completed the normal Fractions tutor/practice/rewrite flow,
+including encrypted-session restart, question 2 restoration, no premature mastery
+and final backend-derived 100% progress. All 181 backend tests passed, including
+QA-route authentication, owner/grade isolation and production-route absence.
+
+The initial device run stopped after a UIAutomator null-root error left stale XML.
+The harness now retries and requires a successful fresh dump before reading it;
+the complete rerun passed despite transient dump errors. No live AI requests were
+made. Device tests for the other three subject gates, preservation of a preexisting
+session during denial, grade/account switching and user UAT remain outstanding.

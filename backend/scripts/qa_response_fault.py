@@ -11,6 +11,28 @@ from app.security import current_user_id
 def install_response_fault(app):
     armed = {}
 
+    @app.post('/__qa/learning-path/algebra')
+    def seed_algebra(state: Literal['mastered', 'diagnostic'], user_id=Depends(current_user_id), settings=Depends(get_settings)):
+        from app.database import connection
+        from app.mastery_service import FRACTION_DIAGNOSTIC, serialize_diagnostic_bank
+        from datetime import datetime, UTC
+        from uuid import uuid4
+        # A fixture state transition, not an assessment or production capability.
+        with connection(settings.database_path) as db:
+            db.execute('''INSERT INTO mastery_sessions
+                (id, owner_id, grade, subject_id, chapter_id, started_at, status, current_question, questions_json)
+                VALUES (?, ?, 8, 'math', 'algebra', ?, ?, ?, ?)''',
+                (str(uuid4()), user_id, datetime.now(UTC).isoformat(), state, 3 if state == 'mastered' else 0,
+                 serialize_diagnostic_bank(FRACTION_DIAGNOSTIC)))
+        return {'fixture_state': state}
+
+    @app.get('/__qa/learning-path/geometry-count')
+    def geometry_count(user_id=Depends(current_user_id), settings=Depends(get_settings)):
+        from app.database import connection
+        with connection(settings.database_path) as db:
+            count = db.execute("SELECT COUNT(*) FROM mastery_sessions WHERE owner_id = ? AND grade = 8 AND subject_id = 'math' AND chapter_id = 'geometry'", (user_id,)).fetchone()[0]
+        return {'sessions': count}
+
     @app.post('/__qa/documents/{document_id}/omit-tail-and-fail-repair-response')
     def arm_repair(document_id: str, user_id=Depends(current_user_id), settings=Depends(get_settings)):
         from app.main import owned_document

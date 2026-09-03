@@ -475,3 +475,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   learning; no automatic generation retry. Removed the silent Grade 6 start
   fallback. Build/lint/67 JVM tests passed; on-device denial and refresh are still
   unverified. See `shared/contracts/learning-path-prerequisites.md`.
+- API 36 Geometry gate QA passed: initial lock, server-driven unlock, actual stale
+  start denial with zero saved sessions, restart relock and refreshed eligibility.
+  Normal Fractions remediation/restart/completion regression also passed; screenshot
+  inspected and 181 backend tests passed. A stale-XML harness failure was corrected
+  and the full run repeated successfully. Other subject gates and account/grade
+  switching on-device remain open. See the prerequisite contract for fixture scope.

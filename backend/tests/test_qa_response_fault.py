@@ -8,6 +8,31 @@ from app.security import current_user_id
 from scripts.qa_response_fault import install_response_fault
 
 
+def test_learning_path_fixtures_are_owner_scoped_and_not_production_routes(monkeypatch, tmp_path):
+    from test_mastery_loop import registered_client
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        production = importlib.import_module('app.main')
+        qa = FastAPI()
+        qa.include_router(production.app.router)
+        install_response_fault(qa)
+        other = client.post('/v1/auth/register', json={'email': 'other-fixture@example.com', 'password': 'long-enough-password'}).json()['access_token']
+        with TestClient(qa) as test:
+            path = '/__qa/learning-path/algebra'
+            assert test.post(path, params={'state': 'mastered'}).status_code == 401
+            assert test.post(path, params={'state': 'invalid'}, headers=headers).status_code == 422
+            assert test.post(path, params={'state': 'mastered'}, headers=headers).status_code == 200
+            assert test.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == ['math:geometry']
+            assert test.get('/v1/progress/dashboard?grade=7', headers=headers).json()['unlocked_chapter_ids'] == []
+            assert test.get('/v1/progress/dashboard?grade=8', headers={'Authorization': f'Bearer {other}'}).json()['unlocked_chapter_ids'] == []
+            assert test.post(path, params={'state': 'diagnostic'}, headers=headers).status_code == 200
+            assert test.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == []
+            assert test.get('/__qa/learning-path/geometry-count', headers=headers).json() == {'sessions': 0}
+        assert not any(route.path.startswith('/__qa/') for route in production.app.routes)
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_qa_fault_is_one_shot_after_success_and_not_installed_in_production(monkeypatch):
     production = importlib.import_module('app.main')
     assert not any(route.path.startswith('/__qa/') for route in production.app.routes)

@@ -7,7 +7,8 @@ param(
     [switch]$VerifyFractionModel,
     [switch]$VerifyStaleSubmission,
     [switch]$VerifyFailedResponse,
-    [switch]$MalformedResponse
+    [switch]$MalformedResponse,
+    [switch]$VerifyUnlocks
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -18,8 +19,15 @@ function Adb {
     if ($LASTEXITCODE -ne 0) { throw "ADB failed: $($args[0])" }
 }
 function Ui {
-    Adb shell uiautomator dump /sdcard/qa-mastery.xml | Out-Null
-    [xml]((Adb shell cat /sdcard/qa-mastery.xml) -join "`n")
+    for ($dumpAttempt = 0; $dumpAttempt -lt 3; $dumpAttempt++) {
+        $dumpOutput = (Adb shell uiautomator dump /sdcard/qa-mastery.xml) -join "`n"
+        if ($dumpOutput -match 'dumped to') {
+            return [xml]((Adb shell cat /sdcard/qa-mastery.xml) -join "`n")
+        }
+        # A failed dump can leave the prior screen's XML on disk. Never tap it.
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'Could not obtain a fresh Android UI hierarchy'
 }
 function Center($node) {
     $coordinates = [regex]::Matches($node.bounds, '\d+') | ForEach-Object { [int]$_.Value }
@@ -62,6 +70,7 @@ if ($health.ai_provider -notin @('deterministic', 'scripted-qa')) { throw 'Run a
 if ($ExpectRubricFeedback -and $health.ai_provider -ne 'scripted-qa') { throw 'Rubric display checks require scripts/serve_qa.py --qa-only.' }
 if ($VerifyFailedResponse -and ($VerifyStaleSubmission -or $health.ai_provider -ne 'scripted-qa')) { throw 'Failed-response QA requires scripted-qa and cannot combine with stale-submission QA.' }
 if ($MalformedResponse -and -not $VerifyFailedResponse) { throw '-MalformedResponse requires -VerifyFailedResponse' }
+if ($VerifyUnlocks -and ($health.ai_provider -ne 'scripted-qa' -or $VerifyWeeklyReport)) { throw 'Unlock QA requires scripted-qa and cannot combine with weekly-count assertions' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -73,6 +82,43 @@ TapText 'Create account'
 TapText "Grade`n8"
 TextNode 'No assessment yet' | Out-Null
 TapText 'Mathematics'
+if ($VerifyUnlocks) {
+    function ChapterCard([string]$title) {
+        $node = TextNode $title
+        return $node.SelectSingleNode("ancestor::node[@clickable='true' or @enabled='false'][1]")
+    }
+    $geometry = ChapterCard 'Geometry'
+    if (-not $geometry -or $geometry.enabled -ne 'false') { throw 'Geometry is not initially disabled' }
+    $auth = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+    $unlockHeaders = @{Authorization="Bearer $($auth.access_token)"}
+    Invoke-RestMethod 'http://127.0.0.1:8000/__qa/learning-path/algebra?state=mastered' -Method Post -Headers $unlockHeaders | Out-Null
+    # TextNode's normal lookup scrolls down; explicitly return to the top controls.
+    Adb shell input swipe 540 600 540 1900 400 | Out-Null
+    TapText 'Refresh progress'
+    $geometry = ChapterCard 'Geometry'
+    if (-not $geometry -or $geometry.enabled -ne 'true') { throw 'Geometry did not unlock after server refresh' }
+    Invoke-RestMethod 'http://127.0.0.1:8000/__qa/learning-path/algebra?state=diagnostic' -Method Post -Headers $unlockHeaders | Out-Null
+    TapText 'Geometry'
+    TextNode 'This chapter is currently locked. Complete its prerequisite in this grade, then use Refresh progress. Your saved learning is unchanged.' | Out-Null
+    TapText 'Try again'
+    $geometry = ChapterCard 'Geometry'
+    if (-not $geometry -or $geometry.enabled -ne 'false') { throw 'Denied stale unlock was not cleared' }
+    $audit = Invoke-RestMethod 'http://127.0.0.1:8000/__qa/learning-path/geometry-count' -Headers $unlockHeaders
+    if ($audit.sessions -ne 0) { throw 'Denied Geometry start created a session' }
+    Adb shell screencap -p /sdcard/qa-chapter-unlock.png | Out-Null
+    Adb pull /sdcard/qa-chapter-unlock.png (Join-Path $repo 'artifacts\qa-chapter-unlock.png') | Out-Null
+    RestartApp
+    TapText 'Mathematics'
+    $geometry = ChapterCard 'Geometry'
+    if (-not $geometry -or $geometry.enabled -ne 'false') { throw 'Relocked state did not survive restart' }
+    Invoke-RestMethod 'http://127.0.0.1:8000/__qa/learning-path/algebra?state=mastered' -Method Post -Headers $unlockHeaders | Out-Null
+    Adb shell input swipe 540 600 540 1900 400 | Out-Null
+    TapText 'Refresh progress'
+    $geometry = ChapterCard 'Geometry'
+    if (-not $geometry -or $geometry.enabled -ne 'true') { throw 'Refresh did not restore eligible Geometry access' }
+    Adb shell input swipe 540 600 540 1900 400 | Out-Null
+    Write-Output 'PASS: server refresh unlocks Geometry; stale start denied with no new session; relock survives restart and eligibility refresh restores access'
+}
 TapText 'Fractions'
 TextNode 'Question 1 of 3' | Out-Null
 TapText '1/2'
