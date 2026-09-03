@@ -32,10 +32,25 @@ Entire document selects every detected chapter, subject to the existing live
 40,000-character input limit; the UI warns that large selections need splitting.
 
 Android build/lint and 45 JVM tests passed on 2026-09-03, including restoration
-order, clearing, missing IDs and document-deletion cleanup. The recovery script
-was updated for select-all/clear/restart and subsequent single-chapter generation,
-but the updated script has not yet run. Visual/accessibility and real device
-multi-selection/API generation checks remain pending.
+order, clearing, missing IDs and document-deletion cleanup.
+
+On 2026-09-03, `scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyLibrary`
+passed on LearnSmart_API36 with the updated debug APK and refreshed scripted
+localhost QA backend. The run used a disposable account and synthetic biology
+notes through the real Android file picker. Entire document selected both
+chapters and survived force-stop/restart. Clear selection remained empty after
+another restart, with generation marked disabled. Selecting only Plants then
+survived restart, including its saved JSON-array preference. The generated quiz's
+source reference matched Plants. Existing quiz restart, conflict recovery,
+completion restoration and library reopen checks also passed without duplicate
+documents or changes to the previous quiz.
+
+The screenshot `artifacts/qa-document-chapters.png` was visually inspected:
+checkboxes, count, selection controls and generation action were readable.
+This is agent-run workflow QA, not user UAT, full accessibility evaluation or
+live-provider quality evidence. Generation with multiple selected chapters,
+legacy preference migration on device, account-switch behavior, large-document
+limits and physical-device coverage remain pending.
 
 Remaining work: section/page/topic retrieval with explicit boundaries; selection
 review/recovery device tests; and coverage/quality evaluation over selected material.

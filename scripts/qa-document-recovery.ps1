@@ -81,6 +81,7 @@ TextNode '0 of 2 chapters selected' | Out-Null
 $generate = TextNode 'Generate 10 questions'
 # Disabled semantics may be merged into the text node or attached to its ancestor.
 if ($generate.enabled -ne 'false' -and -not $generate.SelectSingleNode("ancestor::node[@enabled='false']")) { throw 'Generation is not marked disabled with no selected chapters' }
+Write-Output 'PASS: entire-document and cleared selections survive restart; empty selection disables generation'
 TapText 'Chapter 2 Plants'
 RestartApp
 TextNode 'Choose chapters' | Out-Null

@@ -82,6 +82,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: updated document recovery QA passed on API 36. Entire-document and
+  cleared selections persist through forced restarts; empty selection disables
+  generation. Plants-only selection persists and its quiz uses the selected source.
+  Quiz/conflict/result/library recovery also passed; selector screenshot inspected.
+  Multi-chapter generation and device migration/account-switch tests remain open.
+  See `document-selection.md`.
+
 - 2026-09-03: added Android document chapter checkboxes, Entire document, Clear
   selection and selected count. Selection persists across restart with legacy
   single-ID migration; the API receives all selected IDs and empty selection
