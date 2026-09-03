@@ -12,6 +12,7 @@ The MVP implementation is in progress on `agent/mvp-implementation`:
 
 - `android/` contains the Jetpack Compose client for account creation, document selection, chapter selection, the one-question quiz experience, teaching feedback, and results/mistake review.
 - `backend/` contains the FastAPI service that owns authentication, document validation/extraction, chapter detection, grounded quiz sessions, answer evaluation, and owner-scoped deletion.
+- The grade-based Mathematics/Fractions path now persists diagnostic answers, tutoring interventions, guided practice, student rewrites, mastery evidence, and parent/teacher progress. It runs deterministically until a server-side OpenAI key is supplied.
 
 The backend test suite passes. Android APK compilation requires a locally accepted Android SDK license; see `android/README.md`.
 
