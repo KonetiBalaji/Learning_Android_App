@@ -12,7 +12,7 @@ fun validateDocumentSize(size: Long?) {
 }
 
 /** Bounded buffers and a one-byte over-limit probe; never materializes the whole document. */
-fun copyDocument(input: InputStream, output: OutputStream, limit: Long = MAX_DOCUMENT_BYTES): Long {
+fun copyDocument(input: InputStream, output: OutputStream, limit: Long = MAX_DOCUMENT_BYTES, onProgress: (Long) -> Unit = {}): Long {
     require(limit > 0)
     val buffer = ByteArray(16 * 1024)
     var total = 0L
@@ -25,11 +25,13 @@ fun copyDocument(input: InputStream, output: OutputStream, limit: Long = MAX_DOC
             if (total == limit) throw DocumentUploadException("The selected file is too large. Choose a file up to 50 MB.")
             output.write(single)
             total++
+            onProgress(total)
             continue
         }
         if (total + count > limit) throw DocumentUploadException("The selected file is too large. Choose a file up to 50 MB.")
         output.write(buffer, 0, count)
         total += count
+        onProgress(total)
     }
     if (total == 0L) throw DocumentUploadException("The selected file is empty. Choose a document with learning material.")
     return total

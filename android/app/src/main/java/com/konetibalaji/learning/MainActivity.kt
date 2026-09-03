@@ -134,7 +134,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Settings -> SettingsScreen(state, viewModel::backToSubjects, viewModel::setDarkMode, viewModel::changeGrade, viewModel::signOut, viewModel::deleteAccount, viewModel::openInterests)
                         Screen.Interests -> InterestsScreen(state, viewModel::selectInterest, viewModel::clearInterests, viewModel::saveInterests, viewModel::reloadInterests, viewModel::openSettings)
                     }
-                    if (state.loading) LoadingOverlay()
+                    if (state.loading) LoadingOverlay(state.uploadProgress)
                 }
             }
         }
@@ -462,7 +462,7 @@ private fun StudyMaterialScreen(loading: Boolean, onUpload: (android.content.Con
     val context = androidx.compose.ui.platform.LocalContext.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { onUpload(context, it) } }
     Page {
-        TextButton(onClick = onBack) { Text("‹ Back to learning path") }
+        TextButton(onClick = onBack, enabled = !loading) { Text("‹ Back to learning path") }
         Header("Your study space", "Learn from your own material", "Upload a PDF, DOCX, or TXT file and receive source-grounded questions.")
         OutlinedButton(onClick = onLibrary, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("My uploaded documents") }
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Icon(Icons.Outlined.Description, null, tint = Indigo, modifier = Modifier.size(36.dp)); Text("Upload study material", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Up to 50 MB. We detect chapters before generating a focused quiz.", color = MaterialTheme.colorScheme.onSurfaceVariant); PrimaryButton("Choose document", !loading) { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain")) } } }
@@ -662,7 +662,22 @@ private fun DocumentResultsScreen(results: Results?, onAgain: () -> Unit, onBack
 }
 
 @Composable
-private fun LoadingOverlay() = Box(Modifier.fillMaxSize().background(Color(0x990F172A)), contentAlignment = Alignment.Center) { Card(shape = RoundedCornerShape(20.dp)) { Row(Modifier.padding(24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(); Text("Preparing your learning session…") } } }
+private fun LoadingOverlay(upload: DocumentUploadProgress? = null) = Box(Modifier.fillMaxSize().background(Color(0x990F172A)).padding(24.dp), contentAlignment = Alignment.Center) {
+    Card(shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (upload == null) {
+                CircularProgressIndicator()
+                Text("Preparing your learning session…")
+            } else {
+                Text(upload.title, style = MaterialTheme.typography.titleMedium)
+                val fraction = upload.fraction
+                if (fraction == null) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                else LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                Text(upload.detail)
+            }
+        }
+    }
+}
 
 @Composable
 private fun ErrorDialog(message: String, onDismiss: () -> Unit) = AlertDialog(onDismissRequest = onDismiss, icon = { Icon(Icons.Outlined.ErrorOutline, null) }, title = { Text("We could not continue") }, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismiss) { Text("Try again") } })

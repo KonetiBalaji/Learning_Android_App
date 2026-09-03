@@ -90,6 +90,7 @@ data class AppUiState(
     val unlockedChapterIds: Set<String> = emptySet(), val darkMode: Boolean = false, val accountEmail: String = "",
     val document: StudyDocument? = null, val selectedChapterIds: Set<String> = emptySet(), val quizId: String? = null, val question: QuizQuestion? = null,
     val documentLibrary: List<StudyDocument>? = null,
+    val uploadProgress: DocumentUploadProgress? = null,
     val documentRepairNotice: String? = null,
     val documentPreview: DocumentPreview? = null,
     val documentExcerpts: List<DocumentExcerpt> = emptyList(),
@@ -431,7 +432,14 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun upload(context: Context, uri: Uri) = perform(Screen.Chapters) {
-        rememberUploadedDocument(api.upload(context.contentResolver, uri))
+        mutableState.value = mutableState.value.copy(uploadProgress = DocumentUploadProgress())
+        try {
+            rememberUploadedDocument(api.upload(context.contentResolver, uri) { progress ->
+                mutableState.value = mutableState.value.copy(uploadProgress = progress)
+            })
+        } finally {
+            mutableState.value = mutableState.value.copy(uploadProgress = null)
+        }
     }
     private fun rememberUploadedDocument(document: StudyDocument) {
         val chapter = document.chapters.firstOrNull()?.id
@@ -660,7 +668,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun getInterests(): List<String> = request("GET", "/v1/account", null).getJSONArray("interests").strings()
     fun saveInterests(values: List<String>): List<String> = request("PUT", "/v1/account/interests",
         JSONObject().put("interests", JSONArray(values)).toString()).getJSONArray("interests").strings()
-    fun upload(resolver: ContentResolver, uri: Uri): StudyDocument {
+    fun upload(resolver: ContentResolver, uri: Uri, onProgress: (DocumentUploadProgress) -> Unit): StudyDocument {
         var originalName = "study-material.txt"
         var declaredSize: Long? = null
         resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)?.use { cursor ->
@@ -672,6 +680,10 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             }
         }
         validateDocumentSize(declaredSize)
+        val knownSize = declaredSize?.takeIf { it > 0 }
+        onProgress(DocumentUploadProgress(declaredBytes = knownSize))
+        var copied = 0L
+        var lastReported = 0L
         val name = safeDocumentName(originalName)
         val mediaType = documentMediaType(name)
         val boundary = "Learnly-${UUID.randomUUID()}"
@@ -681,10 +693,16 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             resolver.openInputStream(uri)?.use { input ->
                 BufferedOutputStream(connection.outputStream).use { output ->
                     output.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$name\"\r\nContent-Type: $mediaType\r\n\r\n".toByteArray(Charsets.UTF_8))
-                    copyDocument(input, output)
+                    copied = copyDocument(input, output) { bytes ->
+                        if (bytes - lastReported >= 256 * 1024 || bytes == knownSize) {
+                            onProgress(DocumentUploadProgress(bytes, knownSize))
+                            lastReported = bytes
+                        }
+                    }
                     output.write("\r\n--$boundary--\r\n".toByteArray(Charsets.UTF_8))
                 }
             } ?: throw DocumentUploadException("The selected file could not be read. Please select it again.")
+            onProgress(DocumentUploadProgress(copied, knownSize, awaitingAnalysis = true))
             return document(readJson(connection))
         } finally { connection.disconnect() }
     }

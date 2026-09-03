@@ -67,6 +67,11 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Baseline evidence and known defects
 
+- Added Android byte-based upload progress and a distinct server-analysis wait
+  phase, with unknown/incorrect-size handling and failure cleanup. Build/lint and
+  109 JVM tests passed on 2026-09-03. New overlay device/slow-network/accessibility
+  checks remain open; see `docs/upload-progress.md`.
+
 - Fixed DOCX body extraction omitting tables: new uploads preserve ordered table
   and nested-cell text, avoid duplicate merged-cell evidence and reject excess
   traversal limits. Existing stored source offsets remain unchanged. Eight new
