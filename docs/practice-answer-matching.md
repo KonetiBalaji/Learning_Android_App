@@ -13,17 +13,21 @@ integer, decimal, fraction and proper mixed-number literals. For example,
 or arbitrary expression evaluation is used. Numeric parsing is limited to 100
 characters and 24 digits per component, with positive nonzero denominators.
 
-Only trusted curated addition/subtraction practice and their arithmetic-generated
-variants currently opt in. The requested-denominator exercise remains exact:
+Curated addition/subtraction practice and their arithmetic-generated variants
+opt in. Newly generated banks can also opt in after independent practice review.
+The requested-denominator exercise remains exact:
 `4 / 6` is accepted but `2/3` is not. Legacy saved banks lacking the field remain
 exact; their prompts/answers are not migrated or silently reinterpreted.
 
-Generated diagnostic items remain exact and their provider schema cannot supply
-this policy. Therefore the live-smoke generated question with answer `23/20`
-still needs reviewed alternative answers or a validated format policy before
-accepting `1 3/20`. The separate blind diagnostic review does not verify practice
-keys, teaching text or answer-format constraints. Those remain open quality work;
-this change is not universal mathematical grading or teacher UAT evidence.
+The generator cannot supply this policy. The blind reviewer independently solves
+the practice prompt and specifies exact or numeric matching without seeing its
+proposed answers. Every proposed answer must agree with the independent solution;
+numeric solutions must also pass the bounded rational parser. Only then is the
+policy persisted. Numeric `23/20` can therefore accept `1 3/20`, while a prompt
+requiring lowest terms remains exact. This is model-based screening, not proof
+that the reviewer understood every constraint. Same-model correlated errors,
+false rejection of valid textual synonyms, teaching-text review and broader
+human-reviewed evaluation remain open. Old sessions are not re-reviewed.
 
 Verification: backend regression tests cover false positives, rational literals,
 requested formats, persistence/legacy compatibility, generated-policy rejection,

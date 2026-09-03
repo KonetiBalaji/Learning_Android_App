@@ -16,9 +16,10 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 Practice matcher hardening: meaningful symbols/word boundaries are preserved,
 with persisted opt-in rational equivalence for curated arithmetic and exact
-matching for denominator-constrained exercises. Legacy and model-generated banks
-remain exact. Regression and HTTP tests cover accepted/rejected transitions;
-generated practice-key/format review, on-device verification and UAT remain open.
+matching for denominator-constrained exercises. Legacy banks remain exact. New
+model-generated banks require blind practice-key and format-policy screening
+before persistence. Regression and HTTP tests cover accepted/rejected transitions;
+broad grading-quality evaluation, on-device verification and UAT remain open.
 See `docs/practice-answer-matching.md` for scope and limitations.
 
 | ID | Requirement | Current status | Required acceptance evidence |

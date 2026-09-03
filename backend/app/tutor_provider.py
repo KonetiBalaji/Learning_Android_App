@@ -162,8 +162,7 @@ class OpenAITutorProvider:
             ) for item in generated.questions
         )
         validate_diagnostic_bank(items)
-        review_diagnostic_answers(self.client, self.model, grade, subject_id, chapter_id, items)
-        return items
+        return review_diagnostic_answers(self.client, self.model, grade, subject_id, chapter_id, items)
 
 
 class ResilientTutorProvider:

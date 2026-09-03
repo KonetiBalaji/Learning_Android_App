@@ -11,7 +11,9 @@ from app.tutor_provider import OpenAITutorProvider, ResilientTutorProvider, Dete
 
 def review():
     return {'items': [dict(item_index=i, answer_index=item.options.index(item.correct_option),
-                          unambiguous=True, topic_matches=True, grade_suitable=True)
+                          unambiguous=True, topic_matches=True, grade_suitable=True,
+                          practice_answer=item.practice_answers[0], practice_valid=True,
+                          practice_answer_mode=item.answer_mode)
                       for i, item in enumerate(FRACTION_DIAGNOSTIC)]}
 
 
@@ -37,7 +39,7 @@ def test_blind_review_does_not_receive_proposed_answers_or_teaching_support():
     request = requests[0]
     payload = json.loads(request['input'])
     assert payload['grade'] == 8 and payload['chapter'] == 'fractions'
-    assert all(set(item) == {'item_index', 'prompt', 'options'} for item in payload['questions'])
+    assert all(set(item) == {'item_index', 'prompt', 'options', 'practice_prompt'} for item in payload['questions'])
     assert request['store'] is False
     assert request['text']['format']['strict'] is True
 
@@ -57,14 +59,49 @@ def test_partial_review_and_outage_fail_closed():
             review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
 
 
+@pytest.mark.parametrize('field,value', [('practice_answer', '2/7'),
+    ('practice_valid', False), ('practice_valid', 'true'), ('practice_answer_mode', 'anything'),
+    ('practice_answer', ''), ('practice_answer', 'three quarters')])
+def test_practice_review_rejects_disagreement_invalid_policy_and_unparseable_number(field, value):
+    result = review()
+    result['items'][0][field] = value
+    with pytest.raises(ValueError):
+        review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
+
+
+def test_each_proposed_answer_must_pass_not_just_one():
+    items = (replace(FRACTION_DIAGNOSTIC[0], practice_answers=('3/4', '3+4')), *FRACTION_DIAGNOSTIC[1:])
+    with pytest.raises(ValueError, match='Practice answer review'):
+        review_diagnostic_answers(fake_client([review()], []), 'fixture', 8, 'math', 'fractions', items)
+
+
+def test_requested_denominator_cannot_be_replaced_by_equivalent_simplified_key():
+    items = (FRACTION_DIAGNOSTIC[0], replace(FRACTION_DIAGNOSTIC[1], practice_answers=('2/3',)), FRACTION_DIAGNOSTIC[2])
+    with pytest.raises(ValueError, match='Practice answer review'):
+        review_diagnostic_answers(fake_client([review()], []), 'fixture', 8, 'math', 'fractions', items)
+
+
+def test_numeric_review_accepts_mixed_answer_but_simplest_terms_remains_exact():
+    from app.practice_matching import response_matches
+    items = (replace(FRACTION_DIAGNOSTIC[0], practice_prompt='Compute 3/4 + 2/5.',
+                     practice_answers=('23/20',)), *FRACTION_DIAGNOSTIC[1:])
+    result = review()
+    result['items'][0]['practice_answer'] = '1 3/20'
+    bank = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', items)
+    assert response_matches('1.15', bank[0].practice_answers, bank[0].answer_mode)[0]
+    simplified = (replace(items[0], practice_prompt='Simplify 6/8 to lowest terms.', practice_answers=('3/4',)), *items[1:])
+    result['items'][0].update(practice_answer='3/4', practice_answer_mode='exact')
+    bank = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', simplified)
+    assert not response_matches('6/8', bank[0].practice_answers, bank[0].answer_mode)[0]
+
+
 def test_provider_requires_review_before_returning_generated_bank():
     provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
     provider.model = 'fixture'
     requests = []
     generated = generated_bank()
     provider.client = fake_client([generated, review()], requests)
-    assert provider.diagnostic_bank(8, 'math', 'fractions') == tuple(
-        replace(item, answer_mode='exact') for item in FRACTION_DIAGNOSTIC)
+    assert provider.diagnostic_bank(8, 'math', 'fractions') == FRACTION_DIAGNOSTIC
     assert len(requests) == 2
     rejected = review()
     rejected['items'][0]['topic_matches'] = False
@@ -94,7 +131,8 @@ def test_rejected_off_topic_bank_cannot_fallback_to_fractions_for_another_chapte
 
 
 @pytest.mark.parametrize('accepted', [False, True])
-def test_http_start_persists_only_a_reviewed_bank(monkeypatch, tmp_path, accepted):
+@pytest.mark.parametrize('review_field', ['unambiguous', 'practice_valid'])
+def test_http_start_persists_only_a_reviewed_bank(monkeypatch, tmp_path, accepted, review_field):
     from test_mastery_loop import registered_client
     from app.config import get_settings
     from app.database import connection
@@ -103,7 +141,7 @@ def test_http_start_persists_only_a_reviewed_bank(monkeypatch, tmp_path, accepte
         provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
         provider.model = 'fixture'
         result = review()
-        result['items'][0]['unambiguous'] = accepted
+        result['items'][0][review_field] = accepted
         provider.client = fake_client([generated_bank(), result], [])
         monkeypatch.setattr('app.main.tutor_provider', lambda settings: provider)
         response = client.post('/v1/mastery/diagnostics', headers=headers,
@@ -111,6 +149,10 @@ def test_http_start_persists_only_a_reviewed_bank(monkeypatch, tmp_path, accepte
         assert response.status_code == (201 if accepted else 422)
         with connection(get_settings().database_path) as db:
             assert db.execute('SELECT COUNT(*) FROM mastery_sessions').fetchone()[0] == int(accepted)
+            if accepted:
+                from app.mastery_service import parse_diagnostic_bank
+                saved = parse_diagnostic_bank(db.execute('SELECT questions_json FROM mastery_sessions').fetchone()[0])
+                assert [item.answer_mode for item in saved] == ['number', 'exact', 'number']
         if accepted:
             assert 'correct_option' not in response.text
     finally:
