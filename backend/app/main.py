@@ -34,6 +34,7 @@ from .schemas import (
     Credentials,
     DocumentSummary,
     ChapterPreview,
+    StudyPresence,
     Feedback,
     QuizQuestion,
     QuizRequest,
@@ -399,6 +400,18 @@ def quiz_results(quiz_id: str, user_id: str = Depends(current_user_id), settings
     correct = [row for row in answered if row["answered_option"] == row["correct_option"]]
     mistakes = [question_payload(row) for row in answered if row["answered_option"] != row["correct_option"]]
     return QuizResults(quiz_id=quiz_id, answered=len(answered), total=len(rows), correct=len(correct), accuracy=(len(correct) / len(answered) if answered else 0.0), mistakes=mistakes)
+
+
+@app.post('/v1/mastery/sessions/{session_id}/presence', response_model=StudyPresence)
+def observe_study_presence(session_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    from .study_time import record_presence
+    with connection(settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        try:
+            seconds = record_presence(db, user_id, session_id, datetime.fromisoformat(now()))
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail='Session not found') from error
+    return StudyPresence(session_id=session_id, observed_study_seconds=seconds)
 
 
 @app.post("/v1/mastery/diagnostics", response_model=DiagnosticSession, status_code=status.HTTP_201_CREATED)

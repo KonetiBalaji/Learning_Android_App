@@ -481,3 +481,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   inspected and 181 backend tests passed. A stale-XML harness failure was corrected
   and the full run repeated successfully. Other subject gates and account/grade
   switching on-device remain open. See the prerequisite contract for fixture scope.
+- Added the backend observed-study-presence endpoint and durable interval storage.
+  Server timestamps, a 60-second gap limit, one owner cursor and completion clipping
+  prevent the tested overlap/idle-gap overcounts; 183 backend tests passed. Android
+  lifecycle/idle signals and time displays are not connected yet, so MAST-01 time
+  tracking remains partial. This measures presence, not attention. See
+  `shared/contracts/study-presence.md`.

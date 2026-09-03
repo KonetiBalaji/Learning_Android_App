@@ -206,6 +206,11 @@ class ChapterProgress(BaseModel):
     status: str
 
 
+class StudyPresence(BaseModel):
+    session_id: str
+    observed_study_seconds: int = Field(ge=0)
+
+
 class ProgressDashboard(BaseModel):
     grade: int | None = None
     unlocked_chapter_ids: list[str] = Field(default_factory=list)

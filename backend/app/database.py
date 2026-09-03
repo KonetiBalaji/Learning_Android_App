@@ -55,6 +55,17 @@ CREATE TABLE IF NOT EXISTS mastery_attempts (
   phase TEXT NOT NULL, prompt TEXT NOT NULL, response TEXT NOT NULL,
   correct INTEGER NOT NULL, concept TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS study_presence (
+  owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
+  seen_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS study_time_intervals (
+  id INTEGER PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
+  started_at TEXT NOT NULL, ended_at TEXT NOT NULL, seconds REAL NOT NULL CHECK(seconds > 0)
+);
+CREATE INDEX IF NOT EXISTS study_time_session_idx ON study_time_intervals(session_id);
 CREATE INDEX IF NOT EXISTS mastery_sessions_owner_idx
   ON mastery_sessions(owner_id, subject_id, chapter_id, started_at);
 CREATE INDEX IF NOT EXISTS mastery_attempts_session_idx
