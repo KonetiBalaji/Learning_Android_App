@@ -159,3 +159,17 @@ backend tests passed, including owner/non-fixture rejection, post-commit failure
 and idempotent retry. No live AI requests or real user documents were involved.
 Actual TCP loss, device-level unsafe-structure rejection and user UAT remain
 unverified; this evidence does not complete richer selection modes or production.
+
+## Review source text before selection
+
+Android now offers a separate preview action for each chapter, including recovered
+low-confidence ranges. An owner-authenticated, read-only endpoint returns verbatim
+source text in 2,000-code-point parts without reading neighboring ranges or calling
+an AI provider. Previous/next controls do not change the quiz selection or pending
+creation identity. These parts are explicitly labeled as text chunks, not PDF
+pages. See `shared/contracts/document-preview.md` for bounds and failure behavior.
+
+175 backend tests and Android build/lint/63 JVM tests passed. Device preview
+navigation, offline/retry and accessibility checks remain open; no user UAT is
+claimed. Original-page rendering and section/page/topic quiz selection remain
+separate outstanding requirements.

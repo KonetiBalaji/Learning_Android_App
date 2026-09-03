@@ -33,6 +33,7 @@ from .schemas import (
     Chapter,
     Credentials,
     DocumentSummary,
+    ChapterPreview,
     Feedback,
     QuizQuestion,
     QuizRequest,
@@ -220,6 +221,20 @@ def document_summary(document_id: str, user_id: str = Depends(current_user_id), 
     row = owned_document(document_id, user_id, settings)
     return DocumentSummary(id=row["id"], original_name=row["original_name"],
                            chapters=[Chapter.model_validate(item) for item in parse_json(row["chapters_json"])])
+
+
+@app.get('/v1/documents/{document_id}/chapters/{chapter_id}/preview', response_model=ChapterPreview)
+def document_chapter_preview(document_id: str, chapter_id: str, page: int = Query(0, ge=0),
+                             user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    from .document_preview import preview_chapter
+    row = owned_document(document_id, user_id, settings)
+    try:
+        chapters = [Chapter.model_validate(item) for item in parse_json(row['chapters_json'])]
+        if not any(chapter.id == chapter_id for chapter in chapters):
+            raise HTTPException(status_code=404, detail='Chapter not found')
+        return preview_chapter(document_id, row['extracted_text'], chapters, chapter_id, page)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail='Invalid preview page or stored source range') from error
 
 
 @app.post('/v1/documents/{document_id}/structure/repair', response_model=DocumentSummary)

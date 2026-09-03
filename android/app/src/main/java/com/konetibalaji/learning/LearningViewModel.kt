@@ -45,6 +45,7 @@ sealed interface Screen {
     data object Question : Screen; data object Feedback : Screen; data object Results : Screen; data object Settings : Screen
     data object DocumentLibrary : Screen
     data object Interests : Screen
+    data object DocumentPreview : Screen
 }
 
 val fractionQuestions = listOf(
@@ -88,6 +89,7 @@ data class AppUiState(
     val document: StudyDocument? = null, val selectedChapterIds: Set<String> = emptySet(), val quizId: String? = null, val question: QuizQuestion? = null,
     val documentLibrary: List<StudyDocument>? = null,
     val documentRepairNotice: String? = null,
+    val documentPreview: DocumentPreview? = null,
     val savedInterests: List<String>? = null, val interestDraft: List<String> = emptyList(), val interestSaveMessage: String? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
@@ -364,7 +366,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val chapter = document.chapters.firstOrNull()?.id
         check(preferences.edit().putString(documentKey(), document.id).putString(documentChapterKey(), chapter)
             .remove(documentQuizKey()).putString(activeFlowKey(), "document").commit())
-        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, selectedChapterIds = setOfNotNull(chapter),
+        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, documentPreview = null, selectedChapterIds = setOfNotNull(chapter),
             documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
             documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
             documentQuestionType = restoredDocumentQuestionType(preferences.getString(documentQuestionTypeKey(), null)), savedQuizQuestionType = null,
@@ -397,6 +399,20 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         if (mutableState.value.loading || value !in documentQuestionTypes) return
         preferences.edit().putString(documentQuestionTypeKey(), value).apply()
         mutableState.value = mutableState.value.copy(documentQuestionType = value)
+    }
+    fun previewDocumentChapter(chapterId: String, page: Int = 0) = perform(Screen.DocumentPreview) {
+        val current = mutableState.value
+        val document = requireNotNull(current.document)
+        require(document.chapters.any { it.id == chapterId })
+        val preview = api.previewDocumentChapter(document.id, chapterId, page)
+        mutableState.value = current.copy(documentPreview = preview)
+    }
+    fun changePreviewPage(page: Int) {
+        val preview = mutableState.value.documentPreview ?: return
+        if (page in 0 until preview.totalPages) previewDocumentChapter(preview.chapterId, page)
+    }
+    fun closeDocumentPreview() {
+        if (!mutableState.value.loading) mutableState.value = mutableState.value.copy(screen = Screen.Chapters, documentPreview = null)
     }
     fun repairDocumentStructure() = perform(null) {
         val current = mutableState.value
@@ -517,6 +533,13 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         } finally { connection.disconnect() }
     }
     fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
+    fun previewDocumentChapter(documentId: String, chapterId: String, page: Int): DocumentPreview {
+        val encoded = java.net.URLEncoder.encode(chapterId, "UTF-8").replace("+", "%20")
+        val value = request("GET", "/v1/documents/$documentId/chapters/$encoded/preview?page=$page", null)
+        return validateDocumentPreview(DocumentPreview(value.getString("document_id"), value.getString("chapter_id"),
+            value.getString("title"), value.getInt("page"), value.getInt("total_pages"), value.getInt("start_character"),
+            value.getInt("end_character"), value.getString("text")), documentId, chapterId, page)
+    }
     fun repairDocumentStructure(id: String): StudyDocument = document(request("POST", "/v1/documents/$id/structure/repair", null))
     fun deleteDocument(id: String) { requestNoContent("DELETE", "/v1/documents/$id") }
     fun listDocuments(): List<StudyDocument> {

@@ -449,3 +449,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   Screenshot inspected; backend 173 tests passed. Remaining-answer completion
   was API-driven. Actual TCP loss, unsafe-structure device checks and user UAT
   remain open. See `document-selection.md` for the exact scope.
+- Added owner-only, bounded source-text preview and Android previous/next part
+  navigation for existing/recovered chapters. Preview does not change selections.
+  Backend 175 tests and Android build/lint/63 JVM tests passed; device navigation,
+  offline retry and accessibility remain pending. Text chunks are not PDF pages;
+  DOC-02 section/page/topic selection remains partial. See `document-selection.md`.

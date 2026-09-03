@@ -30,6 +30,17 @@ class DocumentSummary(BaseModel):
     chapters: list[Chapter]
 
 
+class ChapterPreview(BaseModel):
+    document_id: str
+    chapter_id: str
+    title: str
+    page: int
+    total_pages: int
+    start_character: int
+    end_character: int
+    text: str
+
+
 class QuizRequest(BaseModel):
     request_id: UUID | None = None
     question_type: QuestionType = 'multiple_choice'

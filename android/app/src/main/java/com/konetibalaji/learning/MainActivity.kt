@@ -124,7 +124,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure)
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) })
+                        Screen.DocumentPreview -> DocumentPreviewScreen(state, viewModel::closeDocumentPreview, viewModel::changePreviewPage)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
                         Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects, state.savedQuizDifficulty, state.savedQuizQuestionType)
@@ -495,7 +496,7 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit, onRepair: () -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit, onRepair: () -> Unit, onPreview: (String) -> Unit) {
     val document = state.document ?: return
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
@@ -517,6 +518,7 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
                     if (chapter.confidence < 0.6f) Text("Low-confidence text range: review before selecting", style = MaterialTheme.typography.bodySmall)
                 }
             }
+            TextButton(onClick = { onPreview(chapter.id) }, enabled = !state.loading) { Text("Preview: ${chapter.title}") }
         }
         Text("Large selections may need to be split into smaller quizzes. Questions use only the selected chapters.")
         val count = validDocumentQuestionCount(state.documentQuestionCountInput)
@@ -547,6 +549,22 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
         }
         Text("Choose one format per quiz. True / False and Yes / No require live generation.")
         PrimaryButton(if (count == null) "Generate quiz" else "Generate $count questions", state.selectedChapterIds.isNotEmpty() && count != null && !state.loading, onCreate)
+    }
+}
+
+@Composable
+private fun DocumentPreviewScreen(state: AppUiState, onBack: () -> Unit, onPage: (Int) -> Unit) {
+    val preview = state.documentPreview ?: return
+    Page {
+        TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to chapter selection") }
+        Header("Source preview", preview.title, "Extracted text, not AI-generated. Preview chunks are not original PDF pages.")
+        Text("Part ${preview.page + 1} of ${preview.totalPages} · Characters ${preview.start}–${preview.end}")
+        Row {
+            TextButton(onClick = { onPage(preview.page - 1) }, enabled = !state.loading && preview.page > 0) { Text("Previous part") }
+            TextButton(onClick = { onPage(preview.page + 1) }, enabled = !state.loading && preview.page + 1 < preview.totalPages) { Text("Next part") }
+        }
+        androidx.compose.foundation.text.selection.SelectionContainer { Text(preview.text) }
+        Text("Previewing does not change your quiz selection.")
     }
 }
 
