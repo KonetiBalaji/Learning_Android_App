@@ -112,7 +112,9 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
             Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     when (state.screen) {
-                        Screen.SignIn -> SignInScreen(state.loading, viewModel::authenticate)
+                        Screen.SignIn -> SignInScreen(state.loading, viewModel::authenticate) {
+                            activity?.let { viewModel.authenticateGoogle { requestGoogleIdToken(it) } }
+                        }
                         Screen.Grade -> GradeScreen(viewModel::selectGrade)
                         Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
                         Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects, viewModel::refreshProgress)
@@ -160,7 +162,7 @@ private fun PrimaryButton(label: String, enabled: Boolean = true, onClick: () ->
 ) { Text(label, fontWeight = FontWeight.Bold) }
 
 @Composable
-private fun SignInScreen(loading: Boolean, onAuthenticate: (String, String, Boolean) -> Unit) {
+private fun SignInScreen(loading: Boolean, onAuthenticate: (String, String, Boolean) -> Unit, onGoogleSignIn: () -> Unit) {
     var email by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }; var createAccount by remember { mutableStateOf(false) }
     Page(modifier = Modifier.padding(top = 22.dp)) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
@@ -171,10 +173,14 @@ private fun SignInScreen(loading: Boolean, onAuthenticate: (String, String, Bool
             }
         }
         Header(if (createAccount) "New learner" else "Welcome back", if (createAccount) "Create your account." else "Learn at your pace.", "Discover what you know, practise what you need, and master every concept.")
-        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email") }, singleLine = true, shape = RoundedCornerShape(14.dp))
-        OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text("Password") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), supportingText = { Text("At least 12 characters") }, shape = RoundedCornerShape(14.dp))
+        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), enabled = !loading, label = { Text("Email") }, singleLine = true, shape = RoundedCornerShape(14.dp))
+        OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), enabled = !loading, label = { Text("Password") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), supportingText = { Text("At least 12 characters") }, shape = RoundedCornerShape(14.dp))
         PrimaryButton(if (createAccount) "Create account" else "Sign in", !loading && email.isNotBlank() && password.length >= 12) { onAuthenticate(email.trim(), password, createAccount) }
-        TextButton(onClick = { createAccount = !createAccount }, modifier = Modifier.fillMaxWidth()) { Text(if (createAccount) "Already have an account? Sign in" else "New student? Create a private account") }
+        TextButton(onClick = { createAccount = !createAccount }, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text(if (createAccount) "Already have an account? Sign in" else "New student? Create a private account") }
+        OutlinedButton(onClick = onGoogleSignIn, enabled = !loading && BuildConfig.GOOGLE_SERVER_CLIENT_ID.isNotEmpty(), modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) {
+            Text("Sign in with Google")
+        }
+        if (BuildConfig.GOOGLE_SERVER_CLIENT_ID.isEmpty()) Text("Google sign-in is not configured for this build. Use email sign-in.", color = Muted)
     }
 }
 

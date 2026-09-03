@@ -6,6 +6,11 @@ plugins {
 }
 
 val releaseApiBaseUrl = providers.gradleProperty("releaseApiBaseUrl").orNull
+// Public OAuth audience, never an OpenAI key or OAuth client secret.
+val googleServerClientId = providers.gradleProperty("googleServerClientId").orNull.orEmpty().trim()
+require(googleServerClientId.isEmpty() || Regex("[0-9]+-[A-Za-z0-9_-]+\\.apps\\.googleusercontent\\.com").matches(googleServerClientId)) {
+    "googleServerClientId must be a Google web OAuth client ID, or omitted to disable Google sign-in"
+}
 val validateReleaseEndpoint = tasks.register("validateReleaseEndpoint") {
     doLast {
         val raw = releaseApiBaseUrl ?: error("Release requires -PreleaseApiBaseUrl=https://your-confirmed-backend. No production target is configured.")
@@ -33,6 +38,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -64,6 +70,9 @@ dependencies {
     implementation(composeBom)
     androidTestImplementation(composeBom)
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.compose.material3:material3")

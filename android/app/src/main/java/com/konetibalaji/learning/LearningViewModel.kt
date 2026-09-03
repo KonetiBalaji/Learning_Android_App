@@ -264,6 +264,25 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             canResumeMastery = preferences.contains("active_mastery:${email.lowercase()}"),
             canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}") || preferences.contains("active_document:${email.lowercase()}"))
     }
+    fun authenticateGoogle(requestToken: suspend () -> String) = perform(Screen.Grade) {
+        check(mutableState.value.screen == Screen.SignIn && !api.hasToken)
+        val idToken = withContext(Dispatchers.Main) { requestToken() }
+        val email = establishGoogleSession(
+            verifyProfile = { api.googleProfile(idToken) },
+            persist = { verifiedEmail ->
+                check(preferences.edit().putString("email", verifiedEmail).remove("grade").remove("unlocked").commit())
+                api.persistSession()
+            },
+            rollback = {
+                api.signOut()
+                tokenStore.clear()
+                check(preferences.edit().remove("email").remove("grade").remove("unlocked").commit())
+            },
+        )
+        mutableState.value = AppUiState(accountEmail = email, darkMode = mutableState.value.darkMode,
+            canResumeMastery = preferences.contains("active_mastery:${email.lowercase()}"),
+            canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}") || preferences.contains("active_document:${email.lowercase()}"))
+    }
     fun selectGrade(grade: Int) { preferences.edit().putInt("grade", grade).apply(); mutableState.value = mutableState.value.copy(grade = grade, screen = Screen.Subjects, progressSnapshot = null, unlockedChapterIds = emptySet()); refreshProgress() }
     fun selectSubject(subject: LearningSubject) { mutableState.value = mutableState.value.copy(subject = subject, screen = Screen.MasteryChapters) }
     fun selectMasteryChapter(chapter: MasteryChapter) {
@@ -371,8 +390,16 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         mutableState.value = mutableState.value.copy(savedInterests = saved, interestDraft = saved, interestSaveMessage = "Interests saved")
     }
     fun setDarkMode(enabled: Boolean) { preferences.edit().putBoolean("dark_mode", enabled).apply(); mutableState.value = mutableState.value.copy(darkMode = enabled) }
-    fun signOut() = perform(Screen.SignIn) { tokenStore.clear(); api.signOut(); preferences.edit().remove("email").remove("grade").remove("unlocked").apply(); mutableState.value = AppUiState(darkMode = mutableState.value.darkMode) }
-    fun deleteAccount() = perform(null) { api.deleteAccount(); tokenStore.clear(); preferences.edit().clear().apply(); mutableState.value = AppUiState() }
+    fun signOut() = perform(Screen.SignIn) {
+        tokenStore.clear(); api.signOut(); preferences.edit().remove("email").remove("grade").remove("unlocked").apply()
+        mutableState.value = AppUiState(darkMode = mutableState.value.darkMode, loading = true)
+        mutableState.value = mutableState.value.copy(error = clearGoogleCredentialState(getApplication()))
+    }
+    fun deleteAccount() = perform(null) {
+        api.deleteAccount(); tokenStore.clear(); preferences.edit().clear().apply()
+        mutableState.value = AppUiState(loading = true)
+        mutableState.value = mutableState.value.copy(error = clearGoogleCredentialState(getApplication()))
+    }
     fun changeGrade() { mutableState.value = mutableState.value.copy(screen = Screen.Grade) }
     fun backToSubjects() { mutableState.value = mutableState.value.copy(screen = Screen.Subjects) }
     fun startDocumentStudy() { mutableState.value = mutableState.value.copy(screen = Screen.Home) }
@@ -575,6 +602,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             withContext(Dispatchers.IO) { block() }
             mutableState.value = mutableState.value.copy(screen = destination ?: mutableState.value.screen, loading = false)
         } catch (cancelled: CancellationException) {
+            mutableState.value = mutableState.value.copy(loading = false)
             throw cancelled
         } catch (failure: Exception) {
             val recovery = recoveryAfterFailure((failure as? ApiFailure)?.status, submittedFlow)
@@ -615,6 +643,14 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     private fun acceptToken(response: JSONObject) { val accepted = response.getString("access_token"); saveToken(accepted); masterySubmissionState.clear(); token = accepted }
     fun register(email: String, password: String) = acceptToken(request("POST", "/v1/auth/register", JSONObject().put("email", email).put("password", password).toString()))
     fun login(email: String, password: String) = acceptToken(request("POST", "/v1/auth/login", JSONObject().put("email", email).put("password", password).toString()))
+    fun googleProfile(idToken: String): String {
+        val response = try { request("POST", "/v1/auth/google", JSONObject().put("id_token", idToken).toString()) }
+            catch (failure: ApiFailure) { throw googleExchangeFailure(failure.status) }
+        token = response.getString("access_token").also { require(it.isNotBlank()) }
+        masterySubmissionState.clear()
+        return request("GET", "/v1/account", null).getString("email").also { require(it.isNotBlank()) }
+    }
+    fun persistSession() { saveToken(requireNotNull(token)) }
     fun signOut() { token = null; masterySubmissionState.clear() }
     fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); signOut() }
     fun getInterests(): List<String> = request("GET", "/v1/account", null).getJSONArray("interests").strings()
