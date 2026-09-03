@@ -258,17 +258,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun authenticate(email: String, password: String, createAccount: Boolean) = perform(Screen.Grade) {
-        if (createAccount) api.register(email, password) else api.login(email, password)
-        preferences.edit().putString("email", email).remove("grade").remove("unlocked").apply()
-        mutableState.value = AppUiState(accountEmail = email, darkMode = mutableState.value.darkMode,
-            canResumeMastery = preferences.contains("active_mastery:${email.lowercase()}"),
-            canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}") || preferences.contains("active_document:${email.lowercase()}"))
+        check(mutableState.value.screen == Screen.SignIn && !api.hasToken)
+        finishAuthentication { api.passwordProfile(email, password, createAccount) }
     }
     fun authenticateGoogle(requestToken: suspend () -> String) = perform(Screen.Grade) {
         check(mutableState.value.screen == Screen.SignIn && !api.hasToken)
         val idToken = withContext(Dispatchers.Main) { requestToken() }
-        val email = establishGoogleSession(
-            verifyProfile = { api.googleProfile(idToken) },
+        finishAuthentication { api.googleProfile(idToken) }
+    }
+    private fun finishAuthentication(verifyProfile: () -> String) {
+        val email = establishVerifiedSession(
+            verifyProfile = verifyProfile,
             persist = { verifiedEmail ->
                 check(preferences.edit().putString("email", verifiedEmail).remove("grade").remove("unlocked").commit())
                 api.persistSession()
@@ -640,12 +640,16 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     private var token: String? = initialToken; private val baseUrl = BuildConfig.API_BASE_URL
     val hasToken: Boolean get() = token != null
     fun restoreToken(value: String?) { token = value }
-    private fun acceptToken(response: JSONObject) { val accepted = response.getString("access_token"); saveToken(accepted); masterySubmissionState.clear(); token = accepted }
-    fun register(email: String, password: String) = acceptToken(request("POST", "/v1/auth/register", JSONObject().put("email", email).put("password", password).toString()))
-    fun login(email: String, password: String) = acceptToken(request("POST", "/v1/auth/login", JSONObject().put("email", email).put("password", password).toString()))
+    fun passwordProfile(email: String, password: String, createAccount: Boolean): String {
+        val path = if (createAccount) "/v1/auth/register" else "/v1/auth/login"
+        return verifiedProfile(request("POST", path, JSONObject().put("email", email).put("password", password).toString()))
+    }
     fun googleProfile(idToken: String): String {
         val response = try { request("POST", "/v1/auth/google", JSONObject().put("id_token", idToken).toString()) }
             catch (failure: ApiFailure) { throw googleExchangeFailure(failure.status) }
+        return verifiedProfile(response)
+    }
+    private fun verifiedProfile(response: JSONObject): String {
         token = response.getString("access_token").also { require(it.isNotBlank()) }
         masterySubmissionState.clear()
         return request("GET", "/v1/account", null).getString("email").also { require(it.isNotBlank()) }

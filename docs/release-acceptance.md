@@ -91,7 +91,10 @@ feature to UAT accepted or production verified. All release gates below remain o
   occurred. Android wiring now builds with 103 passing JVM tests and default-build
   disabled-button API 36 QA; OAuth configuration, release hardening and
   real-account/device/UAT evidence remain missing; AUTH-02 is partial. See
-  `shared/contracts/google-sign-in.md`.
+  `shared/contracts/google-sign-in.md`. Follow-up password-session audit unified
+  registration/login with the verified-profile rollback path: 104 JVM tests and
+  API 36 registration, normalized identity, wrong-password recovery and restart
+  checks passed. Device profile-outage/Keystore-failure injection remains open.
 
 - Replaced fixed text-control/card heights with minimum heights and made grade/
   subject grids font/width-responsive within the page scroll. Android build/lint

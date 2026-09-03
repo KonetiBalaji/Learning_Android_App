@@ -100,3 +100,29 @@ Android references: [Credential Manager Google sign-in](https://developer.androi
 [stable Credential Manager releases](https://developer.android.com/jetpack/androidx/releases/credentials),
 and [Google ID releases](https://developers.google.com/identity/android-credential-manager/releases).
 The enabled button's final Google branding review remains a release gate.
+
+## Shared password-session correction
+
+The subsequent authentication audit found that password registration/login still
+persisted a token before verifying the server profile and used the typed email
+locally. Both password paths now share `establishVerifiedSession` and
+`finishAuthentication` with Google: fetch the profile using a provisional token,
+commit the server-stored email, then save the encrypted session. Any exchange,
+profile or persistence failure clears provisional credentials; password error
+messages retain their existing safe wording. Existing account-scoped learning
+resume pointers are preserved. A successful server registration cannot be rolled
+back by the client if the later profile fetch fails: the user must sign in to that
+newly created account, not retry creating it indefinitely.
+
+On 2026-09-03 Android build/lint and 104 JVM tests passed. The shared helper tests
+cover ordered verification/persistence, profile and storage failures, cancellation,
+rollback failure and preservation of the safe password-rejection error.
+`scripts/qa-auth-profile.ps1` passed against the isolated QA service and API 36
+emulator: mixed-case email registration, server-normalized identity display,
+sign-out, wrong-password rejection, successful retry and persisted-session restart.
+It starts signed out, creates only a synthetic account, and does not clear app data.
+The resulting `artifacts/qa-auth-profile.png` was visually inspected: the long
+synthetic email wraps without clipping and settings controls remain readable.
+A transient null automation root recovered through the bounded fresh-dump retry.
+Device-level profile-fetch outage and Keystore-write failure injection remain open;
+helper unit tests are not evidence for those device paths or for real Google login.
