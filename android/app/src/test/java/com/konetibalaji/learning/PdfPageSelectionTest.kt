@@ -9,6 +9,26 @@ class PdfPageSelectionTest {
     private val scope = PdfPageScope("doc", 2, 3, listOf("chapter"), listOf(DocumentExcerpt("chapter", 11, 21)), listOf(3))
     private fun validate(value: PdfPageScope) = validatePdfPageScope(value, catalog, 2, 3, setOf("chapter"))
 
+    @Test fun confirmationReturnsOnlyReviewedRangesForCurrentDocument() {
+        val document = StudyDocument("doc", "lesson.pdf", listOf(Chapter("chapter", "Plants", 1f)))
+        val draft = PdfPageDraft(catalog, "2", "3", scope)
+        assertEquals(scope.excerpts, confirmedPdfExcerpts(draft, document))
+        assertEquals(scope.excerpts, decodeExcerpts(encodeExcerpts(confirmedPdfExcerpts(draft, document))))
+        listOf(draft.copy(reviewed = null), draft.copy(first = "1"), draft.copy(last = "2"),
+            draft.copy(first = ""), draft.copy(catalog = catalog.copy(documentId = "other"))).forEach {
+            assertThrows(IllegalArgumentException::class.java) { confirmedPdfExcerpts(it, document) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { confirmedPdfExcerpts(draft, document.copy(id = "other")) }
+        assertThrows(IllegalArgumentException::class.java) { confirmedPdfExcerpts(draft, document.copy(chapters = emptyList())) }
+    }
+
+    @Test fun deletionClearsOnlyActiveDocumentPageDraft() {
+        val document = StudyDocument("doc", "lesson.pdf", listOf(Chapter("chapter", "Plants", 1f)))
+        val state = AppUiState(document = document, pdfPageDraft = PdfPageDraft(catalog, "2", "3", scope))
+        assertNull(stateAfterDocumentDeletion(state, "doc").pdfPageDraft)
+        assertEquals(state.pdfPageDraft, stateAfterDocumentDeletion(state, "other").pdfPageDraft)
+    }
+
     @Test fun acceptsPhysicalPagesIncludingBlankPageAndExactExcerpt() {
         assertEquals(catalog, validatePdfPageCatalog(catalog, "doc"))
         assertEquals(scope, validate(scope))

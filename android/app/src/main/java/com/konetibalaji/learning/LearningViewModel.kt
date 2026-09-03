@@ -94,6 +94,7 @@ data class AppUiState(
     val documentPreview: DocumentPreview? = null,
     val documentExcerpts: List<DocumentExcerpt> = emptyList(),
     val sourceQuery: String = "", val documentSearch: DocumentSearch? = null,
+    val pdfPageDraft: PdfPageDraft? = null,
     val savedInterests: List<String>? = null, val interestDraft: List<String> = emptyList(), val interestSaveMessage: String? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
@@ -200,7 +201,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             }
             preferences.edit().putString(activeFlowKey(), "document").apply()
             val completed = resumed.question == null
-            mutableState.value = mutableState.value.copy(document = resumed.document, quizId = id, documentExcerpts = resumed.excerpts, sourceQuery = "", documentSearch = null,
+            mutableState.value = mutableState.value.copy(document = resumed.document, quizId = id, documentExcerpts = resumed.excerpts, sourceQuery = "", documentSearch = null, pdfPageDraft = null,
                 documentQuestionTotal = resumed.total, savedQuizDifficulty = resumed.difficulty, savedQuizQuestionType = resumed.questionType, question = resumed.question, feedback = resumed.feedback,
                 results = if (completed) api.results(id) else null, canResumeDocumentQuiz = true,
                 screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
@@ -226,7 +227,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             val excerpts = decodeExcerpts(preferences.getString(documentExcerptKey(document.id), null))
             require(excerpts.isEmpty() || excerpts.map { it.chapterId }.toSet() == chapters) { "Saved excerpt selection does not match these chapters. Reopen the document to select again." }
             preferences.edit().putString(activeFlowKey(), "document").apply()
-            mutableState.value = mutableState.value.copy(document = document, selectedChapterIds = chapters, documentExcerpts = excerpts, sourceQuery = "", documentSearch = null,
+            mutableState.value = mutableState.value.copy(document = document, selectedChapterIds = chapters, documentExcerpts = excerpts, sourceQuery = "", documentSearch = null, pdfPageDraft = null,
                 documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
                 documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
                 documentQuestionType = restoredDocumentQuestionType(preferences.getString(documentQuestionTypeKey(), null)), savedQuizQuestionType = null,
@@ -409,7 +410,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val chapter = document.chapters.firstOrNull()?.id
         check(preferences.edit().putString(documentKey(), document.id).putString(documentChapterKey(), chapter)
             .remove(documentQuizKey()).remove(documentExcerptKey(document.id)).putString(activeFlowKey(), "document").commit())
-        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, documentPreview = null, documentExcerpts = emptyList(), sourceQuery = "", documentSearch = null, selectedChapterIds = setOfNotNull(chapter),
+        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, documentPreview = null, documentExcerpts = emptyList(), sourceQuery = "", documentSearch = null, pdfPageDraft = null, selectedChapterIds = setOfNotNull(chapter),
             documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
             documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
             documentQuestionType = restoredDocumentQuestionType(preferences.getString(documentQuestionTypeKey(), null)), savedQuizQuestionType = null,
@@ -430,7 +431,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             mutableState.value = mutableState.value.copy(error = "Could not save chapter selection")
             return
         }
-        mutableState.value = mutableState.value.copy(selectedChapterIds = ids, documentExcerpts = emptyList(), documentSearch = null)
+        mutableState.value = mutableState.value.copy(selectedChapterIds = ids, documentExcerpts = emptyList(), documentSearch = null, pdfPageDraft = null)
     }
     fun setDocumentQuestionCount(input: String) {
         if (mutableState.value.loading || input.length > 3) return
@@ -469,12 +470,45 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         saveConfirmedExcerpt(current, excerptFromSelection(preview, first, last))
     }
     private fun saveConfirmedExcerpt(current: AppUiState, excerpt: DocumentExcerpt) {
+        saveConfirmedExcerpts(current, current.documentExcerpts + excerpt)
+    }
+    private fun saveConfirmedExcerpts(current: AppUiState, selected: List<DocumentExcerpt>) {
         val document = requireNotNull(current.document)
-        val excerpts = canonicalExcerpts(current.documentExcerpts + excerpt)
+        val excerpts = canonicalExcerpts(selected)
+        require(excerpts.isNotEmpty())
         val ids = excerpts.map { it.chapterId }.toSet()
         check(preferences.edit().putString(documentExcerptKey(document.id), encodeExcerpts(excerpts))
             .putString(documentChapterKey(), JSONArray(ids.toList()).toString()).commit()) { "Could not save excerpt selection" }
-        mutableState.value = current.copy(documentExcerpts = excerpts, selectedChapterIds = ids, documentPreview = null, documentSearch = null, sourceQuery = "")
+        mutableState.value = current.copy(documentExcerpts = excerpts, selectedChapterIds = ids, documentPreview = null, documentSearch = null, sourceQuery = "", pdfPageDraft = null)
+    }
+    fun loadPdfPages() = perform(null) {
+        val current = mutableState.value
+        val document = requireNotNull(current.document)
+        require(document.name.endsWith(".pdf", ignoreCase = true)) { "Original page selection requires a PDF" }
+        mutableState.value = current.copy(pdfPageDraft = null)
+        val catalog = api.pdfPageCatalog(document.id)
+        mutableState.value = current.copy(pdfPageDraft = PdfPageDraft(catalog))
+    }
+    fun setPdfPageInput(first: Boolean, value: String) {
+        val current = mutableState.value
+        val draft = current.pdfPageDraft ?: return
+        if (current.loading || value.length > 4 || draft.catalog.documentId != current.document?.id) return
+        mutableState.value = current.copy(pdfPageDraft = if (first) draft.copy(first = value, reviewed = null)
+            else draft.copy(last = value, reviewed = null))
+    }
+    fun reviewPdfPages() = perform(null) {
+        val current = mutableState.value
+        val document = requireNotNull(current.document)
+        val draft = requireNotNull(current.pdfPageDraft)
+        require(draft.catalog.documentId == document.id)
+        val range = requireNotNull(validPdfPageRange(draft.first, draft.last, draft.catalog.pages.size)) { "Choose a valid PDF page range" }
+        mutableState.value = current.copy(pdfPageDraft = draft.copy(reviewed = null))
+        val scope = api.resolvePdfPages(draft.catalog, range.first, range.second, document.chapters.map { it.id }.toSet())
+        mutableState.value = current.copy(pdfPageDraft = draft.copy(reviewed = scope))
+    }
+    fun confirmPdfPages() = perform(Screen.Chapters) {
+        val current = mutableState.value
+        saveConfirmedExcerpts(current, confirmedPdfExcerpts(requireNotNull(current.pdfPageDraft), requireNotNull(current.document)))
     }
     fun setSourceQuery(value: String) {
         if (!mutableState.value.loading && value.length <= 240)
@@ -499,7 +533,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val document = requireNotNull(current.document)
         // No selection/settings or pending creation identity changes. Retrying this
         // idempotent operation is safe even if the prior response was lost.
-        mutableState.value = stateAfterStructureRepair(current, api.repairDocumentStructure(document.id)).copy(documentSearch = null)
+        mutableState.value = stateAfterStructureRepair(current, api.repairDocumentStructure(document.id)).copy(documentSearch = null, pdfPageDraft = null)
     }
     fun createQuiz() = perform(null) {
         val current = mutableState.value
@@ -521,14 +555,14 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val results = if (completed) api.results(quiz.id) else null
         check(preferences.edit().putString(documentQuizKey(), quiz.id).putString(activeFlowKey(), "document")
             .remove(documentKey()).remove(documentChapterKey()).remove(documentExcerptKey(documentId)).remove(pendingKey).commit())
-        mutableState.value = current.copy(quizId = quiz.id, question = resumed.question, feedback = resumed.feedback, results = results, sourceQuery = "", documentSearch = null,
+        mutableState.value = current.copy(quizId = quiz.id, question = resumed.question, feedback = resumed.feedback, results = results, sourceQuery = "", documentSearch = null, pdfPageDraft = null,
             documentQuestionTotal = resumed.total, savedQuizDifficulty = resumed.difficulty, savedQuizQuestionType = resumed.questionType,
             canResumeDocumentQuiz = true, screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
     }
     fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
-    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, sourceQuery = "", documentSearch = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
+    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, sourceQuery = "", documentSearch = null, pdfPageDraft = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
     private var operationInFlight = false

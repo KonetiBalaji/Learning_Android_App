@@ -66,15 +66,15 @@ The page index returned `[true, true, false]` text flags, and selecting page 2
 mapped only to `chapter-2`, characters 288–591. This is synthetic QA, not a learner
 document or a visual PDF viewer delivered in the app.
 
-Android page-range controls, explicit review/confirmation, persistence/recovery
-device QA, complex-layout PDFs, scanned-material support, accessibility and user
+Android page-range controls and confirmation are now wired as described below.
+Persistence/recovery device QA, complex-layout PDFs, scanned-material support, accessibility and user
 acceptance remain open. The PDF is re-read on each request; safe cache/index
 persistence is not implemented. DOC-02 and production gates remain partial.
 
 ## Android page API validation layer
 
 Android now has typed page-index and page-scope models plus API methods for both
-routes. These methods are not yet connected to page controls. Before accepting
+routes, now connected to the page controls described below. Before accepting
 an index, the client checks document identity, 1-based sequential pages, upload's
 inter-page newline offsets, size limits and consistency of nonempty-page flags.
 Page inputs reject noninteger/out-of-bounds/reversed values.
@@ -88,5 +88,27 @@ extraction and gap checks remain authoritative for that.
 
 Debug build/lint and **91 JVM tests** passed, including six new page-validation
 tests. No live API calls or PDF artifact changes occurred in this Android slice.
-UI review/confirmation, durable page-selection workflow and emulator QA remain
-open; this API layer alone does not make PDF page selection available to learners.
+This was API-layer evidence only; the subsequent UI slice is recorded below.
+
+## Android review and confirmation
+
+PDF documents now show an explicit Load original PDF page index action, inclusive
+first/last physical-page inputs, and a Review original page range action. Review
+shows chapter titles, exact source offsets and empty-page warnings; it does not
+change the current selection. Confirmation explicitly replaces whole-chapter or
+existing excerpt selections with the reviewed ranges, saving chapter IDs and
+encoded offsets in one account-scoped preferences commit through the existing
+excerpt recovery workflow. No source text or API key is saved with this selection.
+
+Editing either input invalidates the review. Confirmation revalidates the current
+document, requested pages, chapter IDs and source bounds. Document changes, chapter
+selection, structure repair, deletion, quiz creation and sign-out clear the draft.
+Failed index/review requests leave the prior confirmed selection untouched and
+allow retry through the same actions. Unconfirmed input/review state is ephemeral;
+confirmed source offsets persist, not physical-page label metadata.
+
+Debug build, lint and **93 JVM tests** passed after wiring the UI. Tests cover
+confirmation with stale/missing reviews, changed document/chapter identity,
+encoded-range round trips and deletion isolation. Device page selection/restart,
+blank-page failure, network retry, accessibility and actual UAT are still unverified.
+This is not a visual PDF viewer and does not implement OCR or printed page labels.

@@ -5,6 +5,6 @@ fun stateAfterDocumentDeletion(state: AppUiState, documentId: String): AppUiStat
     val updated = state.copy(documentLibrary = state.documentLibrary?.filterNot { it.id == documentId })
     return if (state.document?.id == documentId) updated.copy(
         document = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), quizId = null, question = null, savedQuizDifficulty = null,
-        feedback = null, results = null, canResumeDocumentQuiz = false, documentPreview = null, documentRepairNotice = null, documentSearch = null, sourceQuery = "",
+        feedback = null, results = null, canResumeDocumentQuiz = false, documentPreview = null, documentRepairNotice = null, documentSearch = null, sourceQuery = "", pdfPageDraft = null,
     ) else updated
 }

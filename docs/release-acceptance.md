@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Wired Android physical PDF-page index, inclusive range inputs, review and explicit
+  replacement confirmation into account-scoped excerpt persistence. Draft reviews
+  invalidate on input/document/scope changes; confirmation rechecks identity and
+  bounds. Debug build/lint and 93 JVM tests passed. Device range/restart/failure QA,
+  accessibility and UAT remain open; DOC-02 is partial. See the PDF-page contract.
+
 - Added Android typed PDF-page API methods and validation for page order,
   identity, blank-page reports, requested boundaries and returned excerpt scope.
   Debug build/lint and 91 JVM tests passed. The methods are not yet wired to page

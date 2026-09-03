@@ -5,6 +5,16 @@ data class PdfPageCatalog(val documentId: String, val pages: List<OriginalPdfPag
 data class PdfPageScope(val documentId: String, val first: Int, val last: Int,
     val chapterIds: List<String>, val excerpts: List<DocumentExcerpt>, val emptyPages: List<Int>)
 
+data class PdfPageDraft(val catalog: PdfPageCatalog, val first: String = "1", val last: String = "1",
+    val reviewed: PdfPageScope? = null)
+
+fun confirmedPdfExcerpts(draft: PdfPageDraft, document: StudyDocument): List<DocumentExcerpt> {
+    require(draft.catalog.documentId == document.id) { "PDF selection belongs to another document" }
+    val range = requireNotNull(validPdfPageRange(draft.first, draft.last, draft.catalog.pages.size)) { "Choose a valid PDF page range" }
+    return validatePdfPageScope(requireNotNull(draft.reviewed) { "Review the page range first" }, draft.catalog,
+        range.first, range.second, document.chapters.map { it.id }.toSet()).excerpts
+}
+
 fun validatePdfPageCatalog(catalog: PdfPageCatalog, documentId: String): PdfPageCatalog {
     require(catalog.documentId == documentId && catalog.pages.size in 1..1000) { "Invalid PDF page index" }
     var expectedStart = 0L

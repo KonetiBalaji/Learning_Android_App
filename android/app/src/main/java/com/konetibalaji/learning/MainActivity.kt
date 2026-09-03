@@ -128,7 +128,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) }, viewModel::setSourceQuery, viewModel::searchDocumentSource, viewModel::useSourceSearchResult)
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) }, viewModel::setSourceQuery, viewModel::searchDocumentSource, viewModel::useSourceSearchResult, viewModel::loadPdfPages, viewModel::setPdfPageInput, viewModel::reviewPdfPages, viewModel::confirmPdfPages)
                         Screen.DocumentPreview -> DocumentPreviewScreen(state, viewModel::closeDocumentPreview, viewModel::changePreviewPage, viewModel::addDocumentExcerpt)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
@@ -503,7 +503,7 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit, onRepair: () -> Unit, onPreview: (String) -> Unit, onQuery: (String) -> Unit, onSearch: () -> Unit, onUseResult: (Int) -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit, onRepair: () -> Unit, onPreview: (String) -> Unit, onQuery: (String) -> Unit, onSearch: () -> Unit, onUseResult: (Int) -> Unit, onLoadPages: () -> Unit, onPageInput: (Boolean, String) -> Unit, onReviewPages: () -> Unit, onConfirmPages: () -> Unit) {
     val document = state.document ?: return
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
@@ -563,7 +563,35 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
         }
         Text("Choose one format per quiz. True / False and Yes / No require live generation.")
         DocumentSourceSearchControls(state, onQuery, onSearch, onUseResult)
+        DocumentPdfPageControls(state, onLoadPages, onPageInput, onReviewPages, onConfirmPages)
         PrimaryButton(if (count == null) "Generate quiz" else "Generate $count questions", state.selectedChapterIds.isNotEmpty() && count != null && !state.loading, onCreate)
+    }
+}
+
+@Composable
+private fun DocumentPdfPageControls(state: AppUiState, onLoad: () -> Unit, onInput: (Boolean, String) -> Unit,
+                                    onReview: () -> Unit, onConfirm: () -> Unit) {
+    val document = state.document ?: return
+    if (!document.name.endsWith(".pdf", ignoreCase = true)) return
+    Text("Original PDF pages", style = MaterialTheme.typography.titleLarge)
+    Text("Physical pages start at 1. These are not printed page labels or text-preview chunks. A confirmed range replaces all current chapter and excerpt selections.")
+    TextButton(onClick = onLoad, enabled = !state.loading) { Text("Load original PDF page index") }
+    val draft = state.pdfPageDraft?.takeIf { it.catalog.documentId == document.id } ?: return
+    Text("${draft.catalog.pages.size} physical pages. Blank or scanned pages without extracted text cannot provide quiz content; OCR is not available.")
+    OutlinedTextField(value = draft.first, onValueChange = { onInput(true, it) }, label = { Text("First physical PDF page") },
+        singleLine = true, enabled = !state.loading, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = draft.last, onValueChange = { onInput(false, it) }, label = { Text("Last physical PDF page (inclusive)") },
+        singleLine = true, enabled = !state.loading, modifier = Modifier.fillMaxWidth())
+    val range = validPdfPageRange(draft.first, draft.last, draft.catalog.pages.size)
+    if (range == null) Text("Enter whole page numbers from 1 to ${draft.catalog.pages.size}, first no greater than last.")
+    TextButton(onClick = onReview, enabled = !state.loading && range != null) { Text("Review original page range") }
+    draft.reviewed?.let { scope ->
+        Text("Review pages ${scope.first} to ${scope.last}. Your current selection has not changed.")
+        scope.excerpts.forEach { excerpt ->
+            Text("${document.chapters.firstOrNull { it.id == excerpt.chapterId }?.title ?: excerpt.chapterId}: source characters ${excerpt.start}–${excerpt.end}")
+        }
+        if (scope.emptyPages.isNotEmpty()) Text("No extracted text on pages: ${scope.emptyPages.joinToString()}")
+        TextButton(onClick = onConfirm, enabled = !state.loading) { Text("Use these PDF pages instead of current selection") }
     }
 }
 
