@@ -15,7 +15,7 @@ from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .quiz_service import generate_grounded_questions, question_id
 from .quiz_creation import creation_fingerprint
-from .document_selection import repair_chapter_coverage
+from .document_selection import repair_chapter_coverage, resolve_quiz_selection
 from .document_question_provider import generate_document_questions, QuestionGenerationUnavailable
 from .mastery_service import (
     diagnostic_bank,
@@ -282,7 +282,8 @@ def creation_replay(db, user_id, request_id, fingerprint):
     count = db.execute('SELECT COUNT(*) FROM questions WHERE quiz_id = ?', (saved['id'],)).fetchone()[0]
     return QuizSummary(id=saved['id'], title=saved['title'], question_count=count,
         first_question=question_payload(first) if first else None,
-        difficulty=saved['difficulty'], question_type=saved['question_type'])
+        difficulty=saved['difficulty'], question_type=saved['question_type'],
+        source_ranges=parse_json(saved['source_ranges_json']) if saved['source_ranges_json'] else None)
 
 
 @app.post("/v1/documents/{document_id}/quizzes", response_model=QuizSummary, status_code=status.HTTP_201_CREATED)
@@ -296,14 +297,16 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
             return replay
     chapters = [Chapter.model_validate(item) for item in parse_json(document["chapters_json"])]
     try:
+        selected = resolve_quiz_selection(document['extracted_text'], chapters, request.chapter_ids, request.source_ranges)
+        generation_ids = [chapter.id for chapter in selected]
         if settings.ai_mode == 'openai':
-            generated = generate_document_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count, settings, request.difficulty, request.question_type)
+            generated = generate_document_questions(document["extracted_text"], selected, generation_ids, request.question_count, settings, request.difficulty, request.question_type)
         elif settings.ai_mode == 'deterministic':
             if request.question_type != 'multiple_choice':
                 raise ValueError('This offline generator supports multiple choice only; binary questions require live generation')
             if request.difficulty not in {None, 'easy'}:
                 raise ValueError('This offline generator supports recall questions only; choose Easy or use live generation')
-            generated = generate_grounded_questions(document["extracted_text"], chapters, request.chapter_ids, request.question_count)
+            generated = generate_grounded_questions(document["extracted_text"], selected, generation_ids, request.question_count)
         else:
             raise QuestionGenerationUnavailable('Unsupported provider mode')
     except QuestionGenerationUnavailable as error:
@@ -317,7 +320,9 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         replay = creation_replay(db, user_id, request_id, fingerprint)
         if replay is not None:
             return replay
-        db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at, difficulty, question_type) VALUES (?, ?, ?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now(), request.difficulty, request.question_type))
+        saved_ranges = sorted((part.model_dump() for part in request.source_ranges),
+            key=lambda part: (part['start_character'], part['end_character'])) if request.source_ranges else None
+        db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at, difficulty, question_type, source_ranges_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now(), request.difficulty, request.question_type, json_value(saved_ranges) if saved_ranges else None))
         for ordinal, question in enumerate(generated, start=1):
             db.execute(
                 """INSERT INTO questions (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation, source_reference, question_type)
@@ -328,7 +333,7 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         if request_id is not None:
             db.execute('INSERT INTO quiz_creation_requests (owner_id, request_id, fingerprint, quiz_id) VALUES (?, ?, ?, ?)',
                        (user_id, request_id, fingerprint, quiz_id))
-    return QuizSummary(id=quiz_id, title=f"Quiz: {document['original_name']}", question_count=len(generated), first_question=question_payload(first) if first else None, difficulty=request.difficulty, question_type=request.question_type)
+    return QuizSummary(id=quiz_id, title=f"Quiz: {document['original_name']}", question_count=len(generated), first_question=question_payload(first) if first else None, difficulty=request.difficulty, question_type=request.question_type, source_ranges=saved_ranges)
 
 
 @app.post("/v1/quizzes/{quiz_id}/questions/{question_id}/answer", response_model=Feedback)
@@ -368,7 +373,7 @@ def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user
 @app.get("/v1/quizzes/{quiz_id}", response_model=DocumentQuizState)
 def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DocumentQuizState:
     with connection(settings.database_path) as db:
-        document = db.execute("""SELECT documents.*, quizzes.difficulty AS quiz_difficulty, quizzes.question_type AS quiz_question_type FROM documents JOIN quizzes ON quizzes.document_id = documents.id
+        document = db.execute("""SELECT documents.*, quizzes.difficulty AS quiz_difficulty, quizzes.question_type AS quiz_question_type, quizzes.source_ranges_json AS quiz_source_ranges FROM documents JOIN quizzes ON quizzes.document_id = documents.id
                                  WHERE quizzes.id = ? AND quizzes.owner_id = ? AND documents.owner_id = ?""",
                               (quiz_id, user_id, user_id)).fetchone()
         if document is None:
@@ -383,7 +388,8 @@ def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), s
                         source_reference=last['source_reference'], next_question=next_question) if last else None
     return DocumentQuizState(id=quiz_id, difficulty=document['quiz_difficulty'], question_type=document['quiz_question_type'], document=DocumentSummary(id=document['id'], original_name=document['original_name'],
                              chapters=[Chapter.model_validate(item) for item in parse_json(document['chapters_json'])]),
-                             total=len(rows), answered=len(answered), question=next_question, last_feedback=feedback)
+                             total=len(rows), answered=len(answered), question=next_question, last_feedback=feedback,
+                             source_ranges=parse_json(document['quiz_source_ranges']) if document['quiz_source_ranges'] else None)
 
 
 @app.get("/v1/quizzes/{quiz_id}/results", response_model=QuizResults)

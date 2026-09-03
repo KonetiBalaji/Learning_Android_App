@@ -41,11 +41,20 @@ class ChapterPreview(BaseModel):
     text: str
 
 
+class SourceRange(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    chapter_id: str = Field(min_length=1, max_length=200)
+    start_character: int = Field(ge=0, strict=True)
+    end_character: int = Field(gt=0, strict=True)
+
+
 class QuizRequest(BaseModel):
     request_id: UUID | None = None
     question_type: QuestionType = 'multiple_choice'
     difficulty: Difficulty | None = None
     chapter_ids: list[str] = Field(min_length=1)
+    source_ranges: list[SourceRange] | None = Field(default=None, min_length=1, max_length=50)
     question_count: int = Field(default=10, ge=5, le=20)
 
 
@@ -59,6 +68,7 @@ class QuizQuestion(BaseModel):
 
 
 class QuizSummary(BaseModel):
+    source_ranges: list[SourceRange] | None = None
     question_type: QuestionType = 'multiple_choice'
     difficulty: Difficulty | None = None
     id: str
@@ -90,6 +100,7 @@ class QuizResults(BaseModel):
 
 
 class DocumentQuizState(BaseModel):
+    source_ranges: list[SourceRange] | None = None
     question_type: QuestionType = 'multiple_choice'
     difficulty: Difficulty | None = None
     id: str

@@ -83,6 +83,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Added exact source-excerpt quiz selection to the backend: bounded Unicode
+  offsets within selected chapters, no widening/omission, provider-boundary
+  validation, persisted scope on resume and scope-aware creation retries without
+  changing legacy fingerprints. Backend 230 tests passed, 1 existing Windows
+  symlink test skipped. Android excerpt controls, page/topic retrieval,
+  live quality checks and UAT remain open; DOC-02 is still partial. See
+  `shared/contracts/excerpt-selection.md`.
+
 - Added offline local backup/verify/restore tooling for SQLite and live uploads.
   It includes committed WAL data, remaps stored file paths, checks integrity and
   hashes, excludes configuration/orphan/deleted file bytes and refuses existing

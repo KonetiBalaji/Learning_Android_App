@@ -1,5 +1,10 @@
 # Document selection boundaries
 
+The backend now also supports explicit bounded excerpts inside selected chapters;
+see `shared/contracts/excerpt-selection.md` for its request, persistence and retry
+contract. Android still exposes whole chapters only. This addition does not yet
+complete section/page/topic selection in the user-facing workflow.
+
 The original `Initial_plan.md` requires entire-document, single/multiple-chapter,
 section, page-range and custom-topic selection. Android now exposes chapter
 checkboxes, Entire document and Clear selection. Section/page/topic selection

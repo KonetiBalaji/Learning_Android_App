@@ -77,6 +77,8 @@ def initialize(path: Path) -> None:
     with sqlite3.connect(path) as connection:
         connection.executescript(SCHEMA)
         quiz_columns = {row[1] for row in connection.execute("PRAGMA table_info(quizzes)")}
+        if 'source_ranges_json' not in quiz_columns:
+            connection.execute('ALTER TABLE quizzes ADD COLUMN source_ranges_json TEXT')
         if 'difficulty' not in quiz_columns:
             connection.execute('ALTER TABLE quizzes ADD COLUMN difficulty TEXT')
         if 'question_type' not in quiz_columns:
