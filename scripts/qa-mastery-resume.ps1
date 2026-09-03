@@ -1,6 +1,7 @@
 param(
     [string]$Serial = 'emulator-5554',
-    [switch]$ResetTestAppData
+    [switch]$ResetTestAppData,
+    [switch]$ExpectRubricFeedback
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -51,7 +52,8 @@ if (-not $ResetTestAppData) { throw 'This isolated QA script requires -ResetTest
 $avd = (Adb emu avd name) -join "`n"
 if ($avd -notmatch '^LearnSmart_API36') { throw 'Refusing to clear data outside the dedicated LearnSmart_API36 AVD.' }
 $health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
-if ($health.ai_provider -ne 'deterministic') { throw 'Run an isolated deterministic test backend on port 8000 first.' }
+if ($health.ai_provider -notin @('deterministic', 'scripted-qa')) { throw 'Run an isolated deterministic or scripted-qa backend on port 8000 first.' }
+if ($ExpectRubricFeedback -and $health.ai_provider -ne 'scripted-qa') { throw 'Rubric display checks require scripts/serve_qa.py --qa-only.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -76,8 +78,16 @@ TapText 'Check answer'
 TapText 'Explain it in your own words'
 EnterField 0 'We add the numerator parts with the same denominator to make one whole'
 TapText 'Submit my explanation'
+if ($ExpectRubricFeedback) { TextNode 'Last explanation: 4 / 4' | Out-Null }
 TextNode 'Question 2 of 3' | Out-Null
 RestartApp
+if ($ExpectRubricFeedback) {
+    TextNode 'Last explanation: 4 / 4' | Out-Null
+    TextNode 'Scripted QA feedback: the display and recovery contract are working.' | Out-Null
+    Adb shell screencap -p /sdcard/qa-rubric-feedback.png | Out-Null
+    Adb pull /sdcard/qa-rubric-feedback.png (Join-Path $repo 'artifacts\qa-rubric-feedback.png') | Out-Null
+    Write-Output 'PASS: scripted rubric points and feedback render after process restart (not an AI quality evaluation)'
+}
 TextNode 'Question 2 of 3' | Out-Null
 Write-Output 'PASS: remediation advances to question 2 and survives restart, without early mastery'
 TapText '3/6'

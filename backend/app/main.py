@@ -323,6 +323,8 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
     bank = session_diagnostic_bank(session)
     item = bank[session["current_question"]]
     assessment = tutor_provider(settings).assess_rewrite(session["grade"], item, request.response)
+    if not assessment.available:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Assessment is temporarily unavailable. Your explanation has not been graded; please retry.")
     understood, coaching = assessment.understood, assessment.coaching
     next_index = session["current_question"] + int(understood)
     mastery_score = next_index / len(bank)
@@ -333,8 +335,8 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
         lesson = lesson.model_copy(update={"explanation": coaching})
     with connection(settings.database_path) as db:
         db.execute(
-            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (str(uuid.uuid4()), session_id, "rewrite", f"Explain {item.concept} in your own words", request.response, int(understood), item.concept, now()),
+            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at, assessment_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), session_id, "rewrite", f"Explain {item.concept} in your own words", request.response, int(understood), item.concept, now(), assessment.model_dump_json()),
         )
         db.execute(
             "UPDATE mastery_sessions SET status = ?, current_question = ?, coaching_rounds = coaching_rounds + ?, completed_at = ?, tutor_json = ? WHERE id = ?",
@@ -349,6 +351,9 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
         next_chapter_unlocked=mastered,
         next_action="mastery" if mastered else ("next_question" if understood else "tutor"),
         next_question=public_question(bank[next_index], next_index, len(bank)) if understood and not mastered else None,
+        assessment_points=assessment.score,
+        assessment_max_points=4 if assessment.score is not None else None,
+        assessment_feedback=assessment.feedback,
     )
 
 
@@ -363,6 +368,11 @@ def mastery_session_state(session_id: str, user_id: str = Depends(current_user_i
             "SELECT response FROM mastery_attempts WHERE session_id = ? AND phase = 'diagnostic' ORDER BY created_at DESC LIMIT 1",
             (session_id,),
         ).fetchone()
+        last_assessment = db.execute(
+            "SELECT assessment_json FROM mastery_attempts WHERE session_id = ? AND phase = 'rewrite' ORDER BY created_at DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+    grading = parse_json(last_assessment["assessment_json"]) if last_assessment and last_assessment["assessment_json"] else {}
     lesson = None
     if item and session["status"] in {"tutor", "practice", "rewrite"}:
         lesson = TutorIntervention.model_validate_json(session["tutor_json"]) if session["tutor_json"] else tutor_for(item)
@@ -371,6 +381,7 @@ def mastery_session_state(session_id: str, user_id: str = Depends(current_user_i
         status=session["status"], question=public_question(item, index, len(bank)) if item else None,
         tutor=lesson, selected_option=answer["response"] if answer and lesson else None,
         mastery_score=index / len(bank), coaching_rounds=session["coaching_rounds"], started_at=session["started_at"],
+        assessment_points=grading.get("score"), assessment_feedback=grading.get("feedback"),
     )
 
 

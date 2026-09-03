@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .config import Settings
 from .mastery_service import DiagnosticItem, diagnostic_bank, evaluate_rewrite, tutor_for, validate_diagnostic_bank
 from .schemas import TutorIntervention
+from .rewrite_grading import FULL_MARKS, GradeResult, grading_prompts, learner_feedback
 
 
 class RewriteAssessment(BaseModel):
@@ -16,6 +17,9 @@ class RewriteAssessment(BaseModel):
 
     understood: bool
     coaching: str | None = Field(default=None, max_length=500)
+    score: int | None = Field(default=None, ge=0, le=FULL_MARKS)
+    feedback: str | None = Field(default=None, max_length=500)
+    available: bool = True
 
 
 class GeneratedDiagnosticItem(BaseModel):
@@ -102,21 +106,21 @@ class OpenAITutorProvider:
         return TutorIntervention.model_validate(json.loads(response.output_text))
 
     def assess_rewrite(self, grade: int, item: DiagnosticItem, response_text: str) -> RewriteAssessment:
-        schema = RewriteAssessment.model_json_schema()
+        schema = GradeResult.model_json_schema()
+        system, payload = grading_prompts(grade, item, response_text)
         response = self.client.responses.create(
             model=self.model,
             store=False,
-            instructions=(
-                "Evaluate conceptual understanding for a school learner. Return only the requested structure. "
-                "Accept accurate wording variations that demonstrate the supplied concept and connect it to the "
-                "verified example. If incomplete, give one actionable hint without supplying a full answer."
-            ),
-            input=(f"Grade: {grade}\nConcept: {item.concept}\nOriginal question: {item.prompt}\n"
-                   f"Correct answer: {item.correct_option}\nVerified explanation: {item.explanation}\n"
-                   f"Student response: {response_text}"),
+            instructions=system,
+            input=payload,
             text={"format": {"type": "json_schema", "name": "rewrite_assessment", "strict": True, "schema": schema}},
         )
-        return RewriteAssessment.model_validate(json.loads(response.output_text))
+        result = GradeResult.model_validate_json(response.output_text)
+        feedback = learner_feedback(result)
+        return RewriteAssessment(
+            understood=result.score == FULL_MARKS, score=result.score, feedback=feedback,
+            coaching=feedback if result.score < FULL_MARKS else None,
+        )
 
     def diagnostic_bank(self, grade: int, subject_id: str, chapter_id: str) -> tuple[DiagnosticItem, ...]:
         schema = GeneratedDiagnosticBank.model_json_schema()
@@ -162,7 +166,8 @@ class ResilientTutorProvider:
         try:
             return self.primary.assess_rewrite(grade, item, response)
         except Exception:
-            return self.fallback.assess_rewrite(grade, item, response)
+            # An outage is not evidence of understanding. Never grant fallback credit.
+            return RewriteAssessment(understood=False, available=False)
 
     def diagnostic_bank(self, grade: int, subject_id: str, chapter_id: str) -> tuple[DiagnosticItem, ...]:
         try:

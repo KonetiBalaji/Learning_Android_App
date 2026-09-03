@@ -15,6 +15,15 @@ The OpenAI provider generates grade-aware curricula using strict Structured Outp
 
 ## Progression and recovery
 
+Rewrite results additionally return nullable `assessment_points` (0–4),
+`assessment_max_points`, and `assessment_feedback`. These describe the learner's
+latest explanation, separately from resolved-item `mastery_score`. Resume returns
+the last saved explanation's points/feedback. Explicit deterministic testing mode
+does not fabricate rubric points. A live evaluator failure returns HTTP 503 and
+does not record an attempt or advance phase, so the client can retry its draft.
+Scores below full credit receive server-authored hints; the provider's unchecked
+comment is not shown. See `docs/openmaic-provenance.md` for upstream attribution.
+
 A successful rewrite demonstrates the current concept only. Its `next_action`
 is `next_question` until every assessment item has been resolved. Only then are
 `mastery_achieved` and `next_chapter_unlocked` true and `next_action` is `mastery`.

@@ -36,7 +36,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
 | SEC-02 | Production hardening | Missing | HTTPS-only release, secrets, abuse/rate/cost limits, logs without sensitive content, backup/restore |
-| UP-01 | Traceable OpenMAIC adaptation | Missing | Pinned upstream commit/path/license, adaptation rationale, local changes and tests per feature |
+| UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading adaptation pinned/licensed/tested; remaining relevant upstream capabilities still need separate evidence |
 | QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
 | PROD-01 | Production deployment | Missing | User-confirmed host/domain/distribution, staging verification, rollback, secrets and operational checks |
@@ -74,8 +74,9 @@ feature to UAT accepted or production verified. All release gates below remain o
 - Baseline defect: SQLite foreign keys were enabled during schema creation but
   not each runtime connection, allowing dependent records to survive deletion.
   Fixed with per-connection enforcement and explicit transaction rollback.
-- OpenMAIC code/commits have not yet been imported; similar independent features
-  must not be described as upstream integration.
+- Earlier OpenMAIC integration claims were unsupported. OA-01 now records an
+  actual source-informed grading adaptation; independent features and remaining
+  upstream engines must not be described as imported.
 
 ## Work log
 
@@ -108,3 +109,15 @@ feature to UAT accepted or production verified. All release gates below remain o
   This is deterministic workflow QA, not provider-quality evaluation, full Grade 8
   curriculum verification, or user UAT acceptance. Existing legacy prematurely
   mastered sessions still need a data-repair strategy before production migration.
+- 2026-09-03: OA-01 adapts OpenMAIC short-answer score/comment grading from pinned
+  source into the rewrite workflow. MIT notice retained; provenance records what
+  was ported and what was rejected. Added four-point rubric, strict validation,
+  retryable evaluator errors, persisted assessment feedback, and Android display.
+  Backend 41 tests and Android build/lint/4 unit tests passed. Live regression
+  evaluation initially failed 1/8 score cases and leaked answers in feedback;
+  revised rubric + server-owned incomplete-answer hints passed all 8 cases on
+  rerun. This is limited regression evidence, not calibrated grading accuracy.
+- OA-01 Android workflow QA passed using `serve_qa.py --qa-only` (scripted,
+  localhost-only, isolated runtime): score/feedback display after process death,
+  pending question 2, and remaining assessment before mastery. Screenshot
+  inspected. This is not UAT acceptance and the fixture server is not production.

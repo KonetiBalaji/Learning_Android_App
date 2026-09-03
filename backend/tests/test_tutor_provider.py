@@ -18,13 +18,15 @@ class BrokenProvider:
         raise TimeoutError("provider unavailable")
 
 
-def test_provider_falls_back_without_exposing_an_outage() -> None:
+def test_teaching_falls_back_but_grading_outage_cannot_award_mastery() -> None:
     provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
     lesson = provider.explain(6, FRACTION_DIAGNOSTIC[0], "1/2")
     assessment = provider.assess_rewrite(6, FRACTION_DIAGNOSTIC[0], "The denominator stays the same and numerators add to 4/4, one whole.")
     assert lesson.title == "Adding like fractions"
     assert isinstance(assessment, RewriteAssessment)
-    assert assessment.understood is True
+    assert assessment.understood is False
+    assert assessment.available is False
+    assert assessment.score is None
     assert len(provider.diagnostic_bank(6, "math", "fractions")) == 3
 
 

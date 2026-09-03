@@ -84,6 +84,7 @@ data class AppUiState(
     val document: StudyDocument? = null, val selectedChapterId: String? = null, val quizId: String? = null, val question: QuizQuestion? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
+    val assessmentPoints: Int? = null, val assessmentFeedback: String? = null,
 )
 
 class LearningViewModel(application: Application) : AndroidViewModel(application) {
@@ -132,6 +133,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 adaptiveOrdinal = resumed.ordinal, adaptiveTotal = resumed.total,
                 tutorLesson = resumed.tutor, selectedDiagnosticAnswer = resumed.selected,
                 masteryScore = resumed.score, coachingRound = resumed.coachingRounds,
+                assessmentPoints = resumed.assessmentPoints, assessmentFeedback = resumed.assessmentFeedback,
                 screen = screenForMasteryStatus(resumed.status),
             )
         }
@@ -157,6 +159,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 masterySessionId = started.id, adaptiveQuestion = started.question, adaptiveOrdinal = started.ordinal,
                 adaptiveTotal = started.total, selectedDiagnosticAnswer = null, screen = Screen.Diagnostic,
                 canResumeMastery = true,
+                assessmentPoints = null, assessmentFeedback = null,
             )
         }
     }
@@ -176,6 +179,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 masteryScore = outcome.masteryScore,
                 screen = screenForLearningAction(outcome.nextAction),
                 practiceResult = null, showHint = false,
+                assessmentPoints = null, assessmentFeedback = null,
             )
         }
     }
@@ -203,6 +207,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 coachingRound = current.coachingRound + if (outcome.nextAction == "tutor") 1 else 0,
                 masteryScore = outcome.score,
                 masteryConfidence = outcome.confidence,
+                assessmentPoints = outcome.assessmentPoints, assessmentFeedback = outcome.assessmentFeedback,
                 tutorLesson = if (outcome.coaching == null) current.tutorLesson else current.tutorLesson?.copy(explanation = outcome.coaching),
             )
         }
@@ -258,13 +263,13 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").toQuestionList()) }
     data class StartedDiagnostic(val id: String, val question: DiagnosticQuestion, val ordinal: Int, val total: Int)
     data class DiagnosticResult(val correct: Boolean, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int, val masteryScore: Int, val tutor: TutorLesson?)
-    data class RewriteResult(val mastered: Boolean, val score: Int, val confidence: String, val coaching: String?, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int?)
-    data class ResumedMastery(val grade: Int, val subjectId: String, val chapterId: String, val status: String, val question: DiagnosticQuestion?, val ordinal: Int, val total: Int, val tutor: TutorLesson?, val selected: String?, val score: Int, val coachingRounds: Int)
+    data class RewriteResult(val mastered: Boolean, val score: Int, val confidence: String, val coaching: String?, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int?, val assessmentPoints: Int?, val assessmentFeedback: String?)
+    data class ResumedMastery(val grade: Int, val subjectId: String, val chapterId: String, val status: String, val question: DiagnosticQuestion?, val ordinal: Int, val total: Int, val tutor: TutorLesson?, val selected: String?, val score: Int, val coachingRounds: Int, val assessmentPoints: Int?, val assessmentFeedback: String?)
     fun resumeMastery(sessionId: String): ResumedMastery {
         val response = request("GET", "/v1/mastery/sessions/$sessionId", null)
         val question = response.optJSONObject("question")
         val tutor = response.optJSONObject("tutor")?.let { TutorLesson(it.getString("title"), it.getString("explanation"), it.getString("worked_example"), it.getString("hint"), it.getString("practice_prompt")) }
-        return ResumedMastery(response.getInt("grade"), response.getString("subject_id"), response.getString("chapter_id"), response.getString("status"), question?.let(::adaptiveQuestion), question?.getInt("ordinal") ?: 1, question?.getInt("total") ?: 3, tutor, if (response.isNull("selected_option")) null else response.getString("selected_option"), (response.getDouble("mastery_score") * 100).toInt(), response.getInt("coaching_rounds"))
+        return ResumedMastery(response.getInt("grade"), response.getString("subject_id"), response.getString("chapter_id"), response.getString("status"), question?.let(::adaptiveQuestion), question?.getInt("ordinal") ?: 1, question?.getInt("total") ?: 3, tutor, if (response.isNull("selected_option")) null else response.getString("selected_option"), (response.getDouble("mastery_score") * 100).toInt(), response.getInt("coaching_rounds"), if (response.isNull("assessment_points")) null else response.getInt("assessment_points"), if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
     }
     fun startDiagnostic(grade: Int, subjectId: String, chapterId: String): StartedDiagnostic {
         val response = request("POST", "/v1/mastery/diagnostics", JSONObject().put("grade", grade).put("subject_id", subjectId).put("chapter_id", chapterId).toString())
@@ -278,7 +283,16 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         return DiagnosticResult(response.getBoolean("correct"), response.getString("next_action"), next?.let(::adaptiveQuestion), next?.optInt("ordinal") ?: 1, (response.getDouble("mastery_score") * 100).toInt(), tutor)
     }
     fun submitPractice(sessionId: String, answer: String): Pair<Boolean, String?> { val response = request("POST", "/v1/mastery/sessions/$sessionId/practice", JSONObject().put("response", answer).toString()); return response.getBoolean("correct") to response.optString("hint").takeIf(String::isNotBlank) }
-    fun submitRewrite(sessionId: String, rewrite: String): RewriteResult { val response = request("POST", "/v1/mastery/sessions/$sessionId/rewrite", JSONObject().put("response", rewrite).toString()); val next = response.optJSONObject("next_question"); return RewriteResult(response.getBoolean("mastery_achieved"), (response.getDouble("mastery_score") * 100).toInt(), response.getString("confidence").replace('_', ' ').replaceFirstChar(Char::uppercase), if (response.isNull("coaching")) null else response.getString("coaching"), response.getString("next_action"), next?.let(::adaptiveQuestion), next?.getInt("ordinal")) }
+    fun submitRewrite(sessionId: String, rewrite: String): RewriteResult {
+        val response = request("POST", "/v1/mastery/sessions/$sessionId/rewrite", JSONObject().put("response", rewrite).toString())
+        val next = response.optJSONObject("next_question")
+        return RewriteResult(response.getBoolean("mastery_achieved"), (response.getDouble("mastery_score") * 100).toInt(),
+            response.getString("confidence").replace('_', ' ').replaceFirstChar(Char::uppercase),
+            if (response.isNull("coaching")) null else response.getString("coaching"), response.getString("next_action"),
+            next?.let(::adaptiveQuestion), next?.getInt("ordinal"),
+            if (response.isNull("assessment_points")) null else response.getInt("assessment_points"),
+            if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
+    }
     fun progressDashboard(grade: Int): ProgressSnapshot {
         val response = request("GET", "/v1/progress/dashboard?grade=$grade", null)
         val subjectsObject = response.getJSONObject("subjects")

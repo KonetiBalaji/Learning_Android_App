@@ -218,6 +218,7 @@ private fun ChapterScreen(state: AppUiState, onSelect: (MasteryChapter) -> Unit,
 private fun DiagnosticScreen(state: AppUiState, onSelect: (String) -> Unit, onSubmit: () -> Unit) {
     val question = state.adaptiveQuestion ?: fractionQuestions[state.diagnosticIndex]
     Page {
+        RewriteAssessmentFeedback(state)
         Text("${state.subject?.title ?: "SUBJECT"}  ›  ${state.masteryChapter?.title ?: "CHAPTER"}".uppercase(), style = MaterialTheme.typography.labelLarge, color = Indigo, fontWeight = FontWeight.Bold)
         LinearProgressIndicator(progress = { state.adaptiveOrdinal / state.adaptiveTotal.toFloat() }, modifier = Modifier.fillMaxWidth(), color = Indigo, trackColor = Color(0xFFE2E8F0))
         Header("Diagnostic quiz", "Question ${state.adaptiveOrdinal} of ${state.adaptiveTotal}", "Choose the answer that makes sense to you.")
@@ -253,6 +254,7 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
         }
     }
     Header("A quick explanation", lesson?.title ?: "Add the numerators", lesson?.explanation ?: "When fractions have the same denominator, the pieces are the same size. Keep the denominator and add only the top numbers.")
+    RewriteAssessmentFeedback(state)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Worked example", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Indigo)
@@ -310,6 +312,7 @@ private fun VoiceInputButton(label: String, onResult: (String) -> Unit) {
 
 @Composable
 private fun MasteryScreen(state: AppUiState, onContinue: () -> Unit) = Page(modifier = Modifier.padding(top = 38.dp)) {
+    RewriteAssessmentFeedback(state)
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)), shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("🏆", style = MaterialTheme.typography.displaySmall)
@@ -327,6 +330,20 @@ private fun MasteryScreen(state: AppUiState, onContinue: () -> Unit) = Page(modi
     val nextTitle = chapters.getOrNull(currentIndex + 1)?.title
     TipCard(if (nextTitle != null) "Next chapter unlocked" else "Learning path complete", if (nextTitle != null) "Keep your streak going with $nextTitle." else "You completed the available chapters in this subject.")
     PrimaryButton("Continue learning", onClick = onContinue)
+}
+
+@Composable
+private fun RewriteAssessmentFeedback(state: AppUiState) {
+    val points = state.assessmentPoints
+    val feedback = state.assessmentFeedback
+    if (points != null && !feedback.isNullOrBlank()) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Last explanation: $points / 4", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(feedback, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+        }
+    }
 }
 
 @Composable

@@ -137,6 +137,9 @@ class RewriteOutcome(BaseModel):
     next_chapter_unlocked: bool
     next_action: str
     next_question: AdaptiveQuestion | None = None
+    assessment_points: int | None = None
+    assessment_max_points: int | None = None
+    assessment_feedback: str | None = None
 
 
 class MasterySessionState(BaseModel):
@@ -151,6 +154,8 @@ class MasterySessionState(BaseModel):
     mastery_score: float
     coaching_rounds: int
     started_at: str
+    assessment_points: int | None = None
+    assessment_feedback: str | None = None
 
 
 class ChapterProgress(BaseModel):
