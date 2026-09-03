@@ -10,6 +10,7 @@ from .config import Settings
 from .mastery_service import DiagnosticItem, diagnostic_bank, evaluate_rewrite, tutor_for, validate_diagnostic_bank
 from .schemas import TutorIntervention
 from .rewrite_grading import FULL_MARKS, GradeResult, grading_prompts, learner_feedback
+from .diagnostic_quality import review_diagnostic_answers
 
 
 class RewriteAssessment(BaseModel):
@@ -160,7 +161,9 @@ class OpenAITutorProvider:
                 practice_prompt=item.practice_prompt, practice_answers=tuple(item.practice_answers),
             ) for item in generated.questions
         )
-        return validate_diagnostic_bank(items)
+        validate_diagnostic_bank(items)
+        review_diagnostic_answers(self.client, self.model, grade, subject_id, chapter_id, items)
+        return items
 
 
 class ResilientTutorProvider:

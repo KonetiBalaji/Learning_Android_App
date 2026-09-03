@@ -67,6 +67,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Baseline evidence and known defects
 
+- Generated diagnostic banks now require a blind answer-key review before
+  persistence, with strict rejection of disagreement, ambiguity, off-topic or
+  grade-unsuitable judgments and malformed/partial review output. Tests cover
+  provider wiring and HTTP persistence denial. This is a model-quality filter,
+  not verified curriculum coverage or a guarantee against correlated errors;
+  teaching-support validation and live evaluations remain open. See
+  `docs/diagnostic-answer-review.md`.
+
 - Uncertain upload responses now direct learners to the library before retrying.
   API 36 QA injected a 503 after the file was saved, verified overlay removal,
   readable recovery copy, library reopening and a single saved document with no
