@@ -83,6 +83,11 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: added explicit owner-scoped stored-structure gap repair. It keeps
+  existing IDs/metadata and quiz rows, inserts low-confidence omitted-text ranges,
+  and rejects unsafe structures without mutation. Backend 172 tests passed;
+  seven focused repair tests rerun after final edits. Android controls/device QA
+  remain pending; see `document-selection.md`. No user data was repaired in this run.
 - 2026-09-03: repaired detection that silently omitted short sections and
   introductory text. New analyses preserve these exact ranges with lower
   confidence; existing stored IDs remain untouched. 164 backend tests passed,

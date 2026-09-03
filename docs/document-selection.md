@@ -87,3 +87,25 @@ selection check are still needed. Detection remains a flat heading heuristic, no
 a hierarchical section model, PDF page selection or topic retrieval. DOC-02 remains
 partial. This repair prevents tested omissions in newly analyzed material; it does
 not prove quiz coverage of every included fact.
+
+## Explicit repair for existing stored documents
+
+`POST /v1/documents/{id}/structure/repair` now fills nonblank gaps in existing
+stored ranges without changing any existing chapter ID, title, confidence or
+offset. New ranges are labeled `Previously omitted text (characters start-end)`
+with confidence 0.35, not presented as confidently detected chapters. They are
+inserted in source order with stable collision-safe IDs. Repeated repair has the
+same result. Blank gaps are ignored.
+
+The endpoint verifies ownership and performs validation/update in one write
+transaction. Duplicate IDs, overlaps, out-of-order or out-of-bounds ranges return
+422 without modifying the structure. Missing or other-owned documents return
+404. Existing quizzes/questions are untouched; this is gap repair, not full
+reanalysis or a change to existing question evidence.
+
+172 backend tests passed; all seven repair tests passed again after adding API
+rejection-without-mutation coverage. Tests include gap reconstruction, stable
+existing metadata, repeatability, ID collisions, empty structure, unsafe ranges,
+ownership and exact preservation of existing quiz rows. No live AI calls or real
+user-document repairs were performed. Android repair controls and device QA
+remain pending, along with richer section/page/topic selection.

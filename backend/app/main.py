@@ -15,6 +15,7 @@ from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .quiz_service import generate_grounded_questions, question_id
 from .quiz_creation import creation_fingerprint
+from .document_selection import repair_chapter_coverage
 from .document_question_provider import generate_document_questions, QuestionGenerationUnavailable
 from .mastery_service import (
     diagnostic_bank,
@@ -219,6 +220,23 @@ def document_summary(document_id: str, user_id: str = Depends(current_user_id), 
     row = owned_document(document_id, user_id, settings)
     return DocumentSummary(id=row["id"], original_name=row["original_name"],
                            chapters=[Chapter.model_validate(item) for item in parse_json(row["chapters_json"])])
+
+
+@app.post('/v1/documents/{document_id}/structure/repair', response_model=DocumentSummary)
+def repair_document_structure(document_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    with connection(settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT * FROM documents WHERE id = ? AND owner_id = ?', (document_id, user_id)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail='Document not found')
+        try:
+            chapters = repair_chapter_coverage(row['extracted_text'],
+                [Chapter.model_validate(item) for item in parse_json(row['chapters_json'])])
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail='Stored structure has invalid ranges; automatic repair is unsafe') from error
+        db.execute('UPDATE documents SET chapters_json = ? WHERE id = ? AND owner_id = ?',
+                   (json_value([chapter.model_dump() for chapter in chapters]), document_id, user_id))
+    return DocumentSummary(id=document_id, original_name=row['original_name'], chapters=chapters)
 
 
 @app.delete("/v1/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
