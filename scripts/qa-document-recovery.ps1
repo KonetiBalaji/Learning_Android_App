@@ -1,4 +1,4 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
@@ -57,12 +57,19 @@ EnterField 1 'qa-password-long-enough'
 TapText 'Create account'
 TapText "Grade`n8"
 TapText 'Study from my own document'
+TapText 'My uploaded documents'
+TextNode 'No uploaded documents yet. Return to your study space to upload one.' | Out-Null
+TapText '‹ Back to study space'
 TapText 'Choose document'
 $roots = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -eq 'Show roots' } | Select-Object -First 1
 if (-not $roots) { throw 'Missing Android document-picker roots' }
 $point = Center $roots
 Adb shell input tap $point[0] $point[1] | Out-Null
-TapText 'Downloads'
+$downloads = (Ui).SelectNodes('//node') | Where-Object { $_.text -eq 'Downloads' -and $_.'resource-id' -eq 'android:id/title' } | Select-Object -Last 1
+if (-not $downloads) { throw 'Missing Downloads provider in picker drawer' }
+$point = Center $downloads
+Adb shell input tap $point[0] $point[1] | Out-Null
+Start-Sleep -Milliseconds 900
 TapText 'qa-biology.txt'
 TapText 'Chapter 2 Plants'
 RestartApp
@@ -115,3 +122,18 @@ while ($state.question) {
 RestartApp
 TextNode 'Session complete' | Out-Null
 Write-Output 'PASS: completed quiz restores results after restart (remaining answers submitted by API fixture)'
+if ($VerifyLibrary) {
+TapText 'Study another document'
+TapText 'My uploaded documents'
+TextNode 'qa-biology.txt' | Out-Null
+Adb shell screencap -p /sdcard/qa-document-library.png | Out-Null
+Adb pull /sdcard/qa-document-library.png (Join-Path $repo 'artifacts\qa-document-library.png') | Out-Null
+TapText 'Open qa-biology.txt'
+TextNode 'Choose a chapter' | Out-Null
+RestartApp
+TextNode 'Choose a chapter' | Out-Null
+$documents = @(Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers)
+if ($documents.Count -ne 1) { throw 'Opening the library unexpectedly duplicated the document' }
+if ((Invoke-RestMethod $quizPath -Headers $headers).answered -ne 10) { throw 'Reopening material changed the previous quiz' }
+Write-Output 'PASS: empty library is clear; saved material reopens without upload, survives restart and preserves the old quiz'
+}

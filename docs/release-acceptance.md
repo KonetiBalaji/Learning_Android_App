@@ -225,3 +225,10 @@ feature to UAT accepted or production verified. All release gates below remain o
   4.5:1 text-pair checks in both themes. API 36 settings-toggle/restart QA passed;
   light/dark settings screenshots inspected. Full-screen accessibility coverage
   remains open; see `theme-readability.md`.
+- Added an authenticated uploaded-document library with empty/loading/refresh
+  states and reopening without re-upload. Backend 75 tests and Android
+  build/lint/32 JVM tests passed. API 36 QA verified empty/populated library,
+  reopening after clearing local pointers, process restart, no duplicate upload
+  and preservation of the previous quiz; screenshot inspected. Offline/library
+  scale, prior-quiz browsing and individual deletion UI remain open. See
+  `document-library.md`.

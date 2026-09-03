@@ -43,6 +43,7 @@ sealed interface Screen {
     data object Diagnostic : Screen; data object Tutor : Screen; data object Practice : Screen; data object Rewrite : Screen
     data object Mastery : Screen; data object ParentDashboard : Screen; data object Home : Screen; data object Chapters : Screen
     data object Question : Screen; data object Feedback : Screen; data object Results : Screen; data object Settings : Screen
+    data object DocumentLibrary : Screen
 }
 
 val fractionQuestions = listOf(
@@ -84,6 +85,7 @@ data class AppUiState(
     val masteryConfidence: String = "Developing", val progressSnapshot: ProgressSnapshot? = null,
     val unlockedChapterIds: Set<String> = emptySet(), val darkMode: Boolean = false, val accountEmail: String = "",
     val document: StudyDocument? = null, val selectedChapterId: String? = null, val quizId: String? = null, val question: QuizQuestion? = null,
+    val documentLibrary: List<StudyDocument>? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
     val canResumeDocumentQuiz: Boolean = false,
@@ -291,8 +293,22 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun backToSubjects() { mutableState.value = mutableState.value.copy(screen = Screen.Subjects) }
     fun startDocumentStudy() { mutableState.value = mutableState.value.copy(screen = Screen.Home) }
 
+    fun openDocumentLibrary() {
+        mutableState.value = mutableState.value.copy(screen = Screen.DocumentLibrary, documentLibrary = null)
+        refreshDocumentLibrary()
+    }
+    fun refreshDocumentLibrary() = perform(null) {
+        mutableState.value = mutableState.value.copy(documentLibrary = api.listDocuments())
+    }
+    fun openSavedDocument(id: String) = perform(Screen.Chapters) {
+        // Revalidate ownership/existence instead of trusting a potentially stale list.
+        rememberUploadedDocument(api.getDocument(id))
+    }
+
     fun upload(context: Context, uri: Uri) = perform(Screen.Chapters) {
-        val document = api.upload(context.contentResolver, uri)
+        rememberUploadedDocument(api.upload(context.contentResolver, uri))
+    }
+    private fun rememberUploadedDocument(document: StudyDocument) {
         val chapter = document.chapters.firstOrNull()?.id
         check(preferences.edit().putString(documentKey(), document.id).putString(documentChapterKey(), chapter)
             .remove(documentQuizKey()).putString(activeFlowKey(), "document").commit())
@@ -398,6 +414,10 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         } finally { connection.disconnect() }
     }
     fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
+    fun listDocuments(): List<StudyDocument> {
+        val response = JSONArray(readApiResponse(connection("GET", "/v1/documents", "application/json")))
+        return (0 until response.length()).map { document(response.getJSONObject(it)) }
+    }
     fun createQuiz(documentId: String, chapterId: String): Triple<String, QuizQuestion, Int> { val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray().put(chapterId)).put("question_count", 10).toString()); return Triple(response.getString("id"), question(response.getJSONObject("first_question")), response.getInt("question_count")) }
     data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?)
     fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {

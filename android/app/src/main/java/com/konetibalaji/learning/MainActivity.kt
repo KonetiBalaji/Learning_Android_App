@@ -120,7 +120,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Rewrite -> RewriteScreen(state, viewModel::updateRewrite, viewModel::submitRewrite)
                         Screen.Mastery -> MasteryScreen(state, viewModel::continueFromMastery)
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
-                        Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects)
+                        Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
+                        Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
                         Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
@@ -422,13 +423,34 @@ private fun SettingsScreen(state: AppUiState, onBack: () -> Unit, onDarkMode: (B
 private fun TipCard(title: String, body: String) = Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(title, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold); Text(body, color = MaterialTheme.colorScheme.onSecondaryContainer) } }
 
 @Composable
-private fun StudyMaterialScreen(loading: Boolean, onUpload: (android.content.Context, android.net.Uri) -> Unit, onBack: () -> Unit) {
+private fun StudyMaterialScreen(loading: Boolean, onUpload: (android.content.Context, android.net.Uri) -> Unit, onBack: () -> Unit, onLibrary: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { onUpload(context, it) } }
     Page {
         TextButton(onClick = onBack) { Text("‹ Back to learning path") }
         Header("Your study space", "Learn from your own material", "Upload a PDF, DOCX, or TXT file and receive source-grounded questions.")
+        OutlinedButton(onClick = onLibrary, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("My uploaded documents") }
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Icon(Icons.Outlined.Description, null, tint = Indigo, modifier = Modifier.size(36.dp)); Text("Upload study material", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Up to 50 MB. We detect chapters before generating a focused quiz.", color = MaterialTheme.colorScheme.onSurfaceVariant); PrimaryButton("Choose document", !loading) { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain")) } } }
+    }
+}
+
+@Composable
+private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, onRefresh: () -> Unit, onBack: () -> Unit) = Page {
+    TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
+    Header("Your library", "Uploaded documents", "Open saved material to select a chapter and start a new quiz. Your existing quizzes are not deleted.")
+    OutlinedButton(onClick = onRefresh, enabled = !state.loading) { Text("Refresh documents") }
+    when {
+        state.documentLibrary == null && !state.loading -> Text("Documents could not be loaded. Check your connection and refresh.")
+        state.documentLibrary?.isEmpty() == true -> Text("No uploaded documents yet. Return to your study space to upload one.")
+        else -> state.documentLibrary.orEmpty().forEach { document ->
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(document.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("${document.chapters.size} detected sections", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedButton(onClick = { onOpen(document.id) }, enabled = !state.loading) { Text("Open ${document.name}") }
+                }
+            }
+        }
     }
 }
 
