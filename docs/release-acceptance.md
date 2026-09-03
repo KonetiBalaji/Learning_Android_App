@@ -160,3 +160,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   are not returned to clients. Backend **58 tests passed**, including ordinary
   DOCX acceptance and rejected-upload cleanup. Worker isolation and PDF resource
   limits remain; see `document-processing-limits.md`.
+- Document quiz resume endpoint and Android account-scoped pointer/manual resume
+  implemented; completed quizzes restore results and question totals are no longer
+  hardcoded. Backend 59 tests and Android build/lint/19 JVM tests passed. Device
+  recovery verification remains pending. Audit also found source-supported
+  distractors in the document generator; question ambiguity is a release blocker.
+  See `document-quiz-recovery.md`; DOC-01 is still partial.

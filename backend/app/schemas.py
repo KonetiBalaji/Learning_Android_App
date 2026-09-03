@@ -69,6 +69,15 @@ class QuizResults(BaseModel):
     mistakes: list[QuizQuestion]
 
 
+class DocumentQuizState(BaseModel):
+    id: str
+    document: DocumentSummary
+    total: int
+    answered: int
+    question: QuizQuestion | None
+    last_feedback: Feedback | None
+
+
 class DiagnosticStartRequest(BaseModel):
     grade: int = Field(ge=1, le=12)
     subject_id: str = Field(min_length=1, max_length=80)

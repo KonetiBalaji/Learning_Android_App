@@ -86,6 +86,8 @@ data class AppUiState(
     val document: StudyDocument? = null, val selectedChapterId: String? = null, val quizId: String? = null, val question: QuizQuestion? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
+    val canResumeDocumentQuiz: Boolean = false,
+    val documentQuestionTotal: Int = 10,
     val assessmentPoints: Int? = null, val assessmentFeedback: String? = null,
 )
 
@@ -99,6 +101,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         grade = savedGrade, darkMode = preferences.getBoolean("dark_mode", false),
         accountEmail = preferences.getString("email", "").orEmpty(),
         canResumeMastery = preferences.contains("active_mastery:${preferences.getString("email", "").orEmpty().lowercase()}"),
+        canResumeDocumentQuiz = preferences.contains("active_document_quiz:${preferences.getString("email", "").orEmpty().lowercase()}"),
     ))
     val state: StateFlow<AppUiState> = mutableState.asStateFlow()
 
@@ -109,7 +112,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             mutableState.value = mutableState.value.copy(loading = false,
                 screen = if (api.hasToken) (if (savedGrade == null) Screen.Grade else Screen.Subjects) else Screen.SignIn,
                 error = if (restored.isFailure) "Unable to restore the saved session. Please sign in." else null)
-            if (api.hasToken && preferences.contains(activeSessionKey())) resumeLearning()
+            if (api.hasToken && preferences.getString(activeFlowKey(), null) == "document" && preferences.contains(documentQuizKey())) resumeDocumentQuiz()
+            else if (api.hasToken && preferences.contains(activeSessionKey())) resumeLearning()
             else if (api.hasToken && savedGrade != null) refreshProgress()
         }
     }
@@ -128,11 +132,33 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun refreshProgress() = perform(null) { loadProgress() }
 
     private fun activeSessionKey() = "active_mastery:${mutableState.value.accountEmail.lowercase()}"
+    private fun documentQuizKey() = "active_document_quiz:${mutableState.value.accountEmail.lowercase()}"
+    private fun activeFlowKey() = "active_flow:${mutableState.value.accountEmail.lowercase()}"
+
+    fun resumeDocumentQuiz() {
+        val id = preferences.getString(documentQuizKey(), null) ?: return
+        perform(null) {
+            val resumed = try { api.resumeDocumentQuiz(id) } catch (failure: ApiFailure) {
+                if (failure.status == 404) {
+                    preferences.edit().remove(documentQuizKey()).apply()
+                    mutableState.value = mutableState.value.copy(canResumeDocumentQuiz = false, screen = Screen.Subjects)
+                }
+                throw failure
+            }
+            preferences.edit().putString(activeFlowKey(), "document").apply()
+            val completed = resumed.question == null
+            mutableState.value = mutableState.value.copy(document = resumed.document, quizId = id,
+                documentQuestionTotal = resumed.total, question = resumed.question, feedback = resumed.feedback,
+                results = if (completed) api.results(id) else null, canResumeDocumentQuiz = true,
+                screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
+        }
+    }
 
     fun resumeLearning() {
         val sessionId = preferences.getString(activeSessionKey(), null) ?: return
         perform(null) {
             val resumed = api.resumeMastery(sessionId)
+            preferences.edit().putString(activeFlowKey(), "mastery").apply()
             val subject = learningSubjects.firstOrNull { it.id == resumed.subjectId }
                 ?: error("The saved subject is not available in this version.")
             val chapter = chaptersBySubject[subject.id]?.firstOrNull { it.id == resumed.chapterId }
@@ -153,7 +179,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         if (createAccount) api.register(email, password) else api.login(email, password)
         preferences.edit().putString("email", email).remove("grade").remove("unlocked").apply()
         mutableState.value = AppUiState(accountEmail = email, darkMode = mutableState.value.darkMode,
-            canResumeMastery = preferences.contains("active_mastery:${email.lowercase()}"))
+            canResumeMastery = preferences.contains("active_mastery:${email.lowercase()}"),
+            canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}"))
     }
     fun selectGrade(grade: Int) { preferences.edit().putInt("grade", grade).apply(); mutableState.value = mutableState.value.copy(grade = grade, screen = Screen.Subjects, progressSnapshot = null, unlockedChapterIds = emptySet()); refreshProgress() }
     fun selectSubject(subject: LearningSubject) { mutableState.value = mutableState.value.copy(subject = subject, screen = Screen.MasteryChapters) }
@@ -163,7 +190,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         if (chapter.locked && chapterKey !in current.unlockedChapterIds) return
         perform(null) {
             val started = api.startDiagnostic(current.grade ?: 6, requireNotNull(current.subject).id, chapter.id)
-            preferences.edit().putString(activeSessionKey(), started.id).apply()
+            preferences.edit().putString(activeSessionKey(), started.id).putString(activeFlowKey(), "mastery").apply()
             mutableState.value = current.copy(
                 masteryChapter = chapter, diagnosticIndex = 0, diagnosticCorrect = 0, coachingRound = 0,
                 masterySessionId = started.id, adaptiveQuestion = started.question, adaptiveOrdinal = started.ordinal,
@@ -241,11 +268,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
 
     fun upload(context: Context, uri: Uri) = perform(Screen.Chapters) { val document = api.upload(context.contentResolver, uri); mutableState.value = mutableState.value.copy(document = document, selectedChapterId = document.chapters.firstOrNull()?.id) }
     fun selectChapter(chapterId: String) { mutableState.value = mutableState.value.copy(selectedChapterId = chapterId) }
-    fun createQuiz() = perform(Screen.Question) { val current = mutableState.value; val quiz = api.createQuiz(requireNotNull(current.document).id, requireNotNull(current.selectedChapterId)); mutableState.value = current.copy(quizId = quiz.first, question = quiz.second, feedback = null, results = null) }
+    fun createQuiz() = perform(Screen.Question) {
+        val current = mutableState.value
+        val quiz = api.createQuiz(requireNotNull(current.document).id, requireNotNull(current.selectedChapterId))
+        check(preferences.edit().putString(documentQuizKey(), quiz.first).putString(activeFlowKey(), "document").commit())
+        mutableState.value = current.copy(quizId = quiz.first, question = quiz.second, feedback = null, results = null,
+            documentQuestionTotal = quiz.third, canResumeDocumentQuiz = true)
+    }
     fun submitAnswer(option: String) = perform(Screen.Feedback) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
-    fun startAnotherDocument() { mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, quizId = null, results = null) }
+    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, quizId = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
     private var operationInFlight = false
@@ -317,7 +350,13 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             return document(readJson(connection))
         } finally { connection.disconnect() }
     }
-    fun createQuiz(documentId: String, chapterId: String): Pair<String, QuizQuestion> { val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray().put(chapterId)).put("question_count", 10).toString()); return response.getString("id") to question(response.getJSONObject("first_question")) }
+    fun createQuiz(documentId: String, chapterId: String): Triple<String, QuizQuestion, Int> { val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray().put(chapterId)).put("question_count", 10).toString()); return Triple(response.getString("id"), question(response.getJSONObject("first_question")), response.getInt("question_count")) }
+    data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?)
+    fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {
+        val response = request("GET", "/v1/quizzes/$id", null)
+        val feedback = response.optJSONObject("last_feedback")?.let { value -> Feedback(value.getBoolean("correct"), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"), value.getString("source_reference"), value.optJSONObject("next_question")?.let(::question)) }
+        return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), response.optJSONObject("question")?.let(::question), feedback)
+    }
     fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)) }
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").toQuestionList()) }
     data class StartedDiagnostic(val id: String, val question: DiagnosticQuestion, val ordinal: Int, val total: Int)

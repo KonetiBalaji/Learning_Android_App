@@ -96,7 +96,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                     when (state.screen) {
                         Screen.SignIn -> SignInScreen(state.loading, viewModel::authenticate)
                         Screen.Grade -> GradeScreen(viewModel::selectGrade)
-                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning)
+                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
                         Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects)
                         Screen.Diagnostic -> DiagnosticScreen(state, viewModel::selectDiagnosticAnswer, viewModel::submitDiagnostic)
                         Screen.Tutor -> TutorScreen(state, viewModel::startPractice)
@@ -172,9 +172,10 @@ private fun GradeScreen(onSelect: (Int) -> Unit) = Page {
 }
 
 @Composable
-private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit) = Page {
+private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit, onResumeDocument: () -> Unit) = Page {
     Header("Grade ${state.grade ?: 6}", "What would you like to learn?", "Pick a subject to continue your personalised path.")
     if (state.canResumeMastery) PrimaryButton("Resume saved learning", !state.loading, onResume)
+    if (state.canResumeDocumentQuiz) PrimaryButton("Resume document quiz", !state.loading, onResumeDocument)
     LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxWidth().height(390.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         items(learningSubjects) { subject ->
             val progress = state.progressSnapshot?.subjects?.get(subject.id)
@@ -419,7 +420,7 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
 @Composable
 private fun DocumentQuestionScreen(state: AppUiState, onAnswer: (String) -> Unit) {
     val question = state.question ?: return; var selected by remember(question.id) { mutableStateOf<String?>(null) }
-    Page { Text("QUESTION ${question.ordinal} OF 10", color = Indigo, fontWeight = FontWeight.Bold); Text(question.prompt, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); question.options.forEach { AnswerChoice(it, selected == it) { selected = it } }; Text("Source: ${question.sourceReference}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall); PrimaryButton("Check answer", selected != null && !state.loading) { selected?.let(onAnswer) } }
+    Page { Text("QUESTION ${question.ordinal} OF ${state.documentQuestionTotal}", color = Indigo, fontWeight = FontWeight.Bold); Text(question.prompt, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); question.options.forEach { AnswerChoice(it, selected == it) { selected = it } }; Text("Source: ${question.sourceReference}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall); PrimaryButton("Check answer", selected != null && !state.loading) { selected?.let(onAnswer) } }
 }
 
 @Composable

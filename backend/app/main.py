@@ -49,6 +49,7 @@ from .schemas import (
     WeeklyReport,
     MasterySessionState,
     TutorIntervention,
+    DocumentQuizState,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
@@ -219,6 +220,27 @@ def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user
         correct_option=question["correct_option"], explanation=question["explanation"], source_reference=question["source_reference"],
         next_question=question_payload(next_row) if next_row else None,
     )
+
+
+@app.get("/v1/quizzes/{quiz_id}", response_model=DocumentQuizState)
+def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DocumentQuizState:
+    with connection(settings.database_path) as db:
+        document = db.execute("""SELECT documents.* FROM documents JOIN quizzes ON quizzes.document_id = documents.id
+                                 WHERE quizzes.id = ? AND quizzes.owner_id = ? AND documents.owner_id = ?""",
+                              (quiz_id, user_id, user_id)).fetchone()
+        if document is None:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+        rows = db.execute("SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal", (quiz_id,)).fetchall()
+    answered = [row for row in rows if row['answered_option'] is not None]
+    pending = next((row for row in rows if row['answered_option'] is None), None)
+    last = answered[-1] if answered else None
+    next_question = question_payload(pending) if pending else None
+    feedback = Feedback(correct=last['answered_option'] == last['correct_option'], selected_option=last['answered_option'],
+                        correct_option=last['correct_option'], explanation=last['explanation'],
+                        source_reference=last['source_reference'], next_question=next_question) if last else None
+    return DocumentQuizState(id=quiz_id, document=DocumentSummary(id=document['id'], original_name=document['original_name'],
+                             chapters=[Chapter.model_validate(item) for item in parse_json(document['chapters_json'])]),
+                             total=len(rows), answered=len(answered), question=next_question, last_feedback=feedback)
 
 
 @app.get("/v1/quizzes/{quiz_id}/results", response_model=QuizResults)
