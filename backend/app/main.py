@@ -55,7 +55,7 @@ from .schemas import (
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
-from .mastery_transactions import lock_mastery_snapshot
+from .mastery_transactions import lock_mastery_snapshot, mastery_state_token, check_expected_state
 from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload
 from .learner_preferences import InterestPreferences
 
@@ -345,12 +345,14 @@ def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(cur
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (session_id, user_id, request.grade, request.subject_id.lower(), request.chapter_id.lower(), now(), serialize_diagnostic_bank(bank)),
         )
-    return DiagnosticSession(id=session_id, status="diagnostic", question=public_question(bank[0], 0, len(bank)))
+    return DiagnosticSession(id=session_id, status="diagnostic", question=public_question(bank[0], 0, len(bank)),
+                             state_token=mastery_state_token(dict(id=session_id, status='diagnostic', current_question=0, correct_answers=0, coaching_rounds=0)))
 
 
 @app.post("/v1/mastery/sessions/{session_id}/diagnostic-answer", response_model=DiagnosticOutcome)
 def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DiagnosticOutcome:
     session = owned_mastery_session(session_id, user_id, settings)
+    check_expected_state(session, request.expected_state)
     if session["status"] != "diagnostic":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The diagnostic phase is already complete")
     bank = session_diagnostic_bank(session)
@@ -383,6 +385,7 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
     score = next_index / len(bank)
     next_question = public_question(bank[next_index], next_index, len(bank)) if correct and next_index < len(bank) else None
     return DiagnosticOutcome(
+        state_token=mastery_state_token(session, current_question=next_index, correct_answers=new_correct, status=next_status),
         correct=correct,
         selected_option=request.selected_option,
         correct_option=item.correct_option,
@@ -396,6 +399,7 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
 @app.post("/v1/mastery/sessions/{session_id}/practice", response_model=PracticeOutcome)
 def submit_practice(session_id: str, request: PracticeRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> PracticeOutcome:
     session = owned_mastery_session(session_id, user_id, settings)
+    check_expected_state(session, request.expected_state)
     if session["status"] not in {"tutor", "practice"}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Guided practice is not available in the current phase")
     bank = session_diagnostic_bank(session)
@@ -409,6 +413,7 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
         )
         db.execute("UPDATE mastery_sessions SET status = ?, coaching_rounds = coaching_rounds + ? WHERE id = ?", ("rewrite" if correct else "practice", 0 if correct else 1, session_id))
     return PracticeOutcome(
+        state_token=mastery_state_token(session, status='rewrite' if correct else 'practice', coaching_rounds=session['coaching_rounds'] + int(not correct)),
         correct=correct,
         normalized_answer=normalized,
         hint=None if correct else item.hint,
@@ -419,6 +424,7 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
 @app.post("/v1/mastery/sessions/{session_id}/rewrite", response_model=RewriteOutcome)
 def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> RewriteOutcome:
     session = owned_mastery_session(session_id, user_id, settings)
+    check_expected_state(session, request.expected_state)
     if session["status"] != "rewrite":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A concept rewrite is not pending")
     bank = session_diagnostic_bank(session)
@@ -445,6 +451,7 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
             (next_status, next_index, 0 if understood else 1, now() if mastered else None, None if understood else lesson.model_dump_json(), session_id),
         )
     return RewriteOutcome(
+        state_token=mastery_state_token(session, status=next_status, current_question=next_index, coaching_rounds=session['coaching_rounds'] + int(not understood)),
         understood=understood,
         mastery_achieved=mastered,
         mastery_score=mastery_score,
@@ -479,6 +486,7 @@ def mastery_session_state(session_id: str, user_id: str = Depends(current_user_i
     if item and session["status"] in {"tutor", "practice", "rewrite"}:
         lesson = TutorIntervention.model_validate_json(session["tutor_json"]) if session["tutor_json"] else tutor_for(item)
     return MasterySessionState(
+        state_token=mastery_state_token(session),
         id=session_id, grade=session["grade"], subject_id=session["subject_id"], chapter_id=session["chapter_id"],
         status=session["status"], question=public_question(item, index, len(bank)) if item else None,
         tutor=lesson, selected_option=answer["response"] if answer and lesson else None,

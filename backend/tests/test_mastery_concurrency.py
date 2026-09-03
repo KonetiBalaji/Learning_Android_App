@@ -25,6 +25,7 @@ def test_overlapping_submissions_commit_only_one_transition(monkeypatch, tmp_pat
             assert client.post(path + '/diagnostic-answer', headers=headers, json={'selected_option': '1/2'}).status_code == 200
         if phase == 'rewrite':
             assert client.post(path + '/practice', headers=headers, json={'response': '6/8'}).status_code == 200
+        payload = dict(payload, expected_state=client.get(path, headers=headers).json()['state_token'])
         barrier = Barrier(2)
         def read_same_snapshot(*args):
             row = original(*args)

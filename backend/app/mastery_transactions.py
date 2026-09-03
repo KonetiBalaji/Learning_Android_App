@@ -2,6 +2,19 @@
 from fastapi import HTTPException
 
 
+def mastery_state_token(snapshot, **changes) -> str:
+    values = dict(snapshot)
+    values.update(changes)
+    return ':'.join(str(values[field]) for field in
+                    ('id', 'status', 'current_question', 'correct_answers', 'coaching_rounds'))
+
+
+def check_expected_state(snapshot, expected_state: str | None) -> None:
+    # Optional during client migration. Ownership is checked before this comparison.
+    if expected_state is not None and expected_state != mastery_state_token(snapshot):
+        raise HTTPException(status_code=409, detail='Learning state changed. Resume the session before submitting again.')
+
+
 def lock_mastery_snapshot(db, snapshot) -> None:
     # Provider work is performed before this short transaction, never under the lock.
     db.execute('BEGIN IMMEDIATE')

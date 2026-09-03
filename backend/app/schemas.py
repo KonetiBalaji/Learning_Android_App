@@ -93,12 +93,14 @@ class AdaptiveQuestion(BaseModel):
 
 
 class DiagnosticSession(BaseModel):
+    state_token: str
     id: str
     status: str
     question: AdaptiveQuestion
 
 
 class DiagnosticAnswerRequest(BaseModel):
+    expected_state: str | None = Field(default=None, min_length=1, max_length=200)
     selected_option: str = Field(min_length=1, max_length=400)
 
 
@@ -113,6 +115,7 @@ class TutorIntervention(BaseModel):
 
 
 class DiagnosticOutcome(BaseModel):
+    state_token: str
     correct: bool
     selected_option: str
     correct_option: str
@@ -123,10 +126,12 @@ class DiagnosticOutcome(BaseModel):
 
 
 class PracticeRequest(BaseModel):
+    expected_state: str | None = Field(default=None, min_length=1, max_length=200)
     response: str = Field(min_length=1, max_length=400)
 
 
 class PracticeOutcome(BaseModel):
+    state_token: str
     correct: bool
     normalized_answer: str
     hint: str | None = None
@@ -134,10 +139,12 @@ class PracticeOutcome(BaseModel):
 
 
 class RewriteRequest(BaseModel):
+    expected_state: str | None = Field(default=None, min_length=1, max_length=200)
     response: str = Field(min_length=1, max_length=4000)
 
 
 class RewriteOutcome(BaseModel):
+    state_token: str
     understood: bool
     mastery_achieved: bool
     mastery_score: float
@@ -152,6 +159,7 @@ class RewriteOutcome(BaseModel):
 
 
 class MasterySessionState(BaseModel):
+    state_token: str
     id: str
     grade: int
     subject_id: str

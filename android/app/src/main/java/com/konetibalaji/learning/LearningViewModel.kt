@@ -413,14 +413,15 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
 }
 
 private class LearningApi(initialToken: String?, private val saveToken: (String) -> Unit) {
+    private val masterySubmissionState = MasterySubmissionState()
     private var token: String? = initialToken; private val baseUrl = BuildConfig.API_BASE_URL
     val hasToken: Boolean get() = token != null
     fun restoreToken(value: String?) { token = value }
-    private fun acceptToken(response: JSONObject) { val accepted = response.getString("access_token"); saveToken(accepted); token = accepted }
+    private fun acceptToken(response: JSONObject) { val accepted = response.getString("access_token"); saveToken(accepted); masterySubmissionState.clear(); token = accepted }
     fun register(email: String, password: String) = acceptToken(request("POST", "/v1/auth/register", JSONObject().put("email", email).put("password", password).toString()))
     fun login(email: String, password: String) = acceptToken(request("POST", "/v1/auth/login", JSONObject().put("email", email).put("password", password).toString()))
-    fun signOut() { token = null }
-    fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); token = null }
+    fun signOut() { token = null; masterySubmissionState.clear() }
+    fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); signOut() }
     fun getInterests(): List<String> = request("GET", "/v1/account", null).getJSONArray("interests").strings()
     fun saveInterests(values: List<String>): List<String> = request("PUT", "/v1/account/interests",
         JSONObject().put("interests", JSONArray(values)).toString()).getJSONArray("interests").strings()
@@ -511,10 +512,20 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun weeklyReport(grade: Int): ProgressSnapshot { val response = request("GET", "/v1/progress/weekly-report?grade=$grade", null); return ProgressSnapshot(emptyMap(), response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), response.getInt("questions_answered"), (response.getDouble("accuracy") * 100).toInt(), response.getInt("mastered_chapters"), response.getDouble("estimated_exam_readiness").toInt(), response.getString("readiness_label").replace('_', ' ').replaceFirstChar(Char::uppercase)) }
     fun progressWithWeekly(grade: Int): ProgressSnapshot { val dashboard = progressDashboard(grade); val weekly = weeklyReport(grade); return dashboard.copy(questionsAnswered = weekly.questionsAnswered, accuracy = weekly.accuracy, masteredChapters = weekly.masteredChapters, examReadiness = weekly.examReadiness, readinessLabel = weekly.readinessLabel) }
     private fun request(method: String, path: String, body: String?): JSONObject {
+        val sessionId = Regex("^/v1/mastery/sessions/([^/]+)(?:/(diagnostic-answer|practice|rewrite))?$")
+            .matchEntire(path)?.groupValues?.get(1)
+        val guardedBody = if (method == "POST" && sessionId != null) {
+            JSONObject(requireNotNull(body)).put("expected_state", masterySubmissionState.expected(sessionId)).toString()
+        } else body
         val connection = connection(method, path, "application/json")
         try {
-            if (body != null) connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-            return readJson(connection, path.startsWith("/v1/auth/"))
+            if (guardedBody != null) connection.outputStream.use { it.write(guardedBody.toByteArray(Charsets.UTF_8)) }
+            val response = readJson(connection, path.startsWith("/v1/auth/"))
+            // Failed/unknown outcomes leave the old token intact. A retry then conflicts,
+            // invoking the existing resume flow rather than answering the next question.
+            if (sessionId != null) masterySubmissionState.remember(sessionId, response.getString("state_token"))
+            if (path == "/v1/mastery/diagnostics") masterySubmissionState.remember(response.getString("id"), response.getString("state_token"))
+            return response
         } finally { connection.disconnect() }
     }
     private fun requestNoContent(method: String, path: String) { readApiResponse(connection(method, path, "application/json")) }

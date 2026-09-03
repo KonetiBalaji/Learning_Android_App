@@ -267,3 +267,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   three interest tests rerun after final guidance changes. This reused sample is
   not a holdout, educator review, UAT or production sign-off. Broader evaluation
   remains open; see `learner-interest-evaluation.md`.
+- Added adaptive state tokens and Android submission preconditions so delayed
+  retries can be rejected rather than applied to a later question or practice
+  attempt. Backend checks precede provider work and retain the atomic commit
+  guard. Backend 92 tests and Android build/lint/40 JVM tests passed. Legacy clients remain compatible
+  but unprotected against delayed retries; mandatory migration and Android
+  lost-response device QA remain open. See `adaptive-submission-preconditions.md`.

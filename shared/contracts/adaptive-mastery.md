@@ -58,6 +58,27 @@ No responses produces `insufficient_evidence`. Strongest concepts must have at
 least 70% observed response accuracy; weak concepts are below that threshold.
 All-time current chapter progress is a separate dashboard metric.
 
-Still outstanding: mutation idempotency/concurrency protection, durable document
-quiz recovery, full account-scoped profile/preferences and device security failure tests,
+## Adaptive mutation preconditions
+
+Start, resume, diagnostic-answer, practice and rewrite responses include
+`state_token`. Treat it as an opaque, session-scoped precondition. Updated clients
+send it as `expected_state` in each diagnostic-answer, practice or rewrite body.
+Every committed transition changes the token, including incorrect practice and
+unsuccessful rewrite attempts. A mismatch returns 409 before provider work or
+attempt insertion. Concurrent requests that initially match still compete under
+the existing transactional snapshot check; only one may commit.
+
+On an unknown response outcome, retain the original token. A retry must not fetch
+a fresh token and silently reapply the old answer. On 409, GET the session and
+present its saved state. This is stale-write prevention, not replay of the original
+response. A new intentional attempt requires the newly observed state token.
+
+The field is optional for legacy-client migration. Requests omitting it (or
+explicitly sending null) retain prior behavior and are NOT protected against
+delayed retries. Current Android always requires a cached token from start/resume
+before submitting; it clears the cache on sign-out. Deploy the updated backend
+before the updated APK. Removing legacy support remains a release migration gate.
+
+Still outstanding: full mutation idempotency and legacy precondition enforcement,
+full account-scoped profile/preferences and device security failure tests,
 server-enforced curriculum prerequisites and evaluation calibration.
