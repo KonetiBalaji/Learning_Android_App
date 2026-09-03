@@ -4,6 +4,7 @@ import sqlite3
 import asyncio
 import logging
 import uuid
+from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
 
@@ -36,6 +37,9 @@ from .schemas import (
     ChapterPreview,
     SourceSearchRequest,
     SourceSearchResults,
+    PdfPageIndex,
+    PdfPageRequest,
+    PdfPageSelection,
     StudyPresence,
     Feedback,
     QuizQuestion,
@@ -238,6 +242,37 @@ def document_chapter_preview(document_id: str, chapter_id: str, page: int = Quer
         return preview_chapter(document_id, row['extracted_text'], chapters, chapter_id, page)
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=422, detail='Invalid preview page or stored source range') from error
+
+
+def owned_pdf_pages(document_id: str, user_id: str, settings: Settings):
+    from .pdf_page_selection import read_pdf_pages
+    row = owned_document(document_id, user_id, settings)
+    try:
+        pages = read_pdf_pages(Path(row['stored_path']), settings.uploads_dir,
+                               row['extracted_text'], settings.max_upload_bytes)
+    except OSError as error:
+        raise HTTPException(status_code=503, detail='The stored PDF is temporarily unavailable') from error
+    except (ValueError, RuntimeError) as error:
+        raise HTTPException(status_code=422, detail='Cannot safely map original PDF pages to this stored source') from error
+    return row, pages
+
+
+@app.get('/v1/documents/{document_id}/pdf-pages', response_model=PdfPageIndex)
+def document_pdf_pages(document_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    _, pages = owned_pdf_pages(document_id, user_id, settings)
+    return PdfPageIndex(document_id=document_id, pages=pages)
+
+
+@app.post('/v1/documents/{document_id}/pdf-pages/selection', response_model=PdfPageSelection)
+def document_pdf_page_selection(document_id: str, request: PdfPageRequest,
+                                user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    from .pdf_page_selection import select_pdf_pages
+    row, pages = owned_pdf_pages(document_id, user_id, settings)
+    try:
+        chapters = [Chapter.model_validate(item) for item in parse_json(row['chapters_json'])]
+        return select_pdf_pages(document_id, row['extracted_text'], chapters, pages, request.first_page, request.last_page)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @app.post('/v1/documents/{document_id}/search', response_model=SourceSearchResults)

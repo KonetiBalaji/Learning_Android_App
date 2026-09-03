@@ -83,6 +83,15 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Added original physical PDF-page indexing and read-only page-range resolution
+  into exact chapter/excerpt boundaries. Re-extracted text must match stored text;
+  blank pages are preserved and blank-only/unsafe/omitted-source selections fail.
+  Synthetic three-page rendering was inspected under the PDF skill; page-2 scope
+  excludes page 1. Backend 250 tests passed, 1 existing Windows test skipped;
+  eight focused tests passed after the final cross-page test addition.
+  Android page controls, complex PDFs, device recovery and UAT
+  remain open. See `shared/contracts/pdf-page-selection.md`.
+
 - API 36 source-search QA passed: no-match state preserved selection; Android
   query/result confirmation selected source characters 324–927; restart and a
   committed-creation HTTP 503 retry preserved the range with exactly one quiz.

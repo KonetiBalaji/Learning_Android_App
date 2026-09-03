@@ -57,6 +57,33 @@ class SourceSearchRequest(BaseModel):
     limit: int = Field(default=20, ge=1, le=20, strict=True)
 
 
+class PdfPage(BaseModel):
+    page: int
+    start_character: int
+    end_character: int
+    has_text: bool
+
+
+class PdfPageIndex(BaseModel):
+    document_id: str
+    pages: list[PdfPage]
+
+
+class PdfPageRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    first_page: int = Field(ge=1, strict=True)
+    last_page: int = Field(ge=1, strict=True)
+
+
+class PdfPageSelection(BaseModel):
+    document_id: str
+    first_page: int
+    last_page: int
+    chapter_ids: list[str]
+    source_ranges: list[SourceRange]
+    empty_pages: list[int]
+
+
 class SourceSearchHit(SourceRange):
     title: str
     text: str
