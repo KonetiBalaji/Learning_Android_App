@@ -44,6 +44,7 @@ sealed interface Screen {
     data object Mastery : Screen; data object ParentDashboard : Screen; data object Home : Screen; data object Chapters : Screen
     data object Question : Screen; data object Feedback : Screen; data object Results : Screen; data object Settings : Screen
     data object DocumentLibrary : Screen
+    data object Interests : Screen
 }
 
 val fractionQuestions = listOf(
@@ -86,6 +87,7 @@ data class AppUiState(
     val unlockedChapterIds: Set<String> = emptySet(), val darkMode: Boolean = false, val accountEmail: String = "",
     val document: StudyDocument? = null, val selectedChapterId: String? = null, val quizId: String? = null, val question: QuizQuestion? = null,
     val documentLibrary: List<StudyDocument>? = null,
+    val savedInterests: List<String>? = null, val interestDraft: List<String> = emptyList(), val interestSaveMessage: String? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
     val canResumeDocumentQuiz: Boolean = false,
@@ -286,6 +288,27 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         perform(null) { mutableState.value = current.copy(progressSnapshot = api.progressWithWeekly(current.grade ?: 8), screen = Screen.ParentDashboard) }
     }
     fun openSettings() { mutableState.value = mutableState.value.copy(screen = Screen.Settings) }
+    fun openInterests() {
+        mutableState.value = mutableState.value.copy(screen = Screen.Interests, savedInterests = null, interestDraft = emptyList(), interestSaveMessage = null)
+        reloadInterests()
+    }
+    fun reloadInterests() = perform(null) {
+        val saved = api.getInterests()
+        mutableState.value = mutableState.value.copy(savedInterests = saved, interestDraft = saved, interestSaveMessage = null)
+    }
+    fun selectInterest(interest: String) {
+        val current = mutableState.value
+        if (current.loading || current.savedInterests == null) return
+        mutableState.value = current.copy(interestDraft = toggleInterest(current.interestDraft, interest), interestSaveMessage = null)
+    }
+    fun clearInterests() {
+        if (!mutableState.value.loading) mutableState.value = mutableState.value.copy(interestDraft = emptyList(), interestSaveMessage = null)
+    }
+    fun saveInterests() = perform(null) {
+        check(mutableState.value.savedInterests != null)
+        val saved = api.saveInterests(mutableState.value.interestDraft)
+        mutableState.value = mutableState.value.copy(savedInterests = saved, interestDraft = saved, interestSaveMessage = "Interests saved")
+    }
     fun setDarkMode(enabled: Boolean) { preferences.edit().putBoolean("dark_mode", enabled).apply(); mutableState.value = mutableState.value.copy(darkMode = enabled) }
     fun signOut() = perform(Screen.SignIn) { tokenStore.clear(); api.signOut(); preferences.edit().remove("email").remove("grade").remove("unlocked").apply(); mutableState.value = AppUiState(darkMode = mutableState.value.darkMode) }
     fun deleteAccount() = perform(null) { api.deleteAccount(); tokenStore.clear(); preferences.edit().clear().apply(); mutableState.value = AppUiState() }
@@ -398,6 +421,9 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun login(email: String, password: String) = acceptToken(request("POST", "/v1/auth/login", JSONObject().put("email", email).put("password", password).toString()))
     fun signOut() { token = null }
     fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); token = null }
+    fun getInterests(): List<String> = request("GET", "/v1/account", null).getJSONArray("interests").strings()
+    fun saveInterests(values: List<String>): List<String> = request("PUT", "/v1/account/interests",
+        JSONObject().put("interests", JSONArray(values)).toString()).getJSONArray("interests").strings()
     fun upload(resolver: ContentResolver, uri: Uri): StudyDocument {
         var originalName = "study-material.txt"
         var declaredSize: Long? = null

@@ -126,7 +126,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
                         Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects)
-                        Screen.Settings -> SettingsScreen(state, viewModel::backToSubjects, viewModel::setDarkMode, viewModel::changeGrade, viewModel::signOut, viewModel::deleteAccount)
+                        Screen.Settings -> SettingsScreen(state, viewModel::backToSubjects, viewModel::setDarkMode, viewModel::changeGrade, viewModel::signOut, viewModel::deleteAccount, viewModel::openInterests)
+                        Screen.Interests -> InterestsScreen(state, viewModel::selectInterest, viewModel::clearInterests, viewModel::saveInterests, viewModel::reloadInterests, viewModel::openSettings)
                     }
                     if (state.loading) LoadingOverlay()
                 }
@@ -401,7 +402,7 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
 }
 
 @Composable
-private fun SettingsScreen(state: AppUiState, onBack: () -> Unit, onDarkMode: (Boolean) -> Unit, onGrade: () -> Unit, onSignOut: () -> Unit, onDelete: () -> Unit) {
+private fun SettingsScreen(state: AppUiState, onBack: () -> Unit, onDarkMode: (Boolean) -> Unit, onGrade: () -> Unit, onSignOut: () -> Unit, onDelete: () -> Unit, onInterests: () -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
     Page {
         TextButton(onClick = onBack) { Text("‹ Back to subjects") }
@@ -413,10 +414,36 @@ private fun SettingsScreen(state: AppUiState, onBack: () -> Unit, onDarkMode: (B
             }
         }
         OutlinedButton(onClick = onGrade, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) { Text("Change grade · ${state.grade ?: "Not selected"}") }
+        OutlinedButton(onClick = onInterests, modifier = Modifier.fillMaxWidth()) { Text("Learning interests") }
         OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) { Text("Sign out") }
         TextButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) { Text("Delete my account and learning data", color = MaterialTheme.colorScheme.error) }
     }
     if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("Delete account?") }, text = { Text("This permanently removes your account, documents, quizzes, and mastery history.") }, dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }, confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete permanently", color = MaterialTheme.colorScheme.error) } })
+}
+
+@Composable
+private fun InterestsScreen(state: AppUiState, onToggle: (String) -> Unit, onClear: () -> Unit, onSave: () -> Unit, onReload: () -> Unit, onBack: () -> Unit) = Page {
+    TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to settings") }
+    Header("Optional personalization", "Learning interests", "Choose up to three interests, or leave them empty.")
+    Text("Saved choices are sent to the AI provider for new tutor explanations. They do not affect grading. Existing explanations stay unchanged.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (state.savedInterests == null) {
+        if (!state.loading) {
+            Text("Interests could not be loaded. Your saved choices have not been changed.")
+            OutlinedButton(onClick = onReload) { Text("Reload interests") }
+        }
+    } else {
+        Text("${state.interestDraft.size} of 3 selected", fontWeight = FontWeight.Bold)
+        availableInterests.forEach { interest ->
+            val selected = interest in state.interestDraft
+            OutlinedButton(onClick = { onToggle(interest) }, enabled = !state.loading && (selected || state.interestDraft.size < 3), modifier = Modifier.fillMaxWidth()) {
+                Text("${if (selected) "Remove" else "Select"} ${interest.replaceFirstChar(Char::uppercase)}")
+            }
+        }
+        TextButton(onClick = onClear, enabled = !state.loading) { Text("Clear all choices") }
+        Text("Clear all choices and save to stop using interests. Leaving without saving discards your changes.", style = MaterialTheme.typography.bodySmall)
+        PrimaryButton("Save interests", !state.loading && state.interestDraft != state.savedInterests, onSave)
+        state.interestSaveMessage?.let { Text(it, color = MaterialTheme.colorScheme.tertiary) }
+    }
 }
 
 @Composable

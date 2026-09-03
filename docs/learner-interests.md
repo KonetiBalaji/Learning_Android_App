@@ -24,7 +24,20 @@ save/read/clear, invalid inputs, owner isolation, account-deletion cascade, rout
 saved interests to explanation generation, prompt constraints and preserving the
 practice question. Mock prompt checks are not evidence of analogy accuracy.
 
-TUT-03 is now partial, not accepted: the Android selector/disclosure/save UI,
-device persistence/account-switch checks, and live age-appropriate example
-evaluation still need implementation/verification. No full personalization or UAT
+Android Settings now offers Learning interests with explicit AI-provider-use
+disclosure, selection limit, save acknowledgement and Clear all plus Save. Opening
+the editor reads server preferences; leaving and reopening discards unsaved edits.
+Load failure cannot be mistaken for an empty saved preference, and saving is
+disabled until a successful load. Failed saves retain the draft for retry.
+
+Android build/lint/**38 JVM tests passed** on 2026-09-03, including selection-limit,
+removal and unknown-choice tests. `scripts/qa-interests.ps1 -ResetTestAppData` passed
+on LearnSmart_API36 with a disposable account and scripted backend. It verifies
+initial empty state, three choices persisted to the API, restoration after force
+stop/restart, and clearing followed by another restart. The selector screenshot
+at `artifacts/qa-interests.png` was visually inspected. No live AI calls were made.
+
+TUT-03 remains partial: live age-appropriate example evaluation, offline/failing
+save injection and device account-switch tests remain required. Existing saved
+examples do not change when interests are edited. No full personalization or UAT
 completion is claimed.
