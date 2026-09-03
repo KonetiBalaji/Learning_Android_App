@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS documents (
   original_name TEXT NOT NULL, media_type TEXT NOT NULL, stored_path TEXT NOT NULL,
   extracted_text TEXT NOT NULL, chapters_json TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS google_accounts (
+  subject TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS learner_preferences (
   owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   interests_json TEXT NOT NULL

@@ -21,6 +21,7 @@ class Settings:
     openai_api_key: str | None = field(default=None, repr=False)
     openai_model: str = "gpt-5-mini"
     ai_mode: str = "deterministic"
+    google_client_id: str | None = None
 
     @property
     def database_path(self) -> Path:
@@ -45,4 +46,5 @@ def get_settings() -> Settings:
         openai_api_key=api_key,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini",
         ai_mode=ai_mode,
+        google_client_id=os.getenv("LEARNING_GOOGLE_CLIENT_ID", "").strip() or None,
     )

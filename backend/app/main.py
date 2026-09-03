@@ -12,6 +12,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status, Q
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
+from .google_login import google_login
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .document_errors import document_error_headers
@@ -94,6 +95,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Learning API", version="0.1.0", lifespan=lifespan)
+app.add_api_route('/v1/auth/google', google_login, methods=['POST'], response_model=Token)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://10.0.2.2", "http://localhost", "http://127.0.0.1"],

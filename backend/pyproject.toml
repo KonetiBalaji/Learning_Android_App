@@ -13,6 +13,7 @@ dependencies = [
   "python-multipart>=0.0.9,<1.0",
   "openai>=2.0,<3.0",
   "python-dotenv>=1.0,<2.0",
+  "google-auth[requests]>=2.40,<3.0",
 ]
 
 [dependency-groups]

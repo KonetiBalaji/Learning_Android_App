@@ -17,7 +17,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | Partial | Invalid/expired/deleted sessions, account switching, encrypted device tokens, automated Android tests |
-| AUTH-02 | Google login | Missing | Verified Google ID tokens, audience checks, configured client, actual Android sign-in |
+| AUTH-02 | Google login | Partial | Backend exchange implemented with synthetic signature tests; configured client, Android sign-in and real-account verification remain missing |
 | CUR-01 | Grade 1–12, subject and chapter selection | Partial | User-confirmed curriculum/board; authoritative chapter coverage and grade isolation |
 | ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
@@ -82,6 +82,15 @@ feature to UAT accepted or production verified. All release gates below remain o
   upstream engines must not be described as imported.
 
 ## Work log
+
+- Added disabled-by-default Google ID-token backend exchange with configured
+  audience, Google-library signature/time/issuer checks, stable-subject identity,
+  no email auto-linking, Google-only password denial and deletion cascade. Full
+  backend suite: 266 passed, 1 existing Windows skip; 12 new tests use real locally
+  signed tokens with certificate fetching mocked. No live Google account exchange
+  occurred. Android Credential Manager, OAuth configuration, release hardening and
+  real-account/device/UAT evidence remain missing; AUTH-02 is partial. See
+  `shared/contracts/google-sign-in.md`.
 
 - Replaced fixed text-control/card heights with minimum heights and made grade/
   subject grids font/width-responsive within the page scroll. Android build/lint
