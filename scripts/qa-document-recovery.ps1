@@ -1,4 +1,4 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
@@ -6,6 +6,7 @@ $package = 'com.konetibalaji.learning'
 $expectedCount = if ($VerifyQuestionCount) { 7 } else { 10 }
 $expectedFormat = if ($BinaryFixtureType) { $BinaryFixtureType } else { 'multiple_choice' }
 $formatLabel = switch ($expectedFormat) { 'true_false' { 'True / False' } 'yes_no' { 'Yes / No' } default { 'Multiple choice' } }
+if ($VerifyStructureRepair -and -not $VerifyCreationRetry) { throw 'Structure repair check requires -VerifyCreationRetry to verify pending identity preservation' }
 if ($BinaryFixtureType -and ($VerifyQuestionType -or $VerifyDifficulty -or $VerifyMultiChapter)) { throw 'Binary fixture run cannot be combined with offline or source coverage checks' }
 function Adb {
     & $adb -s $Serial @args
@@ -179,6 +180,36 @@ if ($VerifyCreationRetry) {
     [xml]$restoredCreationPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     if (($restoredCreationPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText -ne $pendingCreation) { throw 'Creation identity changed across restart' }
     Write-Output 'PASS: committed creation returns 503; pending identity survives restart without accepting the failed response'
+}
+if ($VerifyStructureRepair) {
+    $beforeRepairQuiz = Invoke-RestMethod "http://127.0.0.1:8000/v1/quizzes/$committedQuizId" -Headers $headers | ConvertTo-Json -Depth 20 -Compress
+    Invoke-RestMethod "http://127.0.0.1:8000/__qa/documents/$($document.id)/omit-tail-and-fail-repair-response" -Method Post -Headers $headers | Out-Null
+    TapText 'Check for omitted text'
+    TextNode 'The learning service is temporarily unavailable. Please try again.' | Out-Null
+    TapText 'Try again'
+    TextNode "$($selectedIds.Count) of 2 chapters selected" | Out-Null
+    $repaired = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)" -Headers $headers
+    if ($repaired.chapters.Count -ne 3) { throw 'Repair did not commit the omitted range behind the failed response' }
+    TapText 'Check for omitted text'
+    TextNode '1 omitted text ranges added, not selected. Review them before adding them to your quiz.' | Out-Null
+    TextNode "$($selectedIds.Count) of 3 chapters selected" | Out-Null
+    TextNode 'Low-confidence text range: review before selecting' | Out-Null
+    Adb shell screencap -p /sdcard/qa-structure-repair.png | Out-Null
+    Adb pull /sdcard/qa-structure-repair.png (Join-Path $repo 'artifacts\qa-structure-repair.png') | Out-Null
+    RestartApp
+    TextNode "$($selectedIds.Count) of 3 chapters selected" | Out-Null
+    TapText 'Check for omitted text'
+    TextNode 'No omitted text ranges found. Your selection is unchanged.' | Out-Null
+    [xml]$repairPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if (($repairPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText -ne $pendingCreation) { throw 'Repair changed pending quiz identity' }
+    $repairSelection = @(($repairPreferences.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail").InnerText | ConvertFrom-Json)
+    if (@(Compare-Object $selectedIds $repairSelection).Count -ne 0) { throw 'Repair changed selected chapter IDs' }
+    $afterRepairQuiz = Invoke-RestMethod "http://127.0.0.1:8000/v1/quizzes/$committedQuizId" -Headers $headers | ConvertTo-Json -Depth 20 -Compress
+    # The quiz response embeds the current document, so compare its question and progress separately.
+    $beforeQuizState = $beforeRepairQuiz | ConvertFrom-Json
+    $afterQuizState = $afterRepairQuiz | ConvertFrom-Json
+    if (($beforeQuizState.question | ConvertTo-Json -Depth 20 -Compress) -ne ($afterQuizState.question | ConvertTo-Json -Depth 20 -Compress) -or $beforeQuizState.answered -ne $afterQuizState.answered) { throw 'Repair changed the existing quiz question or progress' }
+    Write-Output 'PASS: committed repair 503 recovered; unselected range and original selection survive restart; pending quiz identity and question unchanged'
 }
 TapText "Generate $expectedCount questions"
 TextNode "QUESTION 1 OF $expectedCount" | Out-Null

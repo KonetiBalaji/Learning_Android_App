@@ -11,6 +11,28 @@ from app.security import current_user_id
 def install_response_fault(app):
     armed = {}
 
+    @app.post('/__qa/documents/{document_id}/omit-tail-and-fail-repair-response')
+    def arm_repair(document_id: str, user_id=Depends(current_user_id), settings=Depends(get_settings)):
+        from app.main import owned_document
+        from app.database import connection
+        owned_document(document_id, user_id, settings)
+        if len(armed) >= 100:
+            raise HTTPException(status_code=429, detail='QA fault limit reached')
+        with connection(settings.database_path) as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT * FROM documents WHERE id = ? AND owner_id = ?', (document_id, user_id)).fetchone()
+            if row is None or row['original_name'] != 'qa-biology.txt':
+                raise HTTPException(status_code=409, detail='Requires the disposable QA biology fixture')
+            chapters = json.loads(row['chapters_json'])
+            last = chapters[-1]
+            if last['end_character'] != len(row['extracted_text']) or last['end_character'] - last['start_character'] <= 80:
+                raise HTTPException(status_code=409, detail='Fixture already changed or too short')
+            last['end_character'] -= 40
+            db.execute('UPDATE documents SET chapters_json = ? WHERE id = ? AND owner_id = ?',
+                       (json.dumps(chapters), document_id, user_id))
+        armed[f'/v1/documents/{document_id}/structure/repair'] = '503'
+        return {'armed': True}
+
     @app.post('/__qa/documents/{document_id}/fail-next-creation-response')
     def arm_creation(document_id: str, user_id=Depends(current_user_id), settings=Depends(get_settings)):
         from app.main import owned_document

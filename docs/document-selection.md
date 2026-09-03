@@ -135,3 +135,27 @@ write the pending creation preference during repair. No live provider requests
 were made. Device UI, process recreation and injected repair-response failure
 checks remain pending; this is not UAT acceptance. DOC-02 remains partial because
 hierarchical section, PDF page-range and topic selection are still missing.
+
+## Android repair recovery device evidence
+
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyCreationRetry
+-VerifyStructureRepair` passed on the dedicated LearnSmart_API36 emulator. The
+explicit localhost QA runner created a 40-character tail omission in the
+disposable `qa-biology.txt` fixture and replaced the successful repair response
+with HTTP 503 after commit. This fixture route is owner-scoped, rejects other
+filenames, and is not installed in the normal application.
+
+Verified: Android retains its old list after the failed response; retry displays
+one new unselected range; the low-confidence warning is visible; restart restores
+the expanded list and original selection; repeated repair reports no omissions;
+the pending creation identity, existing quiz question and progress are unchanged.
+The subsequent generation retry resumes the same quiz, with exactly one server
+quiz. Quiz restart, answer-conflict recovery and completed-results restoration
+also passed (remaining answers were submitted by the API fixture).
+
+Inspected `artifacts/qa-structure-repair.png`: the original Plants chapter remains
+selected and the recovered 1194–1234 range is unchecked with its warning. All 173
+backend tests passed, including owner/non-fixture rejection, post-commit failure
+and idempotent retry. No live AI requests or real user documents were involved.
+Actual TCP loss, device-level unsafe-structure rejection and user UAT remain
+unverified; this evidence does not complete richer selection modes or production.

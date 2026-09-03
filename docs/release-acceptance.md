@@ -443,3 +443,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   and 61 JVM tests passed; device repair/restart/failure checks remain pending.
   This does not complete DOC-02 section/page/topic selection or user UAT. See
   `document-selection.md`.
+- API 36 repair QA passed with an injected post-commit HTTP 503: retry exposes
+  an unselected recovered range, restart preserves selection, pending quiz
+  identity is unchanged, and creation retry resumes exactly one existing quiz.
+  Screenshot inspected; backend 173 tests passed. Remaining-answer completion
+  was API-driven. Actual TCP loss, unsafe-structure device checks and user UAT
+  remain open. See `document-selection.md` for the exact scope.

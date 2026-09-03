@@ -56,3 +56,32 @@ def test_qa_fault_is_one_shot_after_success_and_not_installed_in_production(monk
         retry = client.post('/v1/documents/owned/quizzes')
         assert retry.status_code == 201
         assert retry.json() == {'id': 'saved-quiz'}
+
+
+def test_repair_fixture_is_owner_scoped_and_failure_is_after_commit(monkeypatch, tmp_path):
+    from test_mastery_loop import registered_client
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        production = importlib.import_module('app.main')
+        qa = FastAPI()
+        qa.include_router(production.app.router)
+        install_response_fault(qa)
+        body = 'Chapter 1 Cells\n' + 'Cells contain genetic material. ' * 20
+        doc = client.post('/v1/documents', headers=headers, files={'file': ('qa-biology.txt', body)}).json()
+        other = client.post('/v1/auth/register', json={'email': 'repair-other@example.com', 'password': 'long-enough-password'}).json()['access_token']
+        arm = f"/__qa/documents/{doc['id']}/omit-tail-and-fail-repair-response"
+        repair = f"/v1/documents/{doc['id']}/structure/repair"
+        with TestClient(qa) as test:
+            assert test.post(arm, headers={'Authorization': f'Bearer {other}'}).status_code == 404
+            assert test.post(arm, headers=headers).status_code == 200
+            assert test.post(arm, headers=headers).status_code == 409
+            assert test.post(repair, headers=headers).status_code == 503
+            fixed = test.get(f"/v1/documents/{doc['id']}", headers=headers).json()
+            assert len(fixed['chapters']) == 2
+            assert fixed['chapters'][-1]['end_character'] == len(body)
+            assert test.post(repair, headers=headers).json() == fixed
+            non_fixture = test.post('/v1/documents', headers=headers, files={'file': ('notes.txt', body)}).json()
+            assert test.post(f"/__qa/documents/{non_fixture['id']}/omit-tail-and-fail-repair-response", headers=headers).status_code == 409
+        assert not any(route.path.startswith('/__qa/') for route in production.app.routes)
+    finally:
+        client.__exit__(None, None, None)
