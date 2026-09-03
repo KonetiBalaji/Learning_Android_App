@@ -1,6 +1,29 @@
 from test_mastery_loop import registered_client
 
 
+def test_uploaded_document_can_resume_before_quiz_creation(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        upload = client.post('/v1/documents', headers=headers, files={'file': ('notes.txt',
+            'Chapter 1 Cells\nCells are the basic units of living organisms. Ribosomes build proteins inside cells.\n'
+            'Chapter 2 Plants\nPlants convert light energy into chemical energy through photosynthesis.')})
+        assert upload.status_code == 201
+        document = upload.json()
+        path = f"/v1/documents/{document['id']}"
+        restored = client.get(path, headers=headers)
+        assert restored.status_code == 200
+        assert restored.json() == document
+        assert set(restored.json()) == {'id', 'original_name', 'chapters'}
+        assert client.get(path).status_code == 401
+        other = client.post('/v1/auth/register', json={'email': 'other-upload@example.com', 'password': 'long-enough-password'}).json()
+        assert client.get(path, headers={'Authorization': f"Bearer {other['access_token']}"}).status_code == 404
+        assert client.get('/v1/documents/missing', headers=headers).status_code == 404
+        assert client.delete(path, headers=headers).status_code == 204
+        assert client.get(path, headers=headers).status_code == 404
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_document_quiz_restores_committed_answers_without_leaking_pending_answers(monkeypatch, tmp_path):
     client, headers = registered_client(monkeypatch, tmp_path)
     try:

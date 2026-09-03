@@ -101,7 +101,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         grade = savedGrade, darkMode = preferences.getBoolean("dark_mode", false),
         accountEmail = preferences.getString("email", "").orEmpty(),
         canResumeMastery = preferences.contains("active_mastery:${preferences.getString("email", "").orEmpty().lowercase()}"),
-        canResumeDocumentQuiz = preferences.contains("active_document_quiz:${preferences.getString("email", "").orEmpty().lowercase()}"),
+        canResumeDocumentQuiz = preferences.contains("active_document_quiz:${preferences.getString("email", "").orEmpty().lowercase()}") ||
+            preferences.contains("active_document:${preferences.getString("email", "").orEmpty().lowercase()}"),
     ))
     val state: StateFlow<AppUiState> = mutableState.asStateFlow()
 
@@ -112,7 +113,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             mutableState.value = mutableState.value.copy(loading = false,
                 screen = if (api.hasToken) (if (savedGrade == null) Screen.Grade else Screen.Subjects) else Screen.SignIn,
                 error = if (restored.isFailure) "Unable to restore the saved session. Please sign in." else null)
-            if (api.hasToken && preferences.getString(activeFlowKey(), null) == "document" && preferences.contains(documentQuizKey())) resumeDocumentQuiz()
+            if (api.hasToken && preferences.getString(activeFlowKey(), null) == "document" && mutableState.value.canResumeDocumentQuiz) resumeDocumentQuiz()
             else if (api.hasToken && preferences.contains(activeSessionKey())) resumeLearning()
             else if (api.hasToken && savedGrade != null) refreshProgress()
         }
@@ -133,10 +134,16 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
 
     private fun activeSessionKey() = "active_mastery:${mutableState.value.accountEmail.lowercase()}"
     private fun documentQuizKey() = "active_document_quiz:${mutableState.value.accountEmail.lowercase()}"
+    private fun documentKey() = "active_document:${mutableState.value.accountEmail.lowercase()}"
+    private fun documentChapterKey() = "active_document_chapter:${mutableState.value.accountEmail.lowercase()}"
     private fun activeFlowKey() = "active_flow:${mutableState.value.accountEmail.lowercase()}"
 
     fun resumeDocumentQuiz() {
-        val id = preferences.getString(documentQuizKey(), null) ?: return
+        val id = preferences.getString(documentQuizKey(), null)
+        if (id == null) {
+            resumeUploadedDocument()
+            return
+        }
         perform(null) {
             val resumed = try { api.resumeDocumentQuiz(id) } catch (failure: ApiFailure) {
                 if (failure.status == 404) {
@@ -151,6 +158,24 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 documentQuestionTotal = resumed.total, question = resumed.question, feedback = resumed.feedback,
                 results = if (completed) api.results(id) else null, canResumeDocumentQuiz = true,
                 screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
+        }
+    }
+
+    private fun resumeUploadedDocument() {
+        val id = preferences.getString(documentKey(), null) ?: return
+        perform(null) {
+            val document = try { api.getDocument(id) } catch (failure: ApiFailure) {
+                if (failure.status == 404) {
+                    preferences.edit().remove(documentKey()).remove(documentChapterKey()).apply()
+                    mutableState.value = mutableState.value.copy(canResumeDocumentQuiz = false, screen = Screen.Home)
+                }
+                throw failure
+            }
+            val chapter = restoredChapterId(preferences.getString(documentChapterKey(), null), document.chapters.map { it.id })
+            preferences.edit().putString(activeFlowKey(), "document").apply()
+            mutableState.value = mutableState.value.copy(document = document, selectedChapterId = chapter,
+                quizId = null, question = null, feedback = null, results = null,
+                canResumeDocumentQuiz = true, screen = Screen.Chapters)
         }
     }
 
@@ -180,7 +205,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         preferences.edit().putString("email", email).remove("grade").remove("unlocked").apply()
         mutableState.value = AppUiState(accountEmail = email, darkMode = mutableState.value.darkMode,
             canResumeMastery = preferences.contains("active_mastery:${email.lowercase()}"),
-            canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}"))
+            canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}") || preferences.contains("active_document:${email.lowercase()}"))
     }
     fun selectGrade(grade: Int) { preferences.edit().putInt("grade", grade).apply(); mutableState.value = mutableState.value.copy(grade = grade, screen = Screen.Subjects, progressSnapshot = null, unlockedChapterIds = emptySet()); refreshProgress() }
     fun selectSubject(subject: LearningSubject) { mutableState.value = mutableState.value.copy(subject = subject, screen = Screen.MasteryChapters) }
@@ -266,19 +291,31 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun backToSubjects() { mutableState.value = mutableState.value.copy(screen = Screen.Subjects) }
     fun startDocumentStudy() { mutableState.value = mutableState.value.copy(screen = Screen.Home) }
 
-    fun upload(context: Context, uri: Uri) = perform(Screen.Chapters) { val document = api.upload(context.contentResolver, uri); mutableState.value = mutableState.value.copy(document = document, selectedChapterId = document.chapters.firstOrNull()?.id) }
-    fun selectChapter(chapterId: String) { mutableState.value = mutableState.value.copy(selectedChapterId = chapterId) }
+    fun upload(context: Context, uri: Uri) = perform(Screen.Chapters) {
+        val document = api.upload(context.contentResolver, uri)
+        val chapter = document.chapters.firstOrNull()?.id
+        check(preferences.edit().putString(documentKey(), document.id).putString(documentChapterKey(), chapter)
+            .remove(documentQuizKey()).putString(activeFlowKey(), "document").commit())
+        mutableState.value = mutableState.value.copy(document = document, selectedChapterId = chapter,
+            quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = true)
+    }
+    fun selectChapter(chapterId: String) {
+        if (mutableState.value.document?.chapters?.none { it.id == chapterId } != false) return
+        preferences.edit().putString(documentChapterKey(), chapterId).apply()
+        mutableState.value = mutableState.value.copy(selectedChapterId = chapterId)
+    }
     fun createQuiz() = perform(Screen.Question) {
         val current = mutableState.value
         val quiz = api.createQuiz(requireNotNull(current.document).id, requireNotNull(current.selectedChapterId))
-        check(preferences.edit().putString(documentQuizKey(), quiz.first).putString(activeFlowKey(), "document").commit())
+        check(preferences.edit().putString(documentQuizKey(), quiz.first).putString(activeFlowKey(), "document")
+            .remove(documentKey()).remove(documentChapterKey()).commit())
         mutableState.value = current.copy(quizId = quiz.first, question = quiz.second, feedback = null, results = null,
             documentQuestionTotal = quiz.third, canResumeDocumentQuiz = true)
     }
     fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
-    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, quizId = null, results = null, canResumeDocumentQuiz = false) }
+    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterId = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
     private var operationInFlight = false
@@ -360,6 +397,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             return document(readJson(connection))
         } finally { connection.disconnect() }
     }
+    fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
     fun createQuiz(documentId: String, chapterId: String): Triple<String, QuizQuestion, Int> { val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray().put(chapterId)).put("question_count", 10).toString()); return Triple(response.getString("id"), question(response.getJSONObject("first_question")), response.getInt("question_count")) }
     data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?)
     fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {

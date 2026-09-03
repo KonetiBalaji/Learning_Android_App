@@ -172,7 +172,7 @@ private fun GradeScreen(onSelect: (Int) -> Unit) = Page {
 private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit, onResumeDocument: () -> Unit) = Page {
     Header("Grade ${state.grade ?: 6}", "What would you like to learn?", "Pick a subject to continue your personalised path.")
     if (state.canResumeMastery) PrimaryButton("Resume saved learning", !state.loading, onResume)
-    if (state.canResumeDocumentQuiz) PrimaryButton("Resume document quiz", !state.loading, onResumeDocument)
+    if (state.canResumeDocumentQuiz) PrimaryButton("Resume document study", !state.loading, onResumeDocument)
     LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxWidth().height(390.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         items(learningSubjects) { subject ->
             val progress = state.progressSnapshot?.subjects?.get(subject.id)

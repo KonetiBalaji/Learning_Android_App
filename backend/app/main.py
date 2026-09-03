@@ -171,6 +171,13 @@ def list_documents(user_id: str = Depends(current_user_id), settings: Settings =
     return [DocumentSummary(id=row["id"], original_name=row["original_name"], chapters=[Chapter.model_validate(item) for item in parse_json(row["chapters_json"])]) for row in rows]
 
 
+@app.get("/v1/documents/{document_id}", response_model=DocumentSummary)
+def document_summary(document_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DocumentSummary:
+    row = owned_document(document_id, user_id, settings)
+    return DocumentSummary(id=row["id"], original_name=row["original_name"],
+                           chapters=[Chapter.model_validate(item) for item in parse_json(row["chapters_json"])])
+
+
 @app.delete("/v1/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(document_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> None:
     row = owned_document(document_id, user_id, settings)

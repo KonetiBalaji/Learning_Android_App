@@ -8,7 +8,7 @@ quizzes and another owner's IDs return 404; unauthenticated reads return 401.
 
 Android commits an account-scoped quiz pointer after creation, records the last
 learning workflow, restores that workflow on authenticated startup, and offers
-"Resume document quiz" after reauthentication. Feedback may be replayed after a
+"Resume document study" after reauthentication. Feedback may be replayed after a
 restart; its Continue action goes to the server's next unanswered question.
 Completed quizzes restore results. Deleted quiz pointers are removed on 404.
 The question counter uses the actual returned total rather than a fixed ten.
@@ -39,7 +39,26 @@ Build, lint and **29 JVM tests passed**; two new policy tests cover both flow
 targets, non-conflict failures and the no-recursion default. They do not exercise
 the ViewModel on a device, and do not establish multi-device UAT acceptance.
 
-Remaining DOC-01 gaps include recovery between upload and quiz creation, unsent
-answer drafts and unknown-outcome quiz creation. Document generation was separately
+Upload-stage recovery (2026-09-03): Android commits the uploaded document ID and
+initial chapter before displaying chapter selection; later chapter selection is
+saved. These pointers are account-scoped. Startup restores the active document
+workflow, and the manual resume button also works after reauthentication. A quiz
+pointer takes precedence; successful quiz creation atomically replaces upload
+pointers. Starting another document clears local pointers, not server documents.
+An upload failure leaves the previous saved study intact. No document contents or
+device URI are persisted in these preferences.
+
+`GET /v1/documents/{id}` returns only the owner-authorized document summary and
+chapters. Missing/deleted/other-owner documents return 404; Android removes the
+stale upload pointer and returns to upload. Offline failures retain the pointer.
+A saved chapter absent from the restored list falls back to the first available
+chapter. Backend **75 tests passed** including summary shape, owner/auth and
+deletion checks. Android build/lint/**30 JVM tests passed**, including chapter
+fallback policy. These checks do not prove forced-process-death/device-picker
+recovery; that device test remains required.
+
+Remaining DOC-01 gaps include unsent answer drafts and unknown-outcome upload or
+quiz creation (server success before the client receives/persists the ID).
+Document generation was separately
 reworked after this initial recovery slice; see `document-question-validation.md`
 for actual quality evidence and remaining limitations, including legacy quizzes.

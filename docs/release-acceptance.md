@@ -207,3 +207,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   recovery is also explicitly tied to answer operations; read/refresh failures
   cannot recursively refresh. Android build/lint/29 JVM tests passed, including
   routing-policy tests. Device conflict injection remains pending.
+- Added upload-to-chapter-selection recovery through an owner-scoped document
+  summary endpoint and account-scoped Android document/chapter pointers. Quiz
+  creation replaces upload pointers, and missing documents clear stale pointers.
+  Backend 75 tests and Android build/lint/30 JVM tests passed. Process-death/device
+  picker verification and unknown-outcome upload/create reconciliation remain
+  open; see `document-quiz-recovery.md`.

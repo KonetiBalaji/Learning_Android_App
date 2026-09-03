@@ -2,6 +2,9 @@ package com.konetibalaji.learning
 
 enum class SubmittedFlow { MASTERY, DOCUMENT }
 
+fun restoredChapterId(savedId: String?, availableIds: List<String>): String? =
+    savedId?.takeIf { it in availableIds } ?: availableIds.firstOrNull()
+
 /** Only mutations opt into recovery. Resume requests never recursively resume. */
 fun recoveryAfterFailure(status: Int?, submittedFlow: SubmittedFlow?): SubmittedFlow? =
     submittedFlow.takeIf { status == 409 }

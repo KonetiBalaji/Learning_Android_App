@@ -5,6 +5,13 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LearningNavigationTest {
+    @Test fun savedChapterIsRestoredOnlyWhenStillAvailable() {
+        assertEquals("second", restoredChapterId("second", listOf("first", "second")))
+        assertEquals("first", restoredChapterId("deleted", listOf("first", "second")))
+        assertEquals("first", restoredChapterId(null, listOf("first", "second")))
+        assertNull(restoredChapterId("deleted", emptyList()))
+    }
+
     @Test fun conflictsRecoverTheSubmittedWorkflow() {
         assertEquals(SubmittedFlow.DOCUMENT, recoveryAfterFailure(409, SubmittedFlow.DOCUMENT))
         assertEquals(SubmittedFlow.MASTERY, recoveryAfterFailure(409, SubmittedFlow.MASTERY))
