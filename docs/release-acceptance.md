@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: count-control API 36 QA passed. Presets update the generation action,
+  invalid 21 disables generation, and custom 7 restores after restart. Android
+  generated exactly seven questions; conflict/result/library recovery passed.
+  Count screenshot inspected. Synthetic scripted content only; account switching,
+  accessibility and live count-quality evaluation remain open. See `document-quiz-configuration.md`.
+
 - 2026-09-03: added saved Android 5/10/15/20/custom (5–20) question count controls
   and removed the hard-coded request count. Invalid input prevents generation.
   Deterministic generation now rejects insufficient material rather than returning

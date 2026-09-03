@@ -1,8 +1,9 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
+$expectedCount = if ($VerifyQuestionCount) { 7 } else { 10 }
 function Adb {
     & $adb -s $Serial @args
     if ($LASTEXITCODE -ne 0) { throw "ADB failed: $($args[0])" }
@@ -34,6 +35,7 @@ function EnterField([int]$index, [string]$value) {
     if ($fields.Count -le $index) { throw "Missing input $index" }
     $point = Center $fields[$index]
     Adb shell input tap $point[0] $point[1] | Out-Null
+    Adb shell input keycombination 113 29 | Out-Null
     Adb shell input text ($value.Replace(' ', '%s')) | Out-Null
     Adb shell input keyevent 4 | Out-Null
 }
@@ -103,16 +105,33 @@ Adb shell screencap -p /sdcard/qa-document-chapters.png | Out-Null
 $selectionScreenshot = if ($VerifyMultiChapter) { 'artifacts\qa-document-multi-chapters.png' } else { 'artifacts\qa-document-chapters.png' }
 Adb pull /sdcard/qa-document-chapters.png (Join-Path $repo $selectionScreenshot) | Out-Null
 Write-Output 'PASS: real picker upload and selected chapter survive process restart, with one server document'
-TapText 'Generate 10 questions'
-TextNode 'QUESTION 1 OF 10' | Out-Null
+if ($VerifyQuestionCount) {
+    foreach ($preset in @(5, 10, 15, 20)) {
+        TapText "$preset"
+        TextNode "Generate $preset questions" | Out-Null
+    }
+    EnterField 0 '21'
+    TextNode 'Enter a whole number from 5 to 20.' | Out-Null
+    $invalidGenerate = TextNode 'Generate quiz'
+    if ($invalidGenerate.enabled -ne 'false' -and -not $invalidGenerate.SelectSingleNode("ancestor::node[@enabled='false']")) { throw 'Invalid question count did not disable generation' }
+    EnterField 0 '7'
+    RestartApp
+    TextNode 'Generate 7 questions' | Out-Null
+    Adb shell screencap -p /sdcard/qa-document-count.png | Out-Null
+    Adb pull /sdcard/qa-document-count.png (Join-Path $repo 'artifacts\qa-document-count.png') | Out-Null
+    Write-Output 'PASS: count presets update generation; invalid 21 is rejected; custom 7 survives restart'
+}
+TapText "Generate $expectedCount questions"
+TextNode "QUESTION 1 OF $expectedCount" | Out-Null
 RestartApp
-TextNode 'QUESTION 1 OF 10' | Out-Null
+TextNode "QUESTION 1 OF $expectedCount" | Out-Null
 [xml]$preferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
 $quizId = ($preferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail").InnerText
 if (-not $quizId) { throw 'Quiz pointer is missing' }
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
 $quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers
+if ($state.total -ne $expectedCount) { throw 'Generated quiz total does not match requested count' }
 if (-not $VerifyMultiChapter -and $state.question.source_reference -notlike 'Chapter 2 Plants*') { throw 'Selected chapter was not used after restart' }
 $sourceReferences = [System.Collections.Generic.List[string]]::new()
 $sourceReferences.Add($state.question.source_reference)
@@ -128,7 +147,7 @@ if ($state.answered -ne 1 -or $state.last_feedback.selected_option -ne $winningC
 RestartApp
 TextNode 'Study feedback' | Out-Null
 TapText 'Next question'
-TextNode 'QUESTION 2 OF 10' | Out-Null
+TextNode "QUESTION 2 OF $expectedCount" | Out-Null
 Adb shell screencap -p /sdcard/qa-document-resumed-question.png | Out-Null
 Adb pull /sdcard/qa-document-resumed-question.png (Join-Path $repo 'artifacts\qa-document-resumed-question.png') | Out-Null
 Write-Output 'PASS: quiz resumes after restart; conflicting answer refreshes saved feedback without overwriting it'
@@ -140,12 +159,12 @@ while ($state.question) {
     $state = Invoke-RestMethod $quizPath -Headers $headers
 }
 if ($VerifyMultiChapter) {
-    if ($sourceReferences.Count -ne 10) { throw 'Expected source evidence for all ten questions' }
+    if ($sourceReferences.Count -ne $expectedCount) { throw 'Expected source evidence for every requested question' }
     foreach ($chapter in $document.chapters) {
         if (-not ($sourceReferences | Where-Object { $_.StartsWith($chapter.title + ' (source characters ') })) { throw 'Generated quiz omitted a selected fixture chapter' }
     }
     if ($sourceReferences | Where-Object { $_ -notmatch '^Chapter [12] (Cells|Plants) \(source characters \d+-\d+\)$' }) { throw 'Unexpected source outside the selected fixture chapters' }
-    Write-Output 'PASS: Android multi-chapter generation produced ten questions with sources from both selected chapters'
+    Write-Output "PASS: Android multi-chapter generation produced $expectedCount questions with sources from both selected chapters"
 }
 RestartApp
 TextNode 'Session complete' | Out-Null
@@ -162,6 +181,6 @@ RestartApp
 TextNode 'Choose chapters' | Out-Null
 $documents = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers
 if ($documents.Count -ne 1) { throw 'Opening the library unexpectedly duplicated the document' }
-if ((Invoke-RestMethod $quizPath -Headers $headers).answered -ne 10) { throw 'Reopening material changed the previous quiz' }
+if ((Invoke-RestMethod $quizPath -Headers $headers).answered -ne $expectedCount) { throw 'Reopening material changed the previous quiz' }
 Write-Output 'PASS: empty library is clear; saved material reopens without upload, survives restart and preserves the old quiz'
 }
