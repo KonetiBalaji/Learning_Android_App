@@ -35,7 +35,7 @@ def main():
                                      feedback="Scripted QA feedback: the display and recovery contract are working.",
                                      coaching=base.coaching)
 
-    api.tutor_provider = lambda settings: ScriptedQAProvider()
+    api.tutor_provider = lambda settings, interests=(): ScriptedQAProvider()
     uvicorn.run(api.app, host="127.0.0.1", port=8000)
 
 

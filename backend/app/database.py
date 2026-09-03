@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS documents (
   original_name TEXT NOT NULL, media_type TEXT NOT NULL, stored_path TEXT NOT NULL,
   extracted_text TEXT NOT NULL, chapters_json TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS learner_preferences (
+  owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  interests_json TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS quizzes (
   id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL,

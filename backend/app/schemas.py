@@ -187,6 +187,7 @@ class UserProfile(BaseModel):
     id: str
     email: EmailStr
     created_at: str
+    interests: list[str] = Field(default_factory=list)
 
 
 class WeeklyReport(BaseModel):

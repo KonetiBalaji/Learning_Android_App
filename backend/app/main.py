@@ -57,6 +57,7 @@ from .security import create_token, current_user_id, hash_password, verify_passw
 from .weekly_reporting import build_weekly_report
 from .mastery_transactions import lock_mastery_snapshot
 from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload
+from .learner_preferences import InterestPreferences
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -86,7 +87,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://10.0.2.2", "http://localhost", "http://127.0.0.1"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -129,9 +130,22 @@ def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
 def account_profile(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> UserProfile:
     with connection(settings.database_path) as db:
         user = db.execute("SELECT id, email, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
+        preferences = db.execute('SELECT interests_json FROM learner_preferences WHERE owner_id = ?', (user_id,)).fetchone()
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
-    return UserProfile(id=user["id"], email=user["email"], created_at=user["created_at"])
+    return UserProfile(id=user["id"], email=user["email"], created_at=user["created_at"],
+                       interests=parse_json(preferences['interests_json']) if preferences else [])
+
+
+@app.put('/v1/account/interests', response_model=UserProfile)
+def update_interests(request: InterestPreferences, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> UserProfile:
+    with connection(settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        if not db.execute('SELECT 1 FROM users WHERE id = ?', (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail='Account not found')
+        db.execute('INSERT INTO learner_preferences (owner_id, interests_json) VALUES (?, ?) ON CONFLICT(owner_id) DO UPDATE SET interests_json = excluded.interests_json',
+                   (user_id, json_value(request.interests)))
+    return account_profile(user_id, settings)
 
 
 @app.delete("/v1/account", status_code=status.HTTP_204_NO_CONTENT)
@@ -351,7 +365,11 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
     next_index = index + 1 if correct else index
     next_status = "mastered" if correct and next_index == len(bank) else ("diagnostic" if correct else "tutor")
     # Generate before advancing state: provider failures must leave the question retryable.
-    lesson = None if correct else tutor_provider(settings).explain(session["grade"], item, request.selected_option)
+    lesson = None
+    if not correct:
+        interests = account_profile(user_id, settings).interests
+        provider = tutor_provider(settings, interests=tuple(interests)) if interests else tutor_provider(settings)
+        lesson = provider.explain(session["grade"], item, request.selected_option)
     with connection(settings.database_path) as db:
         lock_mastery_snapshot(db, session)
         db.execute(

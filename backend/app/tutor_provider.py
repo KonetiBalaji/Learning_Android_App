@@ -82,9 +82,10 @@ class DeterministicTutorProvider:
 class OpenAITutorProvider:
     name = "openai"
 
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(self, api_key: str, model: str, interests: tuple[str, ...] = ()) -> None:
         self.client = OpenAI(api_key=api_key, timeout=20.0, max_retries=1)
         self.model = model
+        self.interests = interests
 
     def explain(self, grade: int, item: DiagnosticItem, selected_option: str) -> TutorIntervention:
         schema = TutorIntervention.model_json_schema()
@@ -94,16 +95,20 @@ class OpenAITutorProvider:
             instructions=(
                 "You are a patient school tutor. Return only the requested structured response. "
                 "Use short, accurate, age-appropriate language. Never shame the learner. "
-                "Do not introduce facts beyond the supplied concept and verified correct method."
+                "Do not introduce facts beyond the supplied concept and verified correct method. "
+                "When relevant, frame the worked example using one supplied interest. Do not force an analogy, "
+                "infer personal traits, change the mathematical method, or change the practice question."
             ),
             input=(
                 f"Grade: {grade}\nConcept: {item.concept}\nQuestion: {item.prompt}\n"
                 f"Student answer: {selected_option}\nCorrect answer: {item.correct_option}\n"
-                f"Verified method: {item.explanation}\nVerified example: {item.worked_example}"
+                f"Verified method: {item.explanation}\nVerified example: {item.worked_example}\n"
+                f"Optional learner interests: {json.dumps(getattr(self, 'interests', ()))}\n"
+                f"Unchanged practice question: {item.practice_prompt}"
             ),
             text={"format": {"type": "json_schema", "name": "tutor_intervention", "strict": True, "schema": schema}},
         )
-        return TutorIntervention.model_validate(json.loads(response.output_text))
+        return TutorIntervention.model_validate(json.loads(response.output_text)).model_copy(update={'practice_prompt': item.practice_prompt})
 
     def assess_rewrite(self, grade: int, item: DiagnosticItem, response_text: str) -> RewriteAssessment:
         schema = GradeResult.model_json_schema()
@@ -176,8 +181,8 @@ class ResilientTutorProvider:
             return self.fallback.diagnostic_bank(grade, subject_id, chapter_id)
 
 
-def tutor_provider(settings: Settings) -> TutorProvider:
+def tutor_provider(settings: Settings, interests: tuple[str, ...] = ()) -> TutorProvider:
     deterministic = DeterministicTutorProvider()
     if settings.ai_mode != "openai" or not settings.openai_api_key:
         return deterministic
-    return ResilientTutorProvider(OpenAITutorProvider(settings.openai_api_key, settings.openai_model), deterministic)
+    return ResilientTutorProvider(OpenAITutorProvider(settings.openai_api_key, settings.openai_model, interests), deterministic)

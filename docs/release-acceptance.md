@@ -22,7 +22,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 | ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
-| TUT-03 | Interest-personalized examples | Missing | Profile interests used safely in relevant examples and tested |
+| TUT-03 | Interest-personalized examples | Partial | Backend profile/prompt path implemented; Android selection and live example evaluation remain |
 | TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
 | TUT-05 | Interactive examples and visible AI teacher | Partial | Working interactive teaching visuals, accessible avatar, verified device interaction |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
@@ -250,3 +250,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   protected when commit outcomes are uncertain. Backend 85 tests passed with
   failure injection. Process-crash reconciliation and real storage-failure drills
   remain open; see `upload-cleanup.md`.
+- Added owner-scoped optional interest preferences with constrained choices and
+  save/read/clear/delete behavior. New tutor explanation prompts receive saved
+  interests; practice questions and grading are unchanged. Backend 88 tests passed
+  with mocked prompt checks. Android UI, device tests and live example-quality
+  evaluation remain open; see `learner-interests.md`.
