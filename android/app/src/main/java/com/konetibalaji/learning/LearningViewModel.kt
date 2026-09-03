@@ -42,7 +42,7 @@ data class ProgressSnapshot(
 
 sealed interface Screen {
     data object SignIn : Screen; data object Grade : Screen; data object Subjects : Screen; data object MasteryChapters : Screen
-    data object Diagnostic : Screen; data object Tutor : Screen; data object Practice : Screen; data object Rewrite : Screen
+    data object Diagnostic : Screen; data object Tutor : Screen; data object TutorChat : Screen; data object Practice : Screen; data object Rewrite : Screen
     data object Mastery : Screen; data object ParentDashboard : Screen; data object Home : Screen; data object Chapters : Screen
     data object Question : Screen; data object Feedback : Screen; data object Results : Screen; data object Settings : Screen
     data object DocumentLibrary : Screen
@@ -81,6 +81,9 @@ val chaptersBySubject = mapOf(
 )
 
 data class AppUiState(
+    val tutorTurns: List<TutorChatTurn> = emptyList(), val tutorQuestion: String = "",
+    val pendingTutorQuestion: PendingTutorQuestion? = null,
+    val tutorConversationContext: String? = null,
     val screen: Screen = Screen.SignIn, val loading: Boolean = false, val error: String? = null, val grade: Int? = null,
     val subject: LearningSubject? = null, val masteryChapter: MasteryChapter? = null, val diagnosticIndex: Int = 0, val diagnosticCorrect: Int = 0,
     val selectedDiagnosticAnswer: String? = null, val practiceResult: Boolean? = null, val showHint: Boolean = false, val coachingRound: Int = 0, val rewrite: String = "",
@@ -310,6 +313,42 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         }
     }
     fun selectDiagnosticAnswer(answer: String) { mutableState.value = mutableState.value.copy(selectedDiagnosticAnswer = answer) }
+
+    fun openTutorConversation() {
+        if (mutableState.value.loading) return
+        perform(Screen.TutorChat, SubmittedFlow.MASTERY) {
+            val current = mutableState.value
+            val sessionId = requireNotNull(current.masterySessionId)
+            val context = api.tutorContext(sessionId)
+            val turns = api.tutorHistory(sessionId)
+            val sameContext = context == current.tutorConversationContext
+            mutableState.value = current.copy(tutorTurns = turns, tutorConversationContext = context,
+                tutorQuestion = if (sameContext) current.tutorQuestion else "",
+                pendingTutorQuestion = pendingTutorQuestion(turns, if (sameContext) current.pendingTutorQuestion else null))
+        }
+    }
+
+    fun changeTutorQuestion(value: String) {
+        if (mutableState.value.screen == Screen.TutorChat && !mutableState.value.loading && mutableState.value.pendingTutorQuestion == null)
+            mutableState.value = mutableState.value.copy(tutorQuestion = boundedTutorQuestion(value))
+    }
+
+    fun sendTutorQuestion() {
+        val current = mutableState.value
+        if (current.screen != Screen.TutorChat || current.loading) return
+        val pending = current.pendingTutorQuestion ?: current.tutorQuestion.trim().takeIf { it.isNotBlank() }
+            ?.let { PendingTutorQuestion(java.util.UUID.randomUUID().toString(), it) } ?: return
+        perform(null, SubmittedFlow.MASTERY) {
+            mutableState.value = mutableState.value.copy(pendingTutorQuestion = pending)
+            val turn = api.askTutor(requireNotNull(current.masterySessionId), pending)
+            mutableState.value = mutableState.value.copy(tutorTurns = mergeTutorTurn(current.tutorTurns, turn),
+                pendingTutorQuestion = if (turn.status == "pending") pending else null, tutorQuestion = "")
+        }
+    }
+
+    fun backFromTutorConversation() {
+        if (!mutableState.value.loading) mutableState.value = mutableState.value.copy(screen = Screen.Tutor)
+    }
 
     fun submitDiagnostic() {
         val current = mutableState.value; val selected = current.selectedDiagnosticAnswer ?: return
@@ -644,6 +683,29 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
 }
 
 private class LearningApi(initialToken: String?, private val saveToken: (String) -> Unit) {
+    fun tutorContext(sessionId: String): String = masterySubmissionState.expected(sessionId)
+    fun tutorHistory(sessionId: String): List<TutorChatTurn> {
+        val connection = connection("GET", "/v1/mastery/sessions/$sessionId/tutor-questions", "application/json")
+        try {
+            val response = JSONArray(readApiResponse(connection))
+            return (0 until response.length()).map { tutorTurn(response.getJSONObject(it)) }
+        } finally { connection.disconnect() }
+    }
+
+    fun askTutor(sessionId: String, pending: PendingTutorQuestion): TutorChatTurn {
+        val response = request("POST", "/v1/mastery/sessions/$sessionId/tutor-questions", JSONObject()
+            .put("request_id", pending.requestId).put("question", pending.question)
+            .put("expected_state", masterySubmissionState.expected(sessionId)).toString())
+        return tutorTurn(response).also {
+            require(it.requestId == pending.requestId && it.question == pending.question) { "Tutor acknowledgement did not match the question" }
+        }
+    }
+
+    private fun tutorTurn(value: JSONObject): TutorChatTurn {
+        val reply = value.optJSONObject("reply")
+        return TutorChatTurn(value.getString("request_id"), value.getString("question"), value.getString("status"),
+            reply?.getString("answer"), reply?.getBoolean("supported"))
+    }
     private val masterySubmissionState = MasterySubmissionState()
     private var token: String? = initialToken; private val baseUrl = BuildConfig.API_BASE_URL
     val hasToken: Boolean get() = token != null

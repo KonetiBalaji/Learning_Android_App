@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -119,7 +120,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
                         Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects, viewModel::refreshProgress)
                         Screen.Diagnostic -> DiagnosticScreen(state, viewModel::selectDiagnosticAnswer, viewModel::submitDiagnostic)
-                        Screen.Tutor -> TutorScreen(state, viewModel::startPractice)
+                        Screen.Tutor -> TutorScreen(state, viewModel::startPractice, viewModel::openTutorConversation)
+                        Screen.TutorChat -> TutorConversationScreen(state, viewModel::changeTutorQuestion, viewModel::sendTutorQuestion, viewModel::backFromTutorConversation)
                         Screen.Practice -> PracticeScreen(state, viewModel::showHint, viewModel::checkPractice, viewModel::moveToRewrite)
                         Screen.Rewrite -> RewriteScreen(state, viewModel::updateRewrite, viewModel::submitRewrite)
                         Screen.Mastery -> MasteryScreen(state, viewModel::continueFromMastery)
@@ -261,7 +263,7 @@ private fun AnswerChoice(option: String, selected: Boolean, onClick: () -> Unit)
 ) { Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { RadioButton(selected, null); Spacer(Modifier.width(12.dp)); Text(option, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface) } }
 
 @Composable
-private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
+private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -> Unit) {
     val lesson = state.tutorLesson
     Page {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
@@ -283,9 +285,47 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
     }
     TipCard("Your tutor is paying attention", if (state.coachingRound > 0) "Let’s try a different explanation and practise it once more." else "A short practice question will check that the idea clicked.")
     ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". "))
+    OutlinedButton(onClick = onAsk, modifier = Modifier.fillMaxWidth()) { Text("Ask the tutor a question") }
     if (state.subject?.id == "math" && state.masteryChapter?.id == "fractions") FractionExplorer()
     PrimaryButton("I understand — practise now", onClick = onUnderstand)
     }
+}
+
+@Composable
+private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Unit, onSend: () -> Unit, onBack: () -> Unit) = Page {
+    BackHandler(enabled = !state.loading, onBack = onBack)
+    Header("Ask about this lesson", "Talk with your tutor", "Questions and replies are saved with this learning session. They do not change your score.")
+    Text("Your question and recent lesson conversation are sent to the AI service. Do not include private information. AI replies can be wrong.", style = MaterialTheme.typography.bodySmall)
+    if (state.tutorTurns.isEmpty()) Text("No questions in this lesson conversation yet.")
+    for (turn in state.tutorTurns) {
+        Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("You: ${turn.question}", fontWeight = FontWeight.Bold)
+            when (turn.status) {
+                "complete" -> {
+                    if (turn.supported == false) Text("The tutor needs clarification or could not answer from this lesson.")
+                    Text(requireNotNull(turn.answer))
+                }
+                "pending" -> Text("Reply pending. Use Check reply; do not send the question again as a new request.")
+                "failed" -> {
+                    Text("The tutor could not reply. Retry only when you are ready; it counts as a new request.")
+                    OutlinedButton(onClick = { onChange(turn.question) }, enabled = !state.loading && state.pendingTutorQuestion == null) {
+                        Text("Use this question again")
+                    }
+                }
+            }
+        } }
+    }
+    state.tutorTurns.lastOrNull { it.status == "complete" }?.answer?.let { ReadAloudControls(it) }
+    if (state.pendingTutorQuestion == null) {
+        OutlinedTextField(state.tutorQuestion, onChange, modifier = Modifier.fillMaxWidth(), label = { Text("My question (up to 1000 characters)") })
+        VoiceInputButton("Speak my tutor question") { onChange(listOf(state.tutorQuestion, it).filter(String::isNotBlank).joinToString(" ")) }
+        PrimaryButton("Send question", state.tutorQuestion.isNotBlank() && !state.loading, onSend)
+    } else {
+        Text("Pending question: ${state.pendingTutorQuestion.question}")
+        Text("If a response was interrupted, Check reply safely reuses the same request. A stalled request may take up to three minutes to resolve.")
+        PrimaryButton("Check reply", !state.loading, onSend)
+    }
+    OutlinedButton(onClick = onBack, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) { Text("Back to lesson") }
 }
 
 @Composable

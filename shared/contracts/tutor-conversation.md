@@ -1,7 +1,43 @@
 # Lesson-scoped tutor questions (server implementation)
 
 This adds follow-up conversation, separate from diagnostic/practice/rewrite
-assessment. Android text/voice controls, reply read-aloud and device QA are pending.
+assessment. Android text/voice controls and reply read-aloud are implemented;
+device QA and live conversational-answer evaluation are pending.
+
+## Android integration
+
+The tutor lesson offers **Ask the tutor a question**, opening a separate conversation
+screen with saved current-state history. Learners can type or dictate a bounded
+question, review it, and explicitly send. The screen discloses AI transmission,
+storage and fallibility, discourages private information, distinguishes unsupported
+answers from provider failure, and offers read-aloud for the latest complete reply.
+
+During an uncertain/pending response, the question is locked and **Check reply**
+reuses the same UUID. In-process navigation back/reopen preserves that UUID if
+history has not yet acknowledged it; a different lesson context clears it.
+Completed/failed replies replace their pending row rather than duplicating it.
+An acknowledged failure offers **Use this question again**, which fills the draft
+for review, not automatic sending; sending again uses a new request. No polling
+or automatic provider retry is added by Android.
+
+Drafts and uncertain requests live in the ViewModel, surviving configuration
+changes but not process death. After process restart, resume the lesson and reopen
+conversation to reload server history, including reserved pending turns. An
+unacknowledged request that never reached server reservation cannot be reconstructed
+from history. No plaintext chat draft is written to Android preferences. Full
+process-loss/transport timing, account changes, voice cancellation, large text,
+TalkBack and spoken reply QA remain to be exercised on-device.
+
+Only the tutor screen exposes entry initially; the backend also accepts questions
+during practice. Conversation itself cannot move assessment state. Device speech
+may use an online service, with the existing disclosure and review-before-send.
+New policy/model tests cover pending identity, merge behavior, invalid reply shapes
+and Unicode-safe question limits; they are not end-to-end HTTP/device proof.
+
+Android verification: `:app:assembleDebug :app:testDebugUnitTest :app:lintDebug`
+passed with 120 JVM tests. No live provider request was made for this Android
+implementation slice. API-key skill safeguards keep the previously authorized
+key on the server; the Android app contains no provider credential.
 
 Authenticated routes:
 
