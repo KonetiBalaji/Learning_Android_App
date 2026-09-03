@@ -197,3 +197,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   Android keeps these separate from historical weekly response metrics. Backend
   70 tests and Android build/lint/27 JVM tests passed; dashboard device acceptance
   and retention calibration remain pending. See `current-weak-areas.md`.
+- Document answer tests reproduced concurrent overwrite, rejected identical
+  retries and out-of-order acceptance. Submission is now transactional, replays
+  identical answers and rejects conflicting choices or skipped questions.
+  Backend 74 tests passed. Device network-loss/multi-device recovery and production
+  contention remain unverified; see `document-quiz-recovery.md` and the document
+  answer contract. No UAT or production acceptance is claimed.

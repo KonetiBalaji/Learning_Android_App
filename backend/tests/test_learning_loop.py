@@ -31,7 +31,8 @@ Cells are the basic units of life in living organisms. Mitochondria release usab
         assert feedback.status_code == 200, feedback.text
         assert "source" in feedback.json()["source_reference"].lower()
         duplicate = client.post(f"/v1/quizzes/{quiz.json()['id']}/questions/{first['id']}/answer", json={"selected_option": wrong_option}, headers=headers)
-        assert duplicate.status_code == 409
+        assert duplicate.status_code == 200
+        assert duplicate.json() == feedback.json()
         results = client.get(f"/v1/quizzes/{quiz.json()['id']}/results", headers=headers)
         assert results.status_code == 200
         assert results.json()["answered"] == 1

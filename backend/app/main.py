@@ -210,6 +210,8 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
 @app.post("/v1/quizzes/{quiz_id}/questions/{question_id}/answer", response_model=Feedback)
 def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> Feedback:
     with connection(settings.database_path) as db:
+        # Serialize the read/validate/write boundary; no provider work occurs here.
+        db.execute("BEGIN IMMEDIATE")
         question = db.execute(
             """SELECT questions.* FROM questions JOIN quizzes ON quizzes.id = questions.quiz_id
                WHERE questions.id = ? AND questions.quiz_id = ? AND quizzes.owner_id = ?""",
@@ -217,12 +219,20 @@ def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user
         ).fetchone()
         if question is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
-        if question["answered_option"] is not None:
+        if question["answered_option"] is not None and question["answered_option"] != request.selected_option:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This question has already been answered")
         options = parse_json(question["options_json"])
         if request.selected_option not in options:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The selected answer is not one of this question's options")
-        db.execute("UPDATE questions SET answered_option = ?, answered_at = ? WHERE id = ?", (request.selected_option, now(), question_id))
+        if question["answered_option"] is None:
+            earlier_pending = db.execute(
+                "SELECT 1 FROM questions WHERE quiz_id = ? AND ordinal < ? AND answered_option IS NULL LIMIT 1",
+                (quiz_id, question["ordinal"]),
+            ).fetchone()
+            if earlier_pending:
+                raise HTTPException(status_code=409, detail="Answer the earlier question first")
+            db.execute("UPDATE questions SET answered_option = ?, answered_at = ? WHERE id = ?", (request.selected_option, now(), question_id))
+        # Identical retries replay feedback without changing the saved timestamp.
         next_row = db.execute("SELECT * FROM questions WHERE quiz_id = ? AND ordinal > ? ORDER BY ordinal LIMIT 1", (quiz_id, question["ordinal"])).fetchone()
     return Feedback(
         correct=request.selected_option == question["correct_option"], selected_option=request.selected_option,

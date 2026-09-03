@@ -20,8 +20,16 @@ Android build/lint and **19 JVM tests passed**; these JVM tests do not exercise
 the new ViewModel recovery path. Document-picker/forced-process-death testing of
 this workflow remains pending, so this is not device-QA or UAT acceptance.
 
-Remaining DOC-01 gaps: recovery between upload and quiz creation, unsent answer
-drafts, unknown-outcome create/answer reconciliation and server concurrency rules.
-The existing document generator also uses other source-supported statements as
-distractors for a support question, so multiple choices can be valid. That is a
-separate release-blocking quality defect; recovery tests do not validate pedagogy.
+Subsequent verification (2026-09-03): backend **74 tests passed**. Answer submission
+now serializes competing writes and replays identical retries without rewriting
+timestamps. Different choices cannot overwrite committed answers; future questions
+are rejected until earlier questions are answered. Tests reproduced all three
+previous defects before the fix. See `../shared/contracts/document-answers.md`.
+Tests cover identical and differing concurrent submissions, sequential retry,
+immutability, ordering, and owner/auth boundaries. Device network-loss/multi-device
+recovery remains unverified.
+
+Remaining DOC-01 gaps include recovery between upload and quiz creation, unsent
+answer drafts and unknown-outcome quiz creation. Document generation was separately
+reworked after this initial recovery slice; see `document-question-validation.md`
+for actual quality evidence and remaining limitations, including legacy quizzes.
