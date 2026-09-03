@@ -268,6 +268,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             } else {
                 val message = when (failure) {
                     is ApiFailure -> failure.message
+                    is DocumentUploadException -> failure.message
                     is IOException -> "Could not reach the learning service. Check your connection and try again."
                     else -> "Something went wrong. Please try again."
                 }
@@ -289,10 +290,30 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun signOut() { token = null }
     fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); token = null }
     fun upload(resolver: ContentResolver, uri: Uri): StudyDocument {
-        val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> cursor.moveToFirst(); cursor.getString(cursor.getColumnIndexOrThrow(android.provider.OpenableColumns.DISPLAY_NAME)) } ?: "study-material.txt"
-        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: error("The selected file could not be read"); val boundary = "Learnly-${UUID.randomUUID()}"; val connection = connection("POST", "/v1/documents", "multipart/form-data; boundary=$boundary")
+        var originalName = "study-material.txt"
+        var declaredSize: Long? = null
+        resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                if (nameIndex >= 0 && !cursor.isNull(nameIndex)) originalName = cursor.getString(nameIndex)
+                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) declaredSize = cursor.getLong(sizeIndex)
+            }
+        }
+        validateDocumentSize(declaredSize)
+        val name = safeDocumentName(originalName)
+        val mediaType = documentMediaType(name)
+        val boundary = "Learnly-${UUID.randomUUID()}"
+        val connection = connection("POST", "/v1/documents", "multipart/form-data; boundary=$boundary")
+        connection.setChunkedStreamingMode(16 * 1024)
         try {
-            BufferedOutputStream(connection.outputStream).use { output -> output.write("--$boundary\r\n".toByteArray()); output.write("Content-Disposition: form-data; name=\"file\"; filename=\"${name.replace("\"", "")}\"\r\n".toByteArray()); output.write("Content-Type: ${resolver.getType(uri) ?: "application/octet-stream"}\r\n\r\n".toByteArray()); output.write(bytes); output.write("\r\n--$boundary--\r\n".toByteArray()) }
+            resolver.openInputStream(uri)?.use { input ->
+                BufferedOutputStream(connection.outputStream).use { output ->
+                    output.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$name\"\r\nContent-Type: $mediaType\r\n\r\n".toByteArray(Charsets.UTF_8))
+                    copyDocument(input, output)
+                    output.write("\r\n--$boundary--\r\n".toByteArray(Charsets.UTF_8))
+                }
+            } ?: throw DocumentUploadException("The selected file could not be read. Please select it again.")
             return document(readJson(connection))
         } finally { connection.disconnect() }
     }

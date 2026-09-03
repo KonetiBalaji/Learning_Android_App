@@ -150,3 +150,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   inspection confirmed 5 responses, 80% accuracy, 1 unique chapter and a clearly
   labelled 88% heuristic, with all-time progress separately described. Initial
   stale-server metadata failure was resolved by refreshing the verified fixture.
+- Android upload now uses bounded streaming rather than loading the entire file,
+  enforces the limit despite unknown/false metadata, and sanitizes multipart
+  headers. Android build/lint/19 JVM tests and backend 45 tests passed. Streamed
+  incomplete multipart was rejected without stored documents; complete multipart
+  succeeded. Device provider and proxy checks remain; see `document-upload-safety.md`.
