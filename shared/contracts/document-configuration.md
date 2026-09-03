@@ -22,7 +22,9 @@ Offline generation currently supports multiple choice only and rejects binary
 requests before saving a quiz. Android format selection and account-scoped draft
 preferences are implemented. Question/results labels use the saved server format;
 absent or unknown server metadata is displayed as unspecified. Deploy the updated
-backend before using these controls. Device QA remains pending.
+backend before using these controls. API 36 device checks cover binary selection
+restoration/offline rejection and multiple-choice recovery after switching back.
+Actual live binary answering on Android remains pending.
 
 Difficulty describes requested cognitive demand, not calibrated learner ability:
 

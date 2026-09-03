@@ -1,4 +1,4 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
@@ -135,6 +135,26 @@ if ($VerifyDifficulty) {
     TapText 'Easy · recall a fact'
     Write-Output 'PASS: Hard preference restores; offline generation rejects it; learner can change to Easy'
 }
+if ($VerifyQuestionType) {
+    foreach ($format in @(@{value='true_false';label='True / False'}, @{value='yes_no';label='Yes / No'})) {
+        TapText $format.label
+        RestartApp
+        $selectedFormat = TextNode $format.label
+        if ($selectedFormat.checked -ne 'true' -and -not $selectedFormat.SelectSingleNode("ancestor::node[@checked='true']")) { throw 'Question format did not restore as selected' }
+        [xml]$formatPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+        $savedFormat = ($formatPreferences.map.ChildNodes | Where-Object name -eq "document_question_type:$qaEmail").InnerText
+        if ($savedFormat -ne $format.value) { throw 'Stored format does not match selection' }
+        Adb shell screencap -p /sdcard/qa-document-format.png | Out-Null
+        Adb pull /sdcard/qa-document-format.png (Join-Path $repo "artifacts\qa-document-format-$($format.value).png") | Out-Null
+        TapText "Generate $expectedCount questions"
+        TextNode 'Please check your input or selected document and try again.' | Out-Null
+        TapText 'Try again'
+        [xml]$failedPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+        if ($failedPreferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail") { throw 'Unsupported binary format created a quiz pointer' }
+        Write-Output "PASS: $($format.label) restores selection and is safely rejected by offline generation"
+    }
+    TapText 'Multiple choice'
+}
 TapText "Generate $expectedCount questions"
 TextNode "QUESTION 1 OF $expectedCount" | Out-Null
 RestartApp
@@ -145,6 +165,10 @@ if (-not $quizId) { throw 'Quiz pointer is missing' }
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
 $quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers
+if ($VerifyQuestionType) {
+    if ($state.question_type -ne 'multiple_choice' -or $state.question.question_type -ne 'multiple_choice') { throw 'Saved quiz format differs from the selected format' }
+    TextNode 'Question type: Multiple choice' | Out-Null
+}
 if ($VerifyDifficulty) {
     if ($state.difficulty -ne 'easy') { throw 'Saved quiz difficulty is not Easy' }
     TextNode 'Requested difficulty: Easy · recall a fact' | Out-Null
@@ -188,6 +212,7 @@ if ($VerifyMultiChapter) {
 }
 RestartApp
 TextNode 'Session complete' | Out-Null
+if ($VerifyQuestionType) { TextNode 'Question type: Multiple choice' | Out-Null }
 if ($VerifyDifficulty) { TextNode 'Requested difficulty: Easy · recall a fact' | Out-Null }
 Write-Output 'PASS: completed quiz restores results after restart (remaining answers submitted by API fixture)'
 if ($VerifyLibrary) {

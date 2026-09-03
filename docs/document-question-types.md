@@ -46,8 +46,21 @@ require live generation. Debug build, lint and 51 JVM tests passed, including
 supported preference restoration and unknown/absent format labels. No live API
 requests were made for this Android implementation step.
 
-Emulator selection/restart, account switching, binary answering/recovery and
-offline rejection UI have not yet been verified for these controls. Mixed-format quizzes are not
+API 36 emulator QA now passes selection/restart for both binary formats, matching
+account-scoped preferences, offline rejection without a quiz pointer, switching
+back to multiple choice, saved format labels after question/results restart,
+conflicting-answer recovery and library reopening. Command:
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyLibrary -VerifyQuestionType`.
+Remaining multiple-choice answers were submitted through the API fixture, not
+all through Android. The Yes/No selection screenshot was visually inspected:
+`artifacts/qa-document-format-yes_no.png`; the run also captured True/False.
+An initial run terminated on an ADB daemon connection failure before format
+checks. After `adb start-server`, device/boot verification and a fresh disposable
+test run, the full script exited successfully. This was a tooling interruption,
+not a demonstrated app defect. No live provider requests were made.
+
+Account switching and actual binary answering/recovery on Android remain
+unverified. Mixed-format quizzes are not
 implemented. Broader materials/counts/difficulties, educator review, actual user
 UAT and production acceptance remain open. The shared configuration contract
 defines the API; this backend slice does not complete DOC-03.

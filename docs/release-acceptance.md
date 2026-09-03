@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: API 36 QA verified both binary selections across restart, offline
+  rejection with no quiz pointer, then multiple-choice generation, saved labels,
+  conflict recovery, results and library reopening. Yes/No screenshot inspected;
+  remaining quiz answers used the API fixture. Initial ADB connection failure
+  recovered before a successful fresh run. Actual binary Android answering and
+  account-switch checks remain open; see `document-question-types.md`.
 - 2026-09-03: wired Android multiple-choice/True-False/Yes-No controls, scoped
   preferences, API requests and server-saved question/results labels. Debug build,
   lint and 51 JVM tests passed. No metered requests in this step. Emulator binary
