@@ -69,8 +69,11 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 - Added Android byte-based upload progress and a distinct server-analysis wait
   phase, with unknown/incorrect-size handling and failure cleanup. Build/lint and
-  109 JVM tests passed on 2026-09-03. New overlay device/slow-network/accessibility
-  checks remain open; see `docs/upload-progress.md`.
+  109 JVM tests passed on 2026-09-03. Follow-up API 36 real-picker QA verified
+  the readable analysis-wait overlay under a delayed response and its removal
+  before chapter selection. Backend suite with QA fixture checks: 287 passed,
+  1 existing Windows skip. Transfer-percentage/failure/accessibility checks
+  remain open; see `docs/upload-progress.md`.
 
 - Fixed DOCX body extraction omitting tables: new uploads preserve ordered table
   and nested-cell text, avoid duplicate merged-cell evidence and reject excess

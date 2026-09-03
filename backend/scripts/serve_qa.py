@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--qa-only", action="store_true")
     parser.add_argument("--binary-fixtures", action="store_true")
+    parser.add_argument("--upload-response-delay", type=int, choices=range(0, 21), default=0)
     args = parser.parse_args()
     if not args.qa_only:
         parser.error("This scripted evaluator is only for QA; supply --qa-only")
@@ -44,6 +45,9 @@ def main():
     api.tutor_provider = lambda settings, interests=(): ScriptedQAProvider()
     from scripts.qa_response_fault import install_response_fault
     install_response_fault(api.app)
+    if args.upload_response_delay:
+        from scripts.qa_upload_delay import install_upload_delay
+        install_upload_delay(api.app, args.upload_response_delay)
     uvicorn.run(api.app, host="127.0.0.1", port=8000)
 
 

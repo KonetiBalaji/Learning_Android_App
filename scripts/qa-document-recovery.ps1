@@ -1,8 +1,9 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
+if ($VerifyUploadProgress -and ($VerifyLibrary -or $VerifyMultiChapter -or $VerifyQuestionCount -or $VerifyDifficulty -or $VerifyQuestionType -or $BinaryFixtureType -or $VerifyCreationRetry -or $VerifyStructureRepair -or $VerifyPreview -or $VerifyExcerpts -or $VerifySourceSearch -or $VerifyPdfPages)) { throw 'Upload progress QA is a standalone check' }
 if ($VerifySourceSearch) { $VerifyExcerpts = $true }
 $fixtureName = if ($VerifyPdfPages) { 'page-boundary-fixture.pdf' } elseif ($VerifyPreview -or $VerifyExcerpts) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
 if ($VerifyPdfPages -and (-not $VerifyCreationRetry -or $VerifyExcerpts -or $VerifyPreview -or $VerifyMultiChapter -or $VerifyStructureRepair -or $VerifyQuestionCount -or $BinaryFixtureType)) { throw 'PDF page QA requires creation retry and cannot combine with other source fixture or question-count modes' }
@@ -91,8 +92,24 @@ $point = Center $downloads
 Adb shell input tap $point[0] $point[1] | Out-Null
 Start-Sleep -Milliseconds 900
 TapText $fixtureName
+if ($VerifyUploadProgress) {
+    # Run the explicit QA server with --upload-response-delay 20. Small fixture
+    # bytes transfer too quickly to claim visual percentage coverage.
+    TextNode 'Waiting for document analysis…' | Out-Null
+    TextNode 'The file was sent. Waiting for the service to validate it and detect chapters.' | Out-Null
+    Adb shell screencap -p /sdcard/qa-upload-analysis-wait.png | Out-Null
+    Adb pull /sdcard/qa-upload-analysis-wait.png (Join-Path $repo 'artifacts\qa-upload-analysis-wait.png') | Out-Null
+    Start-Sleep -Seconds 20
+}
 TapText 'Entire document'
 TextNode '2 of 2 chapters selected' | Out-Null
+if ($VerifyUploadProgress) {
+    if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Waiting for document analysis…') { throw 'Upload wait remained after success' }
+    Adb shell screencap -p /sdcard/qa-upload-analysis-complete.png | Out-Null
+    Adb pull /sdcard/qa-upload-analysis-complete.png (Join-Path $repo 'artifacts\qa-upload-analysis-complete.png') | Out-Null
+    Write-Output 'PASS: real picker upload shows analysis-wait copy during delayed response, then clears it and opens selectable chapters. Not transfer percentage or failure QA.'
+    return
+}
 RestartApp
 TextNode '2 of 2 chapters selected' | Out-Null
 TapText 'Clear selection'
