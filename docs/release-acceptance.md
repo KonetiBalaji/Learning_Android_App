@@ -83,6 +83,16 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- API 36 PDF-page QA passed against `8f11cba`: blank-only/invalid ranges, explicit
+  confirmation, page-2 scope 288–591 and restart preservation, insufficient-count
+  rejection then five-question recovery, committed-response 503 replay without
+  duplicate quizzes, exact source references, conflict recovery and restored
+  results. Remaining answers used the API fixture. Screenshots inspected; full
+  backend suite 251 passed, 1 existing Windows test skipped. Generic validation
+  messaging needs improvement; complex PDF/device network/accessibility and UAT
+  remain open. See `shared/contracts/pdf-page-selection.md` for the initial failed
+  ten-question fixture run, corrected command, evidence and limitations.
+
 - Wired Android physical PDF-page index, inclusive range inputs, review and explicit
   replacement confirmation into account-scoped excerpt persistence. Draft reviews
   invalidate on input/document/scope changes; confirmation rechecks identity and

@@ -1,13 +1,16 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
 if ($VerifySourceSearch) { $VerifyExcerpts = $true }
-$fixtureName = if ($VerifyPreview -or $VerifyExcerpts) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
+$fixtureName = if ($VerifyPdfPages) { 'page-boundary-fixture.pdf' } elseif ($VerifyPreview -or $VerifyExcerpts) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
+if ($VerifyPdfPages -and (-not $VerifyCreationRetry -or $VerifyExcerpts -or $VerifyPreview -or $VerifyMultiChapter -or $VerifyStructureRepair -or $VerifyQuestionCount -or $BinaryFixtureType)) { throw 'PDF page QA requires creation retry and cannot combine with other source fixture or question-count modes' }
+$fixturePath = if ($VerifyPdfPages) { Join-Path $repo 'artifacts\tmp\pdfs\page-boundary-fixture.pdf' } else { Join-Path $PSScriptRoot "fixtures\$fixtureName" }
+if (-not (Test-Path -LiteralPath $fixturePath)) { throw 'Missing QA fixture; for PDF pages run create-pdf-page-fixture.py with the documented output path first' }
 if ($VerifyExcerpts -and (-not $VerifyCreationRetry -or $VerifyPreview -or $VerifyMultiChapter -or $VerifyStructureRepair -or $BinaryFixtureType)) { throw 'Excerpt QA requires creation retry and cannot combine with preview, multi-chapter, repair or binary modes' }
 if ($VerifyPreview -and (-not $VerifyCreationRetry -or $VerifyStructureRepair)) { throw 'Preview check requires creation retry and cannot combine with the legacy repair fixture' }
-$expectedCount = if ($VerifyQuestionCount) { 7 } else { 10 }
+$expectedCount = if ($VerifyPdfPages) { 5 } elseif ($VerifyQuestionCount) { 7 } else { 10 }
 $expectedFormat = if ($BinaryFixtureType) { $BinaryFixtureType } else { 'multiple_choice' }
 $formatLabel = switch ($expectedFormat) { 'true_false' { 'True / False' } 'yes_no' { 'Yes / No' } default { 'Multiple choice' } }
 if ($VerifyStructureRepair -and -not $VerifyCreationRetry) { throw 'Structure repair check requires -VerifyCreationRetry to verify pending identity preservation' }
@@ -65,7 +68,7 @@ if ($BinaryFixtureType) {
 } elseif ($health.ai_provider -notin @('deterministic','scripted-qa')) { throw 'Use the isolated QA backend.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
-Adb push (Join-Path $PSScriptRoot "fixtures\$fixtureName") "/sdcard/Download/$fixtureName" | Out-Null
+Adb push $fixturePath "/sdcard/Download/$fixtureName" | Out-Null
 RestartApp
 TapText 'New student? Create a private account'
 $qaEmail = 'document-' + [Guid]::NewGuid().ToString('N') + '@example.com'
@@ -170,6 +173,49 @@ if ($VerifyQuestionType) {
     TapText 'Multiple choice'
 }
 if ($BinaryFixtureType) { TapText $formatLabel }
+if ($VerifyPdfPages) {
+    function EnterPage([string]$label, [string]$value) {
+        TapText $label
+        Adb shell input keycombination 113 29 | Out-Null
+        Adb shell input text $value | Out-Null
+        Adb shell input keyevent 4 | Out-Null
+    }
+    $excerptKey = "document_excerpts:$($document.id):$qaEmail"
+    function AssertNoPageConfirmation {
+        [xml]$pagePrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+        if ($pagePrefs.map.ChildNodes | Where-Object name -eq $excerptKey) { throw 'PDF review changed selection before confirmation' }
+        $pageIds = @(($pagePrefs.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail").InnerText | ConvertFrom-Json)
+        if (@(Compare-Object $selectedIds $pageIds).Count -ne 0) { throw 'PDF review changed checked chapters' }
+    }
+    TapText 'Load original PDF page index'
+    TextNode '3 physical pages. Blank or scanned pages without extracted text cannot provide quiz content; OCR is not available.' | Out-Null
+    EnterPage 'First physical PDF page' '3'
+    EnterPage 'Last physical PDF page (inclusive)' '3'
+    TapText 'Review original page range'
+    TextNode 'Please check your input or selected document and try again.' | Out-Null
+    AssertNoPageConfirmation
+    TapText 'Try again'
+    EnterPage 'First physical PDF page' '4'
+    $reviewButton = TextNode 'Review original page range'
+    if ($reviewButton.enabled -ne 'false' -and -not $reviewButton.SelectSingleNode("ancestor::node[@enabled='false']")) { throw 'Invalid PDF range did not disable review' }
+    EnterPage 'First physical PDF page' '2'
+    TapText 'Review original page range'
+    TextNode 'Review pages 2 to 3. Your current selection has not changed.' | Out-Null
+    TextNode 'No extracted text on pages: 3' | Out-Null
+    AssertNoPageConfirmation
+    EnterPage 'Last physical PDF page (inclusive)' '2'
+    if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Use these PDF pages instead of current selection') { throw 'Editing page input retained stale confirmation' }
+    TapText 'Review original page range'
+    $pageScope = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/pdf-pages/selection" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"first_page":2,"last_page":2}'
+    $excerptPart = $pageScope.source_ranges[0]
+    if ($pageScope.source_ranges.Count -ne 1 -or $excerptPart.chapter_id -ne $selectedChapter.id) { throw 'PDF fixture did not resolve page 2 exclusively to Plants' }
+    TextNode "Chapter 2 Plants: source characters $($excerptPart.start_character)–$($excerptPart.end_character)" | Out-Null
+    AssertNoPageConfirmation
+    Adb shell screencap -p /sdcard/qa-pdf-page-review.png | Out-Null
+    Adb pull /sdcard/qa-pdf-page-review.png (Join-Path $repo 'artifacts\qa-pdf-page-review.png') | Out-Null
+    TapText 'Use these PDF pages instead of current selection'
+    Write-Output 'PASS: PDF blank-only range fails without selection changes; invalid input disables review; mixed blank warning and edited-review invalidation verified'
+}
 if ($VerifyExcerpts) {
     if ($VerifySourceSearch) {
         function SearchSource([string]$query) {
@@ -210,6 +256,8 @@ if ($VerifyExcerpts) {
     TextNode "Selected source characters $($excerptPart.start_character)–$($excerptPart.end_character)" | Out-Null
     TapText 'Use highlighted excerpt instead of whole chapters'
     }
+}
+if ($VerifyExcerpts -or $VerifyPdfPages) {
     TextNode 'Excerpt mode: 1 selected text ranges only' | Out-Null
     [xml]$excerptPrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     $excerptKey = "document_excerpts:$($document.id):$qaEmail"
@@ -222,6 +270,19 @@ if ($VerifyExcerpts) {
     Adb shell screencap -p /sdcard/qa-document-excerpt.png | Out-Null
     Adb pull /sdcard/qa-document-excerpt.png (Join-Path $repo 'artifacts\qa-document-excerpt.png') | Out-Null
     Write-Output 'PASS: Android excerpt confirmation enters excerpt mode; saved boundaries survive restart'
+}
+if ($VerifyPdfPages) {
+    # This physical page has five distinct source sentences, not ten. Verify the
+    # normal admission failure before choosing a count the source can support.
+    TapText 'Generate 10 questions'
+    TextNode 'Please check your input or selected document and try again.' | Out-Null
+    TapText 'Try again'
+    [xml]$shortPagePrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if (($shortPagePrefs.map.ChildNodes | Where-Object name -eq $excerptKey).InnerText -ne $savedExcerpt) { throw 'Unsupported count changed PDF selection' }
+    TapText '5'
+    RestartApp
+    TextNode 'Generate 5 questions' | Out-Null
+    Write-Output 'PASS: insufficient page material rejects ten questions; exact selection survives and five-question count restores'
 }
 if ($VerifyCreationRetry) {
     $creationAudit = "http://127.0.0.1:8000/__qa/documents/$($document.id)/created-quizzes"
@@ -324,7 +385,7 @@ if ($VerifyCreationRetry) {
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
 $quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers
-if ($VerifyExcerpts) {
+if ($VerifyExcerpts -or $VerifyPdfPages) {
     $ranges = @($state.source_ranges)
     if ($ranges.Count -ne 1 -or $ranges[0].chapter_id -ne $selectedChapter.id -or $ranges[0].start_character -ne $excerptPart.start_character -or $ranges[0].end_character -ne $excerptPart.end_character) { throw 'Recovered quiz changed the requested excerpt boundaries' }
     if ($preferences.map.ChildNodes | Where-Object name -eq $excerptKey) { throw 'Accepted quiz retained local pending excerpt metadata' }
@@ -392,7 +453,7 @@ if ($VerifyMultiChapter) {
     if ($sourceReferences | Where-Object { $_ -notmatch '^Chapter [12] (Cells|Plants) \(source characters \d+-\d+\)$' }) { throw 'Unexpected source outside the selected fixture chapters' }
     Write-Output "PASS: Android multi-chapter generation produced $expectedCount questions with sources from both selected chapters"
 }
-if ($VerifyExcerpts) {
+if ($VerifyExcerpts -or $VerifyPdfPages) {
     $expectedSource = "Chapter 2 Plants (selected excerpt) (source characters $($excerptPart.start_character)-$($excerptPart.end_character))"
     if ($sourceReferences.Count -ne $expectedCount -or @($sourceReferences | Where-Object { $_ -ne $expectedSource }).Count -ne 0) { throw 'A quiz question referenced material outside the selected excerpt' }
     Write-Output "PASS: all $expectedCount question references remain within the confirmed excerpt"

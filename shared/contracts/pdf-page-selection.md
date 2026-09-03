@@ -109,6 +109,55 @@ confirmed source offsets persist, not physical-page label metadata.
 
 Debug build, lint and **93 JVM tests** passed after wiring the UI. Tests cover
 confirmation with stale/missing reviews, changed document/chapter identity,
-encoded-range round trips and deletion isolation. Device page selection/restart,
-blank-page failure, network retry, accessibility and actual UAT are still unverified.
+encoded-range round trips and deletion isolation. Subsequent device evidence is
+recorded below; page-endpoint network retry, accessibility and actual UAT remain open.
 This is not a visual PDF viewer and does not implement OCR or printed page labels.
+
+## Device QA fixture and admission limits
+
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyCreationRetry -VerifyPdfPages`
+uses the synthetic `artifacts/tmp/pdfs/page-boundary-fixture.pdf`, produced by
+`scripts/create-pdf-page-fixture.py`, on the dedicated LearnSmart_API36 emulator
+with the isolated `backend/scripts/serve_qa.py --qa-only` backend. It never calls
+the live provider. The script refuses missing fixtures or incompatible source modes.
+
+The first device run verified range review and restart persistence but stopped
+before the lost-response check: it requested ten questions from five source
+sentences, correctly receiving 422 before quiz creation. The test now checks that
+admission failure and explicitly selects five questions through Android before
+testing the injected creation-response failure. It does not expand the source
+scope or weaken distinct-question validation to obtain a pass.
+
+Known usability gap: Android intentionally suppresses arbitrary server error bodies
+to avoid exposing sensitive validation data, but its generic 422 message does not
+explain insufficient material or blank-only page selections. Safe structured error
+codes with actionable, client-owned messages remain needed.
+
+The full backend regression suite passed **251 tests, 1 Windows symlink-privilege
+test skipped**, with the existing Starlette/httpx deprecation warning on 2026-09-03.
+
+The corrected API 36 run completed successfully against Android implementation
+`8f11cba` on 2026-09-03:
+
+- The Android picker uploaded the three-page PDF; chapter/empty selections survived
+  restart, and generation was disabled for an empty selection.
+- Page 3 alone returned validation failure without modifying saved selection;
+  out-of-bounds input disabled review. Pages 2–3 displayed the blank-page warning.
+- After editing and reviewing pages 2–2, the displayed Plants range was 288–591.
+  Review left preferences unchanged; explicit confirmation saved this scope and
+  process restart restored it as one excerpt.
+- Ten-question generation was rejected without changing that range; choosing five
+  through Android persisted. The simulated post-commit 503 retained the pending
+  creation identity through restart. Retry recovered exactly one quiz, with the
+  same source range and no remaining pending selection metadata.
+- Conflicting-answer recovery preserved the committed answer. All five questions
+  referenced the confirmed page-2 range; remaining answers were submitted through
+  the API fixture, then Android restarted into completed results.
+
+The review, restored excerpt and resumed-question screenshots were visually
+inspected: displayed text and source boundaries were legible. Uiautomator emitted
+transient null-root warnings; existing fresh-dump retries recovered and the script
+exited zero. This does not verify complex PDFs, multi-range page scopes on device,
+page-endpoint network failures, account switching, large-text/TalkBack behavior,
+live generation quality or UAT. Physical-page metadata still is not persisted
+separately from exact source offsets. DOC-02 and production remain partial.
