@@ -14,6 +14,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Acceptance ledger
 
+Practice matcher hardening: meaningful symbols/word boundaries are preserved,
+with persisted opt-in rational equivalence for curated arithmetic and exact
+matching for denominator-constrained exercises. Legacy and model-generated banks
+remain exact. Regression and HTTP tests cover accepted/rejected transitions;
+generated practice-key/format review, on-device verification and UAT remain open.
+See `docs/practice-answer-matching.md` for scope and limitations.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | Partial | Invalid/expired/deleted sessions, account switching, encrypted device tokens, automated Android tests |

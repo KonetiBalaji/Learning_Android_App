@@ -6,6 +6,7 @@ from dataclasses import asdict
 from dataclasses import dataclass
 
 from .schemas import AdaptiveQuestion, TutorIntervention
+from .practice_matching import AnswerMode, response_matches
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class DiagnosticItem:
     hint: str
     practice_prompt: str
     practice_answers: tuple[str, ...]
+    answer_mode: AnswerMode = "exact"
 
 
 FRACTION_DIAGNOSTIC = (
@@ -26,7 +28,7 @@ FRACTION_DIAGNOSTIC = (
         "What is 3/4 + 1/4?", ("1/2", "1", "3/8", "2"), "1", "Adding like fractions",
         "When denominators are the same, add the numerators and keep the denominator: (3 + 1) / 4 = 4/4 = 1.",
         "2/5 + 3/5 = 5/5 = 1.", "Keep the denominator 4 and add 3 + 1.",
-        "What is 2/8 + 4/8?", ("6/8", "3/4", "0.75"),
+        "What is 2/8 + 4/8?", ("6/8", "3/4", "0.75"), "number",
     ),
     DiagnosticItem(
         "Which fraction is equal to 1/2?", ("2/6", "3/6", "4/6", "5/6"), "3/6", "Equivalent fractions",
@@ -38,7 +40,7 @@ FRACTION_DIAGNOSTIC = (
         "What is 5/8 - 1/8?", ("4/8", "4/16", "5/7", "6/8"), "4/8", "Subtracting like fractions",
         "With equal denominators, subtract the numerators and keep the denominator: (5 - 1) / 8 = 4/8.",
         "6/7 - 2/7 = 4/7.", "Keep the denominator 8 and subtract 1 from 5.",
-        "What is 7/9 - 2/9?", ("5/9",),
+        "What is 7/9 - 2/9?", ("5/9",), "number",
     ),
 )
 
@@ -54,6 +56,8 @@ def validate_diagnostic_bank(items: tuple[DiagnosticItem, ...]) -> tuple[Diagnos
         raise ValueError("A diagnostic must contain exactly three questions")
     seen_prompts: set[str] = set()
     for item in items:
+        if item.answer_mode not in {"exact", "number"}:
+            raise ValueError("Unsupported practice answer mode")
         prompt_key = item.prompt.strip().lower()
         if not prompt_key or prompt_key in seen_prompts:
             raise ValueError("Diagnostic questions must be present and unique")
@@ -98,12 +102,6 @@ def tutor_for(item: DiagnosticItem) -> TutorIntervention:
 def normalize_fraction_response(value: str) -> str:
     compact = re.sub(r"\s+", "", value.lower())
     return "3/4" if compact in {"6/8", "3/4", "0.75"} else compact
-
-
-def response_matches(value: str, acceptable_answers: tuple[str, ...]) -> tuple[bool, str]:
-    normalized = re.sub(r"[^a-z0-9./%-]", "", value.casefold())
-    acceptable = {re.sub(r"[^a-z0-9./%-]", "", answer.casefold()) for answer in acceptable_answers}
-    return normalized in acceptable, normalized
 
 
 def evaluate_rewrite(value: str, concept: str = "Adding like fractions") -> tuple[bool, str | None]:

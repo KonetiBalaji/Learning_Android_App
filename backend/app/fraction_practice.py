@@ -25,4 +25,5 @@ def next_fraction_practice(item: DiagnosticItem, round_number: int) -> Diagnosti
     else:
         return None
     answers = (answer,) if item.concept == 'Equivalent fractions' else tuple(dict.fromkeys((answer, str(Fraction(numerator, denominator)))))
-    return replace(item, practice_prompt=prompt, practice_answers=answers, hint=hint)
+    mode = 'exact' if item.concept == 'Equivalent fractions' else 'number'
+    return replace(item, practice_prompt=prompt, practice_answers=answers, hint=hint, answer_mode=mode)

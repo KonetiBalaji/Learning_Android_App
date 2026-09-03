@@ -557,7 +557,7 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Guided practice is not available in the current phase")
     bank = session_diagnostic_bank(session)
     item = bank[session["current_question"]]
-    correct, normalized = response_matches(request.response, item.practice_answers)
+    correct, normalized = response_matches(request.response, item.practice_answers, item.answer_mode)
     next_item = None
     next_lesson = None
     if not correct and request.fresh_practice and session['subject_id'] == 'math' and session['chapter_id'] == 'fractions':

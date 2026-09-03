@@ -1,4 +1,4 @@
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 from types import SimpleNamespace
 
@@ -13,6 +13,12 @@ def review():
     return {'items': [dict(item_index=i, answer_index=item.options.index(item.correct_option),
                           unambiguous=True, topic_matches=True, grade_suitable=True)
                       for i, item in enumerate(FRACTION_DIAGNOSTIC)]}
+
+
+def generated_bank():
+    # Matching policy belongs to trusted server content, not the model schema.
+    return {'questions': [{key: value for key, value in asdict(item).items()
+                           if key != 'answer_mode'} for item in FRACTION_DIAGNOSTIC]}
 
 
 def fake_client(outputs, requests):
@@ -55,13 +61,24 @@ def test_provider_requires_review_before_returning_generated_bank():
     provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
     provider.model = 'fixture'
     requests = []
-    generated = {'questions': [asdict(item) for item in FRACTION_DIAGNOSTIC]}
+    generated = generated_bank()
     provider.client = fake_client([generated, review()], requests)
-    assert provider.diagnostic_bank(8, 'math', 'fractions') == FRACTION_DIAGNOSTIC
+    assert provider.diagnostic_bank(8, 'math', 'fractions') == tuple(
+        replace(item, answer_mode='exact') for item in FRACTION_DIAGNOSTIC)
     assert len(requests) == 2
     rejected = review()
     rejected['items'][0]['topic_matches'] = False
     provider.client = fake_client([generated, rejected], [])
+    with pytest.raises(ValueError):
+        provider.diagnostic_bank(8, 'math', 'fractions')
+
+
+def test_model_cannot_opt_itself_into_numeric_grading():
+    provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
+    provider.model = 'fixture'
+    generated = generated_bank()
+    generated['questions'][0]['answer_mode'] = 'number'
+    provider.client = fake_client([generated], [])
     with pytest.raises(ValueError):
         provider.diagnostic_bank(8, 'math', 'fractions')
 
@@ -71,7 +88,7 @@ def test_rejected_off_topic_bank_cannot_fallback_to_fractions_for_another_chapte
     provider.model = 'fixture'
     rejected = review()
     rejected['items'][0]['topic_matches'] = False
-    provider.client = fake_client([{'questions': [asdict(i) for i in FRACTION_DIAGNOSTIC]}, rejected], [])
+    provider.client = fake_client([generated_bank(), rejected], [])
     with pytest.raises(ValueError):
         ResilientTutorProvider(provider, DeterministicTutorProvider()).diagnostic_bank(8, 'math', 'geometry')
 
@@ -87,7 +104,7 @@ def test_http_start_persists_only_a_reviewed_bank(monkeypatch, tmp_path, accepte
         provider.model = 'fixture'
         result = review()
         result['items'][0]['unambiguous'] = accepted
-        provider.client = fake_client([{'questions': [asdict(i) for i in FRACTION_DIAGNOSTIC]}, result], [])
+        provider.client = fake_client([generated_bank(), result], [])
         monkeypatch.setattr('app.main.tutor_provider', lambda settings: provider)
         response = client.post('/v1/mastery/diagnostics', headers=headers,
             json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'})
