@@ -22,7 +22,7 @@ question/hint and keys the answer field to session/prompt so the previous respon
 is cleared when the question changes. The feedback asks the learner to review the
 question currently shown. Other subjects and unmatched concept names retain the
 existing behavior; validated general practice generation remains outstanding.
-Failed rewrite remediation does not yet generate another fresh variant.
+Rejected rewrite remediation is covered by the later implementation and evidence below.
 
 Verification: 188 backend tests and Android debug build/lint/71 JVM tests passed.
 New tests verify 30 distinct arithmetic variants for each of the three concepts,
@@ -73,3 +73,21 @@ tests verify rejected grading does not award mastery, coaching/variant persisten
 stale rewrite rejection and acceptance of the fresh question's correct answer.
 No live AI requests were made. The failed-rewrite device flow, response-loss
 injection, general subject coverage and educator/UAT evaluation remain open.
+
+## API 36 rejected-rewrite device evidence
+
+`scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyFreshPractice
+-VerifyRejectedRewrite -VerifyWeeklyReport` passed against the isolated scripted-QA
+backend on LearnSmart_API36. After two wrong practice cycles and a correct answer,
+Android submitted `I do not know`. The rejected explanation returned to tutoring
+without advancing mastery, with a new saved question and coaching. Force-stop and
+restart preserved that lesson and its state token. The inspected screenshot
+`artifacts/qa-rejected-rewrite.png` shows `5/13 + 2/13` and an empty answer field.
+The computed answer `7/13` submitted through Android returned to rewrite.
+
+A valid explanation then advanced to question 2; restart and all remaining
+diagnostics passed before mastery was awarded. The weekly report matched nine
+learning responses and one unique mastered chapter. This is deterministic addition
+workflow QA, not a live-provider grading-quality test or user acceptance. Other
+concepts on-device, response loss, general subject coverage and educator/UAT
+evaluation remain open.

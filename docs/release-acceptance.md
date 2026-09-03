@@ -527,3 +527,10 @@ feature to UAT accepted or production verified. All release gates below remain o
   is awarded on rejection. Backend 190 tests and Android build/lint/71 JVM tests
   passed. Device rejected-rewrite recovery, broader subjects and UAT remain open.
   See `shared/contracts/fresh-practice.md`.
+- API 36 rejected-rewrite recovery passed after two fresh-practice cycles: new
+  question/coaching persisted through restart without early mastery, its correct
+  answer returned to rewrite, and remaining diagnostics completed normally. The
+  weekly report matched nine responses and one unique mastered chapter; screenshot
+  inspected. Deterministic addition QA only, not live grading-quality or UAT proof.
+  Broader concepts/subjects and response-loss checks remain open. See the
+  fresh-practice contract for the exact command and evidence.

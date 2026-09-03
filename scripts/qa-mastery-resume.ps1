@@ -10,7 +10,8 @@ param(
     [switch]$MalformedResponse,
     [switch]$VerifyUnlocks,
     [switch]$VerifyStudyTime,
-    [switch]$VerifyFreshPractice
+    [switch]$VerifyFreshPractice,
+    [switch]$VerifyRejectedRewrite
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -74,6 +75,7 @@ if ($VerifyFailedResponse -and ($VerifyStaleSubmission -or $health.ai_provider -
 if ($MalformedResponse -and -not $VerifyFailedResponse) { throw '-MalformedResponse requires -VerifyFailedResponse' }
 if ($VerifyUnlocks -and ($health.ai_provider -ne 'scripted-qa' -or $VerifyWeeklyReport)) { throw 'Unlock QA requires scripted-qa and cannot combine with weekly-count assertions' }
 if ($VerifyStudyTime -and -not $VerifyWeeklyReport) { throw 'Study time QA requires -VerifyWeeklyReport to verify the displayed total' }
+if ($VerifyRejectedRewrite -and -not $VerifyFreshPractice) { throw 'Rejected rewrite QA requires -VerifyFreshPractice' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -221,6 +223,29 @@ if ($VerifyFreshPractice) {
 EnterField 0 $practiceAnswer
 TapText 'Check answer'
 TapText 'Explain it in your own words'
+if ($VerifyRejectedRewrite) {
+    $beforeRewrite = Invoke-RestMethod $practicePath -Headers $practiceHeaders
+    EnterField 0 'I do not know'
+    TapText 'Submit my explanation'
+    $rejectedState = Invoke-RestMethod $practicePath -Headers $practiceHeaders
+    if ($rejectedState.status -ne 'tutor' -or $rejectedState.tutor.practice_prompt -eq $beforeRewrite.tutor.practice_prompt) { throw 'Rejected explanation did not return to tutor with fresh practice' }
+    TextNode $rejectedState.tutor.explanation | Out-Null
+    RestartApp
+    TextNode $rejectedState.tutor.explanation | Out-Null
+    $restoredRewrite = Invoke-RestMethod $practicePath -Headers $practiceHeaders
+    if ($restoredRewrite.state_token -ne $rejectedState.state_token -or $restoredRewrite.tutor.practice_prompt -ne $rejectedState.tutor.practice_prompt) { throw 'Restart changed rejected-rewrite recovery state' }
+    TapText 'I understand — practise now'
+    TextNode $rejectedState.tutor.practice_prompt | Out-Null
+    Adb shell screencap -p /sdcard/qa-rejected-rewrite.png | Out-Null
+    Adb pull /sdcard/qa-rejected-rewrite.png (Join-Path $repo 'artifacts\qa-rejected-rewrite.png') | Out-Null
+    $rewriteTerms = [regex]::Matches($rejectedState.tutor.practice_prompt, '(\d+)/(\d+)')
+    if ($rewriteTerms.Count -ne 2 -or $rewriteTerms[0].Groups[2].Value -ne $rewriteTerms[1].Groups[2].Value) { throw 'Unexpected fresh addition shape after rejected explanation' }
+    $rewriteNumerator = [int]$rewriteTerms[0].Groups[1].Value + [int]$rewriteTerms[1].Groups[1].Value
+    EnterField 0 "$rewriteNumerator/$($rewriteTerms[0].Groups[2].Value)"
+    TapText 'Check answer'
+    TapText 'Explain it in your own words'
+    Write-Output 'PASS: rejected explanation returns to tutoring with new saved practice; restart preserves coaching and the next answer returns to rewrite'
+}
 EnterField 0 'We add the numerator parts with the same denominator and keep the denominator unchanged'
 TapText 'Submit my explanation'
 if ($ExpectRubricFeedback) { TextNode 'Last explanation: 4 / 4' | Out-Null }
@@ -299,7 +324,7 @@ if ($VerifyWeeklyReport) {
     TextNode 'Unique chapters mastered' | Out-Null
     $reportLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail; password='qa-password-long-enough'} | ConvertTo-Json)
     $report = Invoke-RestMethod 'http://127.0.0.1:8000/v1/progress/weekly-report?grade=8' -Headers @{Authorization="Bearer $($reportLogin.access_token)"}
-    $expectedResponses = if ($VerifyFreshPractice) { 7 } else { 5 }
+    $expectedResponses = 5 + $(if ($VerifyFreshPractice) { 2 } else { 0 }) + $(if ($VerifyRejectedRewrite) { 2 } else { 0 })
     if ($report.questions_answered -ne $expectedResponses -or $report.mastered_chapters -ne 1 -or $report.readiness_is_calibrated -ne $false) { throw 'Weekly report did not match the scripted response count and one unique mastered chapter' }
     if ($VerifyStudyTime) {
         $seconds = [long]$report.observed_study_seconds
