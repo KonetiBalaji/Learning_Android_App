@@ -83,6 +83,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Added owner-scoped literal source search within selected chapters. Results
+  contain bounded verbatim passages and Unicode match offsets, with explicit
+  truncation/more-results indicators; search neither calls AI nor changes quizzes
+  or selection. Backend regression: 243 passed, 1 existing Windows test skipped.
+  Android search/results controls and relevance/device/UAT evaluation
+  remain open. This is not semantic topic indexing or completion of DOC-02. See
+  `shared/contracts/source-search.md`.
+
 - API 36 excerpt QA passed: Android selection/confirmation of one preview part,
   restart persistence, committed-creation HTTP 503 recovery with one saved quiz,
   exact source boundaries on resume and all ten question references within them.

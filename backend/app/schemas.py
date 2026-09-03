@@ -49,6 +49,30 @@ class SourceRange(BaseModel):
     end_character: int = Field(gt=0, strict=True)
 
 
+class SourceSearchRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    chapter_ids: list[str] = Field(min_length=1)
+    query: str = Field(min_length=2, max_length=120)
+    limit: int = Field(default=20, ge=1, le=20, strict=True)
+
+
+class SourceSearchHit(SourceRange):
+    title: str
+    text: str
+    match_start: int
+    match_end: int
+    context_truncated: bool
+
+
+class SourceSearchResults(BaseModel):
+    document_id: str
+    query: str
+    matches: list[SourceSearchHit]
+    has_more: bool
+    match_mode: str = 'literal_case_insensitive'
+
+
 class QuizRequest(BaseModel):
     request_id: UUID | None = None
     question_type: QuestionType = 'multiple_choice'

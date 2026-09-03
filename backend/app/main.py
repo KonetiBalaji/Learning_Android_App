@@ -34,6 +34,8 @@ from .schemas import (
     Credentials,
     DocumentSummary,
     ChapterPreview,
+    SourceSearchRequest,
+    SourceSearchResults,
     StudyPresence,
     Feedback,
     QuizQuestion,
@@ -236,6 +238,18 @@ def document_chapter_preview(document_id: str, chapter_id: str, page: int = Quer
         return preview_chapter(document_id, row['extracted_text'], chapters, chapter_id, page)
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=422, detail='Invalid preview page or stored source range') from error
+
+
+@app.post('/v1/documents/{document_id}/search', response_model=SourceSearchResults)
+def search_document_source(document_id: str, request: SourceSearchRequest,
+                           user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
+    from .document_search import search_source
+    row = owned_document(document_id, user_id, settings)
+    try:
+        chapters = [Chapter.model_validate(item) for item in parse_json(row['chapters_json'])]
+        return search_source(document_id, row['extracted_text'], chapters, request.chapter_ids, request.query, request.limit)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail='Invalid search phrase or selected source ranges') from error
 
 
 @app.post('/v1/documents/{document_id}/structure/repair', response_model=DocumentSummary)
