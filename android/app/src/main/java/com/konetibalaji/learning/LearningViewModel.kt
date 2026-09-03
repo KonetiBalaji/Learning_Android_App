@@ -329,7 +329,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 masteryScore = outcome.score,
                 masteryConfidence = outcome.confidence,
                 assessmentPoints = outcome.assessmentPoints, assessmentFeedback = outcome.assessmentFeedback,
-                tutorLesson = if (outcome.coaching == null) current.tutorLesson else current.tutorLesson?.copy(explanation = outcome.coaching),
+                tutorLesson = outcome.nextLesson ?: if (outcome.coaching == null) current.tutorLesson else current.tutorLesson?.copy(explanation = outcome.coaching),
             )
         }
     }
@@ -611,7 +611,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").toQuestionList()) }
     data class StartedDiagnostic(val id: String, val question: DiagnosticQuestion, val ordinal: Int, val total: Int)
     data class DiagnosticResult(val correct: Boolean, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int, val masteryScore: Int, val tutor: TutorLesson?)
-    data class RewriteResult(val mastered: Boolean, val score: Int, val confidence: String, val coaching: String?, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int?, val assessmentPoints: Int?, val assessmentFeedback: String?)
+    data class RewriteResult(val mastered: Boolean, val score: Int, val confidence: String, val coaching: String?, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int?, val assessmentPoints: Int?, val assessmentFeedback: String?, val nextLesson: TutorLesson? = null)
     data class ResumedMastery(val grade: Int, val subjectId: String, val chapterId: String, val status: String, val question: DiagnosticQuestion?, val ordinal: Int, val total: Int, val tutor: TutorLesson?, val selected: String?, val score: Int, val coachingRounds: Int, val assessmentPoints: Int?, val assessmentFeedback: String?)
     fun resumeMastery(sessionId: String): ResumedMastery {
         val response = request("GET", "/v1/mastery/sessions/$sessionId", null)
@@ -646,7 +646,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         }
     }
     fun submitRewrite(sessionId: String, rewrite: String): RewriteResult {
-        val response = request("POST", "/v1/mastery/sessions/$sessionId/rewrite", JSONObject().put("response", rewrite).toString())
+        val response = request("POST", "/v1/mastery/sessions/$sessionId/rewrite", JSONObject().put("response", rewrite).put("fresh_practice", true).toString())
         val next = response.optJSONObject("next_question")
         return masterySubmissionState.accept(sessionId, response.getString("state_token")) {
             RewriteResult(response.getBoolean("mastery_achieved"), (response.getDouble("mastery_score") * 100).toInt(),
@@ -654,7 +654,10 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             if (response.isNull("coaching")) null else response.getString("coaching"), response.getString("next_action"),
             next?.let(::adaptiveQuestion), next?.getInt("ordinal"),
             if (response.isNull("assessment_points")) null else response.getInt("assessment_points"),
-            if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
+            if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"),
+            response.optJSONObject("next_practice")?.let {
+                TutorLesson(it.getString("title"), it.getString("explanation"), it.getString("worked_example"), it.getString("hint"), it.getString("practice_prompt"))
+            })
         }
     }
     fun progressDashboard(grade: Int): ProgressSnapshot {

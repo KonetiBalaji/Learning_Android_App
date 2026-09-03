@@ -548,6 +548,12 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
     lesson = TutorIntervention.model_validate_json(session["tutor_json"]) if session["tutor_json"] else tutor_for(item)
     if coaching:
         lesson = lesson.model_copy(update={"explanation": coaching})
+    next_item = None
+    if not understood and request.fresh_practice and session['subject_id'] == 'math' and session['chapter_id'] == 'fractions':
+        from .fraction_practice import next_fraction_practice
+        next_item = next_fraction_practice(item, session['coaching_rounds'] + 1)
+        if next_item is not None:
+            lesson = lesson.model_copy(update={'practice_prompt': next_item.practice_prompt, 'hint': next_item.hint})
     with connection(settings.database_path) as db:
         lock_mastery_snapshot(db, session)
         db.execute(
@@ -558,7 +564,13 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
             "UPDATE mastery_sessions SET status = ?, current_question = ?, coaching_rounds = coaching_rounds + ?, completed_at = ?, tutor_json = ? WHERE id = ?",
             (next_status, next_index, 0 if understood else 1, now() if mastered else None, None if understood else lesson.model_dump_json(), session_id),
         )
+        if next_item is not None:
+            updated_bank = list(bank)
+            updated_bank[session['current_question']] = next_item
+            db.execute('UPDATE mastery_sessions SET questions_json = ? WHERE id = ?',
+                       (serialize_diagnostic_bank(tuple(updated_bank)), session_id))
     return RewriteOutcome(
+        next_practice=lesson if next_item is not None else None,
         state_token=mastery_state_token(session, status=next_status, current_question=next_index, coaching_rounds=session['coaching_rounds'] + int(not understood)),
         understood=understood,
         mastery_achieved=mastered,

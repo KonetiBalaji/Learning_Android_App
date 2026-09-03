@@ -52,3 +52,24 @@ This verifies the addition workflow only. Subtraction/equivalence device flows,
 post-commit practice response loss, other subjects, fresh failed-rewrite coaching
 and educator/UAT acceptance remain open. Backend arithmetic coverage does not
 prove those untested device or curriculum outcomes.
+
+## Fresh practice after a rejected explanation
+
+Android now also sends `fresh_practice: true` on rewrite submission. When grading
+rejects an explanation for one of the supported Fractions concepts, the backend
+creates the next arithmetic variant and saves its answer key, prompt and hint in
+the same transaction as the assessment/coaching transition. It preserves the
+grader's coaching explanation and returns the public lesson in `next_practice`.
+The phase returns to tutor without incrementing question progress or mastery.
+
+Android decodes the complete next lesson before accepting the response state token
+and uses it instead of merely replacing the old explanation. Resume returns the
+same stored lesson. Legacy requests keep the old practice question. Unavailable
+grading still returns without a saved assessment or a changed question. Other
+subjects and unmatched concept names retain their existing behavior.
+
+190 backend tests and Android build/lint/71 JVM tests passed. New opt-in/legacy
+tests verify rejected grading does not award mastery, coaching/variant persistence,
+stale rewrite rejection and acceptance of the fresh question's correct answer.
+No live AI requests were made. The failed-rewrite device flow, response-loss
+injection, general subject coverage and educator/UAT evaluation remain open.

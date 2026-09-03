@@ -1,4 +1,5 @@
 import re
+import pytest
 from fractions import Fraction
 
 from app.fraction_practice import next_fraction_practice
@@ -6,6 +7,40 @@ from app.mastery_service import FRACTION_DIAGNOSTIC, parse_diagnostic_bank
 from app.config import get_settings
 from app.database import connection
 from test_mastery_loop import registered_client
+
+
+@pytest.mark.parametrize('fresh', [False, True])
+def test_rejected_rewrite_preserves_coaching_and_optionally_rotates_practice(monkeypatch, tmp_path, fresh):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        started = client.post('/v1/mastery/diagnostics', headers=headers,
+            json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()
+        path = f"/v1/mastery/sessions/{started['id']}"
+        wrong = client.post(path + '/diagnostic-answer', headers=headers, json={'selected_option': '1/2'}).json()
+        correct = client.post(path + '/practice', headers=headers, json={'response': '6/8'}).json()
+        body = {'response': 'I do not know', 'fresh_practice': fresh, 'expected_state': correct['state_token']}
+        rejected = client.post(path + '/rewrite', headers=headers, json=body)
+        assert rejected.status_code == 200
+        result = rejected.json()
+        assert result['understood'] is False and result['next_action'] == 'tutor'
+        assert result['mastery_achieved'] is False and result['mastery_score'] == 0
+        assert client.post(path + '/rewrite', headers=headers, json=body).status_code == 409
+        resumed = client.get(path, headers=headers).json()
+        assert resumed['tutor']['explanation'] == result['coaching']
+        if fresh:
+            assert resumed['tutor'] == result['next_practice']
+            assert resumed['tutor']['practice_prompt'] != wrong['tutor']['practice_prompt']
+            with connection(get_settings().database_path) as db:
+                bank = parse_diagnostic_bank(db.execute('SELECT questions_json FROM mastery_sessions WHERE id = ?', (started['id'],)).fetchone()[0])
+                answer = bank[0].practice_answers[0]
+            accepted = client.post(path + '/practice', headers=headers,
+                json={'response': answer, 'fresh_practice': True, 'expected_state': result['state_token']})
+            assert accepted.status_code == 200 and accepted.json()['correct'] is True
+        else:
+            assert result['next_practice'] is None
+            assert resumed['tutor']['practice_prompt'] == wrong['tutor']['practice_prompt']
+    finally:
+        client.__exit__(None, None, None)
 
 
 def test_fraction_variants_are_distinct_and_arithmetically_correct():

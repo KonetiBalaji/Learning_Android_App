@@ -521,3 +521,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   weekly report passed. Screenshot inspected. Other concepts on-device, response
   loss, broader subjects and failed-rewrite fresh practice remain open; TUT-02 is
   still partial. See the fresh-practice contract.
+- Rejected Fractions explanations can now return to tutoring with a fresh
+  arithmetic practice variant, persisted atomically with grading/coaching and
+  delivered to Android. Legacy requests keep the original question; no mastery
+  is awarded on rejection. Backend 190 tests and Android build/lint/71 JVM tests
+  passed. Device rejected-rewrite recovery, broader subjects and UAT remain open.
+  See `shared/contracts/fresh-practice.md`.
