@@ -172,3 +172,8 @@ feature to UAT accepted or production verified. All release gates below remain o
   recall for QA. Live synthetic five-question generation/review passed; this is
   narrow evidence, not calibrated reliability. Legacy ambiguous quizzes and broad
   validation remain open; see `document-question-validation.md`.
+- Voice input handles cancellation/empty/missing-service cases without replacing
+  typed text. Read-aloud waits for initialization, checks language support, offers
+  Stop and splits long inputs. Android build/lint/22 JVM tests passed. Real speech
+  engine/microphone/animation and background lifecycle checks remain; this is not
+  full conversational tutoring acceptance. See `voice-recovery.md`.

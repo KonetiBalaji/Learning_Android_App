@@ -3,7 +3,6 @@ package com.konetibalaji.learning
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
-import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -56,7 +55,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,7 +70,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { LearnSmartApp() } }
@@ -239,13 +236,6 @@ private fun AnswerChoice(option: String, selected: Boolean, onClick: () -> Unit)
 @Composable
 private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
     val lesson = state.tutorLesson
-    val context = LocalContext.current
-    var speaker by remember { mutableStateOf<TextToSpeech?>(null) }
-    DisposableEffect(context) {
-        val engine = TextToSpeech(context) { status -> if (status == TextToSpeech.SUCCESS) speaker?.language = Locale.getDefault() }
-        speaker = engine
-        onDispose { engine.stop(); engine.shutdown() }
-    }
     Page {
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -265,7 +255,7 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit) {
         }
     }
     TipCard("Your tutor is paying attention", if (state.coachingRound > 0) "Let’s try a different explanation and practise it once more." else "A short practice question will check that the idea clicked.")
-    OutlinedButton(onClick = { speaker?.speak(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". "), TextToSpeech.QUEUE_FLUSH, null, "tutor") }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp)) { Text("🔊 Read explanation aloud") }
+    ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". "))
     PrimaryButton("I understand — practise now", onClick = onUnderstand)
     }
 }
@@ -300,15 +290,26 @@ private fun RewriteScreen(state: AppUiState, onChange: (String) -> Unit, onSubmi
 
 @Composable
 private fun VoiceInputButton(label: String, onResult: (String) -> Unit) {
+    var message by remember { mutableStateOf<String?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let(onResult)
+        val spoken = acceptedSpeech(result.resultCode == android.app.Activity.RESULT_OK, result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS))
+        if (spoken != null) { onResult(spoken); message = "Review the recognized text before submitting." }
+        else message = if (result.resultCode == android.app.Activity.RESULT_CANCELED) "Voice input cancelled. Your typed answer is unchanged." else "No speech was recognized. Try again or type your answer."
     }
     OutlinedButton(onClick = {
-        launcher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        message = null
+        try { launcher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PROMPT, label)
-        })
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+        }) } catch (_: android.content.ActivityNotFoundException) {
+            message = "Voice input is unavailable on this device. Please type your answer."
+        } catch (_: SecurityException) {
+            message = "The speech service could not be opened. Please type your answer."
+        }
     }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp)) { Text("🎙 $label") }
+    Text("Uses your device's speech service, which may process audio online.", style = MaterialTheme.typography.bodySmall)
+    message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
 
 @Composable
