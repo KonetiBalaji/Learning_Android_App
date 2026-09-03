@@ -109,3 +109,29 @@ existing metadata, repeatability, ID collisions, empty structure, unsafe ranges,
 ownership and exact preservation of existing quiz rows. No live AI calls or real
 user-document repairs were performed. Android repair controls and device QA
 remain pending, along with richer section/page/topic selection.
+
+## Android explicit repair control
+
+The chapter selection screen now offers `Check for omitted text`, with an
+explanation that existing chapters and quizzes remain unchanged. It calls the
+owner-authenticated repair endpoint only when selected; it does not run on open.
+Recovered ranges remain unselected. Existing selected IDs, quiz settings and the
+persisted pending quiz creation identity are not modified. The result reports
+the number added or that no omissions were found. Ranges below 0.6 confidence
+have a visible review warning, including introductory and recovered text.
+
+The client rejects a different document, duplicate IDs, removed/reordered/changed
+existing chapter metadata or a missing selected ID before accepting the response.
+The server remains responsible for offset validation. Loading blocks selection
+changes; transport/API failures use the existing error/retry path. A lost repair
+response can be retried because server repair is idempotent. Reopening or process
+restoration obtains the persisted server structure; the result notice itself is
+transient.
+
+Android debug build, lint and all 61 JVM tests passed. Three new tests exercise
+selection/settings preservation, unchanged quiz creation fingerprint, repeat
+repair, empty selection and unsafe response rejection. The viewmodel does not
+write the pending creation preference during repair. No live provider requests
+were made. Device UI, process recreation and injected repair-response failure
+checks remain pending; this is not UAT acceptance. DOC-02 remains partial because
+hierarchical section, PDF page-range and topic selection are still missing.

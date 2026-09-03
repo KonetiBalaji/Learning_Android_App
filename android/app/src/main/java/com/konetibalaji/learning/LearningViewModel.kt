@@ -87,6 +87,7 @@ data class AppUiState(
     val unlockedChapterIds: Set<String> = emptySet(), val darkMode: Boolean = false, val accountEmail: String = "",
     val document: StudyDocument? = null, val selectedChapterIds: Set<String> = emptySet(), val quizId: String? = null, val question: QuizQuestion? = null,
     val documentLibrary: List<StudyDocument>? = null,
+    val documentRepairNotice: String? = null,
     val savedInterests: List<String>? = null, val interestDraft: List<String> = emptyList(), val interestSaveMessage: String? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
@@ -363,13 +364,14 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val chapter = document.chapters.firstOrNull()?.id
         check(preferences.edit().putString(documentKey(), document.id).putString(documentChapterKey(), chapter)
             .remove(documentQuizKey()).putString(activeFlowKey(), "document").commit())
-        mutableState.value = mutableState.value.copy(document = document, selectedChapterIds = setOfNotNull(chapter),
+        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, selectedChapterIds = setOfNotNull(chapter),
             documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
             documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
             documentQuestionType = restoredDocumentQuestionType(preferences.getString(documentQuestionTypeKey(), null)), savedQuizQuestionType = null,
             quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = true)
     }
     fun selectChapter(chapterId: String) {
+        if (mutableState.value.loading) return
         if (mutableState.value.document?.chapters?.none { it.id == chapterId } != false) return
         val selected = mutableState.value.selectedChapterIds
         saveChapterSelection(if (chapterId in selected) selected - chapterId else selected + chapterId)
@@ -377,6 +379,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun selectAllDocumentChapters() = saveChapterSelection(mutableState.value.document?.chapters?.map { it.id }?.toSet().orEmpty())
     fun clearDocumentChapters() = saveChapterSelection(emptySet())
     private fun saveChapterSelection(ids: Set<String>) {
+        if (mutableState.value.loading) return
         preferences.edit().putString(documentChapterKey(), JSONArray(ids.toList()).toString()).apply()
         mutableState.value = mutableState.value.copy(selectedChapterIds = ids)
     }
@@ -394,6 +397,13 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         if (mutableState.value.loading || value !in documentQuestionTypes) return
         preferences.edit().putString(documentQuestionTypeKey(), value).apply()
         mutableState.value = mutableState.value.copy(documentQuestionType = value)
+    }
+    fun repairDocumentStructure() = perform(null) {
+        val current = mutableState.value
+        val document = requireNotNull(current.document)
+        // No selection/settings or pending creation identity changes. Retrying this
+        // idempotent operation is safe even if the prior response was lost.
+        mutableState.value = stateAfterStructureRepair(current, api.repairDocumentStructure(document.id))
     }
     fun createQuiz() = perform(null) {
         val current = mutableState.value
@@ -507,6 +517,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         } finally { connection.disconnect() }
     }
     fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
+    fun repairDocumentStructure(id: String): StudyDocument = document(request("POST", "/v1/documents/$id/structure/repair", null))
     fun deleteDocument(id: String) { requestNoContent("DELETE", "/v1/documents/$id") }
     fun listDocuments(): List<StudyDocument> {
         val response = JSONArray(readApiResponse(connection("GET", "/v1/documents", "application/json")))

@@ -437,3 +437,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   recovered via 409, restart and completion preserved the five-response total.
   Semantically inconsistent payloads and other phase/device coverage remain open;
   see `adaptive-submission-preconditions.md`.
+- Android now exposes explicit omitted-range repair on the chapter selection
+  screen and marks low-confidence ranges for review. Added ranges are not
+  auto-selected, and pending quiz identity/settings are untouched. Build, lint
+  and 61 JVM tests passed; device repair/restart/failure checks remain pending.
+  This does not complete DOC-02 section/page/topic selection or user UAT. See
+  `document-selection.md`.

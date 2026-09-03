@@ -124,7 +124,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType)
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
                         Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects, state.savedQuizDifficulty, state.savedQuizQuestionType)
@@ -495,11 +495,14 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit, onAll: () -> Unit, onClear: () -> Unit, onCount: (String) -> Unit, onDifficulty: (String) -> Unit, onType: (String) -> Unit, onRepair: () -> Unit) {
     val document = state.document ?: return
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
         Header("Study material", "Choose chapters", "Select one or more chapters from ${document.name} and configure your quiz.")
+        Text("Missing introductory text or a short section? Check for omitted text ranges. Existing chapters and quizzes will not change.")
+        TextButton(onClick = onRepair, enabled = !state.loading) { Text("Check for omitted text") }
+        state.documentRepairNotice?.let { Text(it) }
         Row { TextButton(onClick = onAll, enabled = !state.loading) { Text("Entire document") }; TextButton(onClick = onClear, enabled = !state.loading) { Text("Clear selection") } }
         Text("${state.selectedChapterIds.size} of ${document.chapters.size} chapters selected")
         document.chapters.forEach { chapter ->
@@ -509,7 +512,10 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
                 verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = selected, onCheckedChange = null, enabled = !state.loading)
                 Spacer(Modifier.width(12.dp))
-                Text(chapter.title, modifier = Modifier.weight(1f))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(chapter.title)
+                    if (chapter.confidence < 0.6f) Text("Low-confidence text range: review before selecting", style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
         Text("Large selections may need to be split into smaller quizzes. Questions use only the selected chapters.")
