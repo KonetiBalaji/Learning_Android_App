@@ -37,7 +37,7 @@ feature to UAT accepted or production verified. All release gates below remain o
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
-| SEC-02 | Production hardening | Partial | HTTPS-only release guard implemented; production secrets, abuse/rate/cost limits, logs without sensitive content, backup/restore still need verification |
+| SEC-02 | Production hardening | Partial | HTTPS release guard, offline backup checks and persistent authentication peer throttle implemented; production proxy/capacity, account-based abuse controls, provider-cost limits, operational logs and deployment recovery still need verification |
 | UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading adaptation pinned/licensed/tested; remaining relevant upstream capabilities still need separate evidence |
 | QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
@@ -66,6 +66,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 - Monthly infrastructure/provider budget and acceptable usage limits.
 
 ## Baseline evidence and known defects
+
+- Authentication registration/login/Google exchange now share a persistent,
+  bounded peer-admission throttle with generic 429/Retry-After, digest-only records,
+  concurrent SQLite enforcement and no direct trust in forwarding headers.
+  2026-09-03 backend suite: 277 passed, 1 existing Windows skip, including 11
+  new throttle tests. This is not full credential-stuffing/DDoS protection;
+  production proxy topology and shared-network capacity remain unverified.
+  See `docs/authentication-throttling.md`.
 
 - Existing source commits: `7153b3e` and `3d50b0e`. Earlier 13 backend tests,
   Android build/lint, and selected emulator paths passed; this is not full UAT.

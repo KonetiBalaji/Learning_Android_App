@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
 from .google_login import google_login
+from .auth_throttle import limit_authentication
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .document_errors import document_error_headers
@@ -95,7 +96,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Learning API", version="0.1.0", lifespan=lifespan)
-app.add_api_route('/v1/auth/google', google_login, methods=['POST'], response_model=Token)
+app.add_api_route('/v1/auth/google', google_login, methods=['POST'], response_model=Token, dependencies=[Depends(limit_authentication)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://10.0.2.2", "http://localhost", "http://127.0.0.1"],
@@ -174,7 +175,7 @@ def delete_account(user_id: str = Depends(current_user_id), settings: Settings =
     cleanup_pending_files(settings)
 
 
-@app.post("/v1/auth/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+@app.post("/v1/auth/register", response_model=Token, status_code=status.HTTP_201_CREATED, dependencies=[Depends(limit_authentication)])
 def register(credentials: Credentials, settings: Settings = Depends(get_settings)) -> Token:
     user_id = str(uuid.uuid4())
     try:
@@ -185,7 +186,7 @@ def register(credentials: Credentials, settings: Settings = Depends(get_settings
     return Token(access_token=create_token(user_id, settings))
 
 
-@app.post("/v1/auth/login", response_model=Token)
+@app.post("/v1/auth/login", response_model=Token, dependencies=[Depends(limit_authentication)])
 def login(credentials: Credentials, settings: Settings = Depends(get_settings)) -> Token:
     with connection(settings.database_path) as db:
         user = db.execute("SELECT * FROM users WHERE email = ?", (credentials.email.lower(),)).fetchone()

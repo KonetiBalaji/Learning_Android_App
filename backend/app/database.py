@@ -9,6 +9,10 @@ from typing import Iterator
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS auth_attempt_windows (
+  client_digest TEXT PRIMARY KEY, expires_at REAL NOT NULL, attempts INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS auth_attempt_expiry ON auth_attempt_windows(expires_at);
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
   created_at TEXT NOT NULL

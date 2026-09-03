@@ -22,6 +22,14 @@ class Settings:
     openai_model: str = "gpt-5-mini"
     ai_mode: str = "deterministic"
     google_client_id: str | None = None
+    auth_attempts_per_window: int = 30
+    auth_window_seconds: int = 60
+
+    def __post_init__(self):
+        if not 1 <= self.auth_attempts_per_window <= 1000:
+            raise ValueError("Authentication attempt limit must be between 1 and 1000")
+        if not 1 <= self.auth_window_seconds <= 3600:
+            raise ValueError("Authentication window must be between 1 and 3600 seconds")
 
     @property
     def database_path(self) -> Path:
@@ -47,4 +55,6 @@ def get_settings() -> Settings:
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini",
         ai_mode=ai_mode,
         google_client_id=os.getenv("LEARNING_GOOGLE_CLIENT_ID", "").strip() or None,
+        auth_attempts_per_window=int(os.getenv("LEARNING_AUTH_ATTEMPTS", "30")),
+        auth_window_seconds=int(os.getenv("LEARNING_AUTH_WINDOW_SECONDS", "60")),
     )
