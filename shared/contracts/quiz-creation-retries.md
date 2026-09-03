@@ -2,7 +2,8 @@
 
 `POST /v1/documents/{document_id}/quizzes` accepts optional `request_id`, a UUID.
 Omission/null preserves legacy behavior: every call may create a separate quiz.
-Malformed IDs return 422. Android has not yet been wired to send this field.
+Malformed IDs return 422. Android now sends this field; the matching backend
+must be deployed before relying on retry protection.
 
 A request ID is scoped to the authenticated account and tied to the document,
 ordered chapter IDs, count, difficulty and question type after request-model
@@ -31,5 +32,24 @@ generation, preserved answers, count/difficulty/type/chapter conflicts, malforme
 IDs, simultaneous generation/one commit, owner isolation, deletion, failed-attempt
 retry and legacy distinct creation. No live calls were needed.
 
-Remaining: Android durable request identity and recovery, device lost-response
-injection, in-progress generation coordination, and deployment verification.
+## Android integration
+
+Android stores a UUID and settings fingerprint in account-scoped preferences with
+a synchronous commit before posting. Chapter IDs are sorted both for the local
+fingerprint and the outgoing request. The same pending settings reuse the UUID;
+changed settings allocate a new one. Failed storage prevents posting. Corrupted
+pending identity fails closed rather than silently creating another quiz.
+
+After POST, Android GETs the quiz state, checks its document/count/format and
+loads results if already complete. Only then does one preferences commit replace
+the upload pointer with the quiz pointer and remove pending identity. Errors before
+that point retain identity for retry, including process restart. Explicitly
+starting another document or deleting the active document clears the pending key;
+account deletion clears all preferences. Corrupted-pending-data recovery UX still
+needs improvement; it must not silently discard uncertain server work.
+
+Build/lint/58 JVM tests passed for Android, including identity reconstruction,
+chapter-order stability, changed settings, write failure and corrupt identity.
+These tests do not simulate an actual post-commit network loss or process death.
+Remaining: device lost-response injection, account-switch verification, in-progress
+generation coordination, and deployment verification.

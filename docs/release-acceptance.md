@@ -83,6 +83,11 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: Android now durably saves a creation UUID before POST, reuses it
+  for unchanged pending settings, and GETs authoritative state before accepting
+  the quiz and clearing the pending identity. Build/lint/58 JVM tests passed.
+  Device lost-response/process-death and account-switch verification remain open;
+  see `quiz-creation-retries.md`. No live calls in this slice.
 - 2026-09-03: added optional owner-scoped quiz creation request IDs. Committed
   retries return the original quiz without generation; settings conflicts return
   409 and concurrent commits save one quiz. Backend 158 tests passed; 35 focused

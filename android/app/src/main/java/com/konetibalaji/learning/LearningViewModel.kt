@@ -146,6 +146,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private fun documentCountKey() = "document_question_count:${mutableState.value.accountEmail.lowercase()}"
     private fun documentDifficultyKey() = "document_difficulty:${mutableState.value.accountEmail.lowercase()}"
     private fun documentQuestionTypeKey() = "document_question_type:${mutableState.value.accountEmail.lowercase()}"
+    private fun pendingQuizCreationKey() = "pending_quiz_creation:${mutableState.value.accountEmail.lowercase()}"
     private fun activeFlowKey() = "active_flow:${mutableState.value.accountEmail.lowercase()}"
 
     fun resumeDocumentQuiz() {
@@ -348,7 +349,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val current = mutableState.value
         val clearsActive = current.document?.id == id || preferences.getString(documentKey(), null) == id
         if (clearsActive) {
-            preferences.edit().remove(documentKey()).remove(documentChapterKey()).remove(documentQuizKey()).apply()
+            preferences.edit().remove(documentKey()).remove(documentChapterKey()).remove(documentQuizKey()).remove(pendingQuizCreationKey()).apply()
         }
         mutableState.value = stateAfterDocumentDeletion(current, id).let {
             if (clearsActive) it.copy(canResumeDocumentQuiz = false) else it
@@ -394,20 +395,32 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         preferences.edit().putString(documentQuestionTypeKey(), value).apply()
         mutableState.value = mutableState.value.copy(documentQuestionType = value)
     }
-    fun createQuiz() = perform(Screen.Question) {
+    fun createQuiz() = perform(null) {
         val current = mutableState.value
         require(current.selectedChapterIds.isNotEmpty()) { "Select at least one chapter" }
         val count = requireNotNull(validDocumentQuestionCount(current.documentQuestionCountInput)) { "Choose 5 to 20 questions" }
-        val quiz = api.createQuiz(requireNotNull(current.document).id, current.selectedChapterIds.toList(), count, current.documentDifficulty, current.documentQuestionType)
+        val documentId = requireNotNull(current.document).id
+        val chapterIds = current.selectedChapterIds.sorted()
+        val fingerprint = quizCreationFingerprint(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType)
+        val pendingKey = pendingQuizCreationKey()
+        val requestId = prepareQuizCreation(preferences.getString(pendingKey, null), fingerprint,
+            persist = { preferences.edit().putString(pendingKey, it).commit() })
+        val quiz = api.createQuiz(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType, requestId)
+        val resumed = api.resumeDocumentQuiz(quiz.id)
+        check(resumed.document.id == documentId && resumed.total == count) { "Recovered quiz does not match the request" }
+        validateDocumentFormat(current.documentQuestionType, resumed.questionType)
+        val completed = resumed.question == null
+        val results = if (completed) api.results(quiz.id) else null
         check(preferences.edit().putString(documentQuizKey(), quiz.id).putString(activeFlowKey(), "document")
-            .remove(documentKey()).remove(documentChapterKey()).commit())
-        mutableState.value = current.copy(quizId = quiz.id, question = quiz.question, feedback = null, results = null,
-            documentQuestionTotal = quiz.total, savedQuizDifficulty = quiz.difficulty, savedQuizQuestionType = quiz.questionType, canResumeDocumentQuiz = true)
+            .remove(documentKey()).remove(documentChapterKey()).remove(pendingKey).commit())
+        mutableState.value = current.copy(quizId = quiz.id, question = resumed.question, feedback = resumed.feedback, results = results,
+            documentQuestionTotal = resumed.total, savedQuizDifficulty = resumed.difficulty, savedQuizQuestionType = resumed.questionType,
+            canResumeDocumentQuiz = true, screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
     }
     fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
-    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
+    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
     private var operationInFlight = false
@@ -500,8 +513,8 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         return (0 until response.length()).map { document(response.getJSONObject(it)) }
     }
     data class StartedDocumentQuiz(val id: String, val question: QuizQuestion, val total: Int, val difficulty: String?, val questionType: String?)
-    fun createQuiz(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, questionType: String): StartedDocumentQuiz {
-        val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray(chapterIds)).put("question_count", count).put("difficulty", difficulty).put("question_type", questionType).toString())
+    fun createQuiz(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, questionType: String, requestId: String): StartedDocumentQuiz {
+        val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray(chapterIds)).put("question_count", count).put("difficulty", difficulty).put("question_type", questionType).put("request_id", requestId).toString())
         val returnedType = if (response.isNull("question_type")) null else response.getString("question_type")
         validateDocumentFormat(questionType, returnedType)
         val first = question(response.getJSONObject("first_question"))
