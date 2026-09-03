@@ -1,0 +1,91 @@
+# LMS delivery requirements and release gates
+
+## Governing scope
+
+Source of truth: the user's original Learn Smart AI brief, including the
+diagnostic / tutor / practice / rewrite / mastery loop, Grades 1–12, four subjects,
+parent reporting, voice, dark mode, and relevant OpenMAIC adaptations without
+cloning the upstream repository. The earlier MVP completion claim is withdrawn.
+Suggested technologies are not evidence of implemented features.
+
+Status vocabulary: **partial**, **missing**, **implemented**, **QA verified**,
+**UAT accepted**, **production verified**. A build pass alone cannot advance a
+feature to UAT accepted or production verified. All release gates below remain open.
+
+## Acceptance ledger
+
+| ID | Requirement | Current status | Required acceptance evidence |
+| --- | --- | --- | --- |
+| AUTH-01 | Email registration and login | Partial | Invalid/expired/deleted sessions, account switching, encrypted device tokens, automated Android tests |
+| AUTH-02 | Google login | Missing | Verified Google ID tokens, audience checks, configured client, actual Android sign-in |
+| CUR-01 | Grade 1–12, subject and chapter selection | Partial | User-confirmed curriculum/board; authoritative chapter coverage and grade isolation |
+| ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
+| TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
+| TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
+| TUT-03 | Interest-personalized examples | Missing | Profile interests used safely in relevant examples and tested |
+| TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
+| TUT-05 | Interactive examples and visible AI teacher | Partial | Working interactive teaching visuals, accessible avatar, verified device interaction |
+| TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
+| MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
+| PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
+| PROG-02 | Weak concepts and personalized learning path | Partial | Recurring-error evidence, remediation updates, next-step selection tests |
+| PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Defined parent access model; grade-scoped reports, unique chapter counting, exact time windows |
+| PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
+| DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, source-grounding checks, deletion, interrupted-flow recovery |
+| UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
+| DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
+| SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
+| SEC-02 | Production hardening | Missing | HTTPS-only release, secrets, abuse/rate/cost limits, logs without sensitive content, backup/restore |
+| UP-01 | Traceable OpenMAIC adaptation | Missing | Pinned upstream commit/path/license, adaptation rationale, local changes and tests per feature |
+| QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
+| UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
+| PROD-01 | Production deployment | Missing | User-confirmed host/domain/distribution, staging verification, rollback, secrets and operational checks |
+
+## Delivery stages and exit gates
+
+1. **Development:** all requirements mapped; partial features repaired; OpenMAIC
+   provenance ledger populated; no placeholders presented as learner evidence.
+2. **QA:** repeatable automated checks and device tests, AI quality evaluation,
+   failure-path tests, no unresolved release-blocking defects. Record commands,
+   dates, exact commit/build, and limitations.
+3. **UAT:** deliver a candidate and acceptance script, collect the user's actual
+   feedback, fix defects, obtain explicit acceptance. Agent-run QA is not UAT signoff.
+4. **Production:** deploy only to the confirmed destination, verify HTTPS,
+   configuration, migrations, retention, backup/restore, monitoring, rollback,
+   provider limits and Android release distribution. Do not equate a debug APK
+   or local server with a production deployment.
+
+## Decisions needed (not blockers for local engineering)
+
+- Curriculum, country/education board and authoritative materials.
+- Production hosting/domain and private APK versus Google Play distribution.
+- Google OAuth project configuration and release signing ownership.
+- Parent/teacher access and consent model; retention policy for student material.
+- Monthly infrastructure/provider budget and acceptable usage limits.
+
+## Baseline evidence and known defects
+
+- Existing source commits: `7153b3e` and `3d50b0e`. Earlier 13 backend tests,
+  Android build/lint, and selected emulator paths passed; this is not full UAT.
+- Student dashboards contain static percentages. Active learning flow is not
+  restored on process death. Local unlocks and preferences are not owner-scoped.
+- Baseline defect: SQLite foreign keys were enabled during schema creation but
+  not each runtime connection, allowing dependent records to survive deletion.
+  Fixed with per-connection enforcement and explicit transaction rollback.
+- OpenMAIC code/commits have not yet been imported; similar independent features
+  must not be described as upstream integration.
+
+## Work log
+
+- 2026-09-02: replacement goal created and this ledger established. Production
+  and curriculum decisions requested; local development and QA can proceed.
+- User confirmed **private APK distribution** and **Grade 8 first**. Prioritize
+  Grade 8 acceptance; do not claim Grades 1–12 coverage. Education board and
+  backend hosting destination remain unspecified.
+- Database-integrity regression reproduced the foreign-key defect before the
+  fix (1 failing test). After the fix, `uv run pytest -q` passed **15 tests**.
+  Tests verify orphan rejection on successive connections, rollback, account
+  cascade through documents/quizzes/questions/mastery sessions/attempts, file
+  removal, invalidation of deleted-account tokens, and another user's survival.
+  This does not yet establish a production retention policy or migration cleanup
+  of any orphaned records created by an older running application.

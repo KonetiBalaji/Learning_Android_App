@@ -155,6 +155,25 @@ def test_weekly_report_and_account_deletion_cover_owned_data(monkeypatch, tmp_pa
         profile = client.get("/v1/account", headers=headers)
         assert profile.status_code == 200
         assert profile.json()["email"].endswith("@example.com")
+        owner_id = profile.json()["id"]
+        other_token = client.post(
+            "/v1/auth/register", json={"email": "preserved@example.com", "password": "long-enough-password"},
+        ).json()["access_token"]
+        other_headers = {"Authorization": f"Bearer {other_token}"}
+        document = client.post(
+            "/v1/documents", headers=headers,
+            files={"file": ("chapter.txt", b"Chapter 1: Fractions\nFractions describe parts of a whole. " * 40, "text/plain")},
+        )
+        assert document.status_code == 201, document.text
+        from app.config import get_settings
+        from app.database import connection
+        with connection(get_settings().database_path) as db:
+            stored_path = Path(db.execute("SELECT stored_path FROM documents WHERE id = ?", (document.json()["id"],)).fetchone()[0])
+            db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at) VALUES (?, ?, ?, ?, ?)",
+                       ("delete-quiz", document.json()["id"], owner_id, "Deletion regression", "2026-09-02"))
+            db.execute("INSERT INTO questions (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation, source_reference) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                       ("delete-question", "delete-quiz", 1, "Question", '["a", "b"]', "a", "Explanation", "Chapter 1"))
+        assert stored_path.exists()
         started = client.post(
             "/v1/mastery/diagnostics",
             json={"grade": 6, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
@@ -170,5 +189,11 @@ def test_weekly_report_and_account_deletion_cover_owned_data(monkeypatch, tmp_pa
         deleted = client.delete("/v1/account", headers=headers)
         assert deleted.status_code == 204
         assert client.get("/v1/account", headers=headers).status_code == 401
+        assert client.get("/v1/account", headers=other_headers).status_code == 200
+        assert not stored_path.exists()
+        with connection(get_settings().database_path) as db:
+            for table in ("documents", "quizzes", "questions", "mastery_sessions", "mastery_attempts"):
+                assert db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
+            assert db.execute("SELECT count(*) FROM users").fetchone()[0] == 1
     finally:
         client.__exit__(None, None, None)

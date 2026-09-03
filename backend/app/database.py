@@ -61,8 +61,13 @@ def connection(path: Path) -> Iterator[sqlite3.Connection]:
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
     try:
+        # This setting is connection-local, not persisted by schema initialization.
+        db.execute("PRAGMA foreign_keys = ON")
         yield db
         db.commit()
+    except BaseException:
+        db.rollback()
+        raise
     finally:
         db.close()
 
