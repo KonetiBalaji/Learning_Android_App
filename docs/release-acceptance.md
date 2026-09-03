@@ -22,6 +22,12 @@ before persistence. Regression and HTTP tests cover accepted/rejected transition
 broad grading-quality evaluation, on-device verification and UAT remain open.
 See `docs/practice-answer-matching.md` for scope and limitations.
 
+Format-policy repair: explicit review constraint categories plus a limited English
+server safeguard now preserve recognized requested formats while allowing numeric
+equivalence for unconstrained arithmetic. The controlled live division/denominator/
+lowest-terms regression passes; backend QA is 391 passed, one existing skip.
+Arbitrary generated-bank quality, multilingual constraints and device QA remain open.
+
 Diagnostic QA now reports content-free rejection codes/indices, and deliberately
 corrupted-key evaluations require disagreement at the corrupted item rather than
 counting unrelated review rejection as success. This strengthens evaluation

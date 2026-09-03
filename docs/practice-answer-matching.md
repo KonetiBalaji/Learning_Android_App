@@ -20,14 +20,32 @@ The requested-denominator exercise remains exact:
 exact; their prompts/answers are not migrated or silently reinterpreted.
 
 The generator cannot supply this policy. The blind reviewer independently solves
-the practice prompt and specifies exact or numeric matching without seeing its
-proposed answers. Every proposed answer must agree with the independent solution;
+the practice prompt and classifies its format constraint without seeing proposed
+answers. Categories are none, simplest terms, denominator, representation,
+units/percent, named choice, text and other. The server derives numeric matching
+only for none; all other categories require exact matching. Every proposed answer must agree with the independent solution;
 numeric solutions must also pass the bounded rational parser. Only then is the
 policy persisted. Numeric `23/20` can therefore accept `1 3/20`, while a prompt
 requiring lowest terms remains exact. This is model-based screening, not proof
 that the reviewer understood every constraint. Same-model correlated errors,
 false rejection of valid textual synonyms, teaching-text review and broader
 human-reviewed evaluation remain open. Old sessions are not re-reviewed.
+
+A server-side English wording safeguard forces exact matching for recognized
+constraints even if the reviewer incorrectly says none: simplify/lowest terms,
+an explicitly numbered denominator, rounding/decimal places/significant figures,
+or a requested mixed-number/decimal/fraction/percentage form. Ordinary fraction
+operands or arithmetic verbs do not trigger it. This is a limited safety net,
+not multilingual semantic understanding. Unrecognized constraints still depend
+on model classification; unusual wording and valid textual synonyms need broader
+evaluation. Both over-restrictive and over-permissive classifications are tested.
+
+`uv run python scripts/evaluate_practice_format.py --live` is an opt-in two-call
+regression using synthetic Grade 8 Fractions practice: unconstrained division
+must accept equivalent numeric answers, the denominator exercise must reject a
+simplified alternative, and lowest terms must reject an unsimplified key. Review
+outages and unrelated rejection cannot pass the negative case. Keys remain on
+the server and raw provider errors are not emitted.
 
 Verification: backend regression tests cover false positives, rational literals,
 requested formats, persistence/legacy compatibility, generated-policy rejection,

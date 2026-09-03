@@ -6,6 +6,20 @@ from typing import Literal
 AnswerMode = Literal["exact", "number"]
 
 
+def requires_exact_numeric_format(prompt: str) -> bool:
+    """High-confidence English constraints override a reviewer's 'none'.
+
+    This is a safety net, not a general semantic classifier or curriculum parser.
+    Unknown wording still depends on independent model review.
+    """
+    return bool(re.search(
+        r"\b(?:simplify|simplest\s+(?:form|terms)|lowest\s+terms|reduce\s+to|"
+        r"denominator\s+(?:of\s+)?[0-9]+|decimal\s+places?|significant\s+figures?|"
+        r"round(?:ed|ing)?\s+(?:to|off)|as\s+(?:an?\s+)?(?:mixed\s+number|decimal|fraction|percentage))\b",
+        prompt.casefold(),
+    ))
+
+
 def normalize_answer(value: str) -> str:
     # Preserve operators, punctuation and word boundaries. Never turn 3+4 into 34.
     value = " ".join(value.casefold().replace("−", "-").split())

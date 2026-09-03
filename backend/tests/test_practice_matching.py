@@ -5,8 +5,21 @@ import pytest
 
 from app.mastery_service import FRACTION_DIAGNOSTIC, parse_diagnostic_bank, serialize_diagnostic_bank
 from app.practice_matching import response_matches
+from app.practice_matching import requires_exact_numeric_format
 from app.fraction_practice import next_fraction_practice
 from test_mastery_loop import registered_client
+
+
+@pytest.mark.parametrize('prompt', ['Simplify 6/8.', 'Give lowest terms.',
+    'Use denominator 6.', 'Use denominator of 12.', 'Round to 2 decimal places.',
+    'Write as a mixed number.', 'Give 3 significant figures.'])
+def test_explicit_format_safety_net(prompt):
+    assert requires_exact_numeric_format(prompt)
+
+
+@pytest.mark.parametrize('prompt', ['Find (4/7) divided by (8/21).', 'Calculate 3/4 + 1/6.'])
+def test_plain_fraction_calculations_do_not_require_a_representation(prompt):
+    assert not requires_exact_numeric_format(prompt)
 
 
 @pytest.mark.parametrize('value,answer', [

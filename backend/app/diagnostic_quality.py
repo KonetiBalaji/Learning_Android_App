@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
-from .practice_matching import normalize_answer, rational_answer, response_matches
+from .practice_matching import normalize_answer, rational_answer, response_matches, requires_exact_numeric_format
 
 
 class ReviewFailure(str, Enum):
@@ -51,7 +51,9 @@ class DiagnosticReviewItem(BaseModel):
     grade_suitable: StrictBool
     practice_answer: str = Field(min_length=1, max_length=200)
     practice_valid: StrictBool
-    practice_answer_mode: Literal['exact', 'number']
+    practice_format_constraint: Literal[
+        'none', 'simplest_terms', 'denominator', 'representation',
+        'units_or_percent', 'named_choice', 'text', 'other']
 
 
 class DiagnosticReview(BaseModel):
@@ -73,11 +75,22 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
             'Also independently solve each practice_prompt, without seeing its answer key. '
             'Return a concise practice_answer that obeys every requested representation or format. '
             'Set practice_valid false if ambiguous, unsolvable, off-topic, grade-inappropriate or uncertain. '
-            'Use practice_answer_mode number ONLY for an unconstrained numeric result where any '
-            'equivalent integer, decimal, fraction or mixed number satisfies the prompt. '
-            'Use exact for lowest/simplest terms, requested denominators, specified decimal places, '
-            'rounding, percentages, units, named choices, text answers or any representation constraint. '
-            'For example "simplify 6/8" requires exact 3/4; "compute 3/4+2/5" permits number 23/20. '
+            'Classify practice_format_constraint separately for EACH practice prompt. '
+            'Use none for a numeric calculation with no requested answer representation. '
+            'Compute, calculate, find and arithmetic on fractions do NOT by themselves '
+            'require a fraction answer or forbid a mixed number/decimal. For example '
+            '"Find (4/7) divided by (8/21)" has constraint none and answer 3/2. '
+            'Use simplest_terms for simplify/reduce/lowest terms; denominator for a requested '
+            'denominator; representation for an explicitly requested decimal, fraction, mixed '
+            'number, rounding or decimal places; units_or_percent for required units or percent; '
+            'named_choice for identifying a given option; text for nonnumeric answers; other '
+            'for remaining explicit format constraints. Never infer a format constraint from '
+            'the chapter name, the form of operands, your preferred solution or another item. '
+            'An unconstrained numeric result must be a bare integer, decimal, fraction or mixed '
+            'number without prose. "Simplify 6/8" has simplest_terms and answer 3/4; '
+            '"Calculate 3/4+2/5" has none and answer 23/20. '
+            '"Name a fraction equivalent to 2/3 with denominator 6" has denominator, '
+            'not none; its required answer is 4/6, not 2/3. '
             'Fail uncertain judgments. Do not claim alignment with any national curriculum or education board.'),
         input=json.dumps({'grade': grade, 'subject': subject_id, 'chapter': chapter_id,
             'questions': [{'item_index': index, 'prompt': item.prompt, 'options': item.options,
@@ -104,7 +117,8 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
         ):
             if not valid:
                 issues.append(ReviewIssue(code, index))
-        mode = result.practice_answer_mode
+        mode = ('number' if result.practice_format_constraint == 'none'
+                and not requires_exact_numeric_format(item.practice_prompt) else 'exact')
         if mode == 'number' and rational_answer(normalize_answer(result.practice_answer)) is None:
             issues.append(ReviewIssue(ReviewFailure.PRACTICE_NUMBER, index))
         if not all(response_matches(answer, (result.practice_answer,), mode)[0] for answer in item.practice_answers):

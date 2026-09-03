@@ -1,5 +1,31 @@
 # Generated diagnostic answer review
 
+## Format-classification repair
+
+The reviewer no longer directly selects exact/number matching. It identifies a
+format-constraint category for each practice prompt, and the server derives the
+policy. A limited English constraint safeguard additionally enforces recognized
+explicit formats even when the reviewer says none. This repairs the observed
+division false rejection without making all fraction answers interchangeable.
+See `docs/practice-answer-matching.md` for current behavior and limitations; older
+exact/number review descriptions below document the historical implementation.
+
+The first live run of `scripts/evaluate_practice_format.py --live` exposed an
+over-permissive classification: the requested-denominator exercise was labelled
+none. Its answer checks were `[true, true, false]` instead of `[true, false, false]`.
+That failure motivated the server safeguard and a regression that deliberately
+supplies the same mistaken classification. The lowest-terms negative case passed.
+This failed run remains evidence; the check was not relaxed to accept it.
+
+After the repair, the same two-call live regression using `gpt-5-mini` returned
+`[number, exact, exact]` and answer checks `[true, false, false]`; its targeted
+unsimplified-key rejection also passed. Four review calls total were made across
+the before/after checks, 20-second timeouts, no retries. Full backend QA passed
+391 tests with one existing Windows symlink-privilege skip and the existing
+Starlette/httpx warning. These controlled live checks verify the observed cases,
+not arbitrary newly generated banks, all languages or curriculum-wide accuracy.
+No Android changes or device verification occurred in this slice.
+
 ## Safe rejection diagnostics
 
 Review rejections carry fixed reason codes and zero-based question indices.

@@ -13,7 +13,7 @@ def review():
     return {'items': [dict(item_index=i, answer_index=item.options.index(item.correct_option),
                           unambiguous=True, topic_matches=True, grade_suitable=True,
                           practice_answer=item.practice_answers[0], practice_valid=True,
-                          practice_answer_mode=item.answer_mode)
+                          practice_format_constraint='none' if item.answer_mode == 'number' else 'denominator')
                       for i, item in enumerate(FRACTION_DIAGNOSTIC)]}
 
 
@@ -60,7 +60,7 @@ def test_partial_review_and_outage_fail_closed():
 
 
 @pytest.mark.parametrize('field,value', [('practice_answer', '2/7'),
-    ('practice_valid', False), ('practice_valid', 'true'), ('practice_answer_mode', 'anything'),
+    ('practice_valid', False), ('practice_valid', 'true'), ('practice_format_constraint', 'anything'),
     ('practice_answer', ''), ('practice_answer', 'three quarters')])
 def test_practice_review_rejects_disagreement_invalid_policy_and_unparseable_number(field, value):
     result = review()
@@ -104,6 +104,35 @@ def test_requested_denominator_cannot_be_replaced_by_equivalent_simplified_key()
         review_diagnostic_answers(fake_client([review()], []), 'fixture', 8, 'math', 'fractions', items)
 
 
+@pytest.mark.parametrize('constraint', ['simplest_terms', 'denominator', 'representation',
+    'units_or_percent', 'named_choice', 'text', 'other'])
+def test_explicit_format_constraints_never_opt_into_numeric_equivalence(constraint):
+    result = review()
+    result['items'][0].update(practice_answer='3/4', practice_format_constraint=constraint)
+    items = (replace(FRACTION_DIAGNOSTIC[0], practice_answers=('6/8',)), *FRACTION_DIAGNOSTIC[1:])
+    with pytest.raises(DiagnosticReviewRejected):
+        review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', items)
+
+
+def test_observed_division_regression_accepts_both_proposed_representations():
+    result = review()
+    result['items'][0].update(practice_answer='3/2', practice_format_constraint='none')
+    items = (replace(FRACTION_DIAGNOSTIC[0], practice_prompt='Find (4/7) divided by (8/21).',
+                     practice_answers=('3/2', '1 1/2')), *FRACTION_DIAGNOSTIC[1:])
+    reviewed = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', items)
+    assert reviewed[0].answer_mode == 'number'
+
+
+def test_denominator_guard_overrides_observed_reviewer_omission():
+    result = review()
+    result['items'][1]['practice_format_constraint'] = 'none'
+    bank = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
+    assert bank[1].answer_mode == 'exact'
+    invalid = (FRACTION_DIAGNOSTIC[0], replace(FRACTION_DIAGNOSTIC[1], practice_answers=('2/3',)), FRACTION_DIAGNOSTIC[2])
+    with pytest.raises(DiagnosticReviewRejected):
+        review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', invalid)
+
+
 def test_numeric_review_accepts_mixed_answer_but_simplest_terms_remains_exact():
     from app.practice_matching import response_matches
     items = (replace(FRACTION_DIAGNOSTIC[0], practice_prompt='Compute 3/4 + 2/5.',
@@ -113,7 +142,7 @@ def test_numeric_review_accepts_mixed_answer_but_simplest_terms_remains_exact():
     bank = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', items)
     assert response_matches('1.15', bank[0].practice_answers, bank[0].answer_mode)[0]
     simplified = (replace(items[0], practice_prompt='Simplify 6/8 to lowest terms.', practice_answers=('3/4',)), *items[1:])
-    result['items'][0].update(practice_answer='3/4', practice_answer_mode='exact')
+    result['items'][0].update(practice_answer='3/4', practice_format_constraint='simplest_terms')
     bank = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', simplified)
     assert not response_matches('6/8', bank[0].practice_answers, bank[0].answer_mode)[0]
 
