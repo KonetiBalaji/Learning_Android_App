@@ -135,9 +135,26 @@ class RewriteOutcome(BaseModel):
     confidence: str
     coaching: str | None = None
     next_chapter_unlocked: bool
+    next_action: str
+    next_question: AdaptiveQuestion | None = None
+
+
+class MasterySessionState(BaseModel):
+    id: str
+    grade: int
+    subject_id: str
+    chapter_id: str
+    status: str
+    question: AdaptiveQuestion | None
+    tutor: TutorIntervention | None
+    selected_option: str | None
+    mastery_score: float
+    coaching_rounds: int
+    started_at: str
 
 
 class ChapterProgress(BaseModel):
+    grade: int
     subject_id: str
     chapter_id: str
     mastery: float

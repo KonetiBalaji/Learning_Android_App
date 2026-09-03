@@ -54,6 +54,8 @@ def initialize(path: Path) -> None:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(mastery_sessions)")}
         if "questions_json" not in columns:
             connection.execute("ALTER TABLE mastery_sessions ADD COLUMN questions_json TEXT NOT NULL DEFAULT ''")
+        if "tutor_json" not in columns:
+            connection.execute("ALTER TABLE mastery_sessions ADD COLUMN tutor_json TEXT")
 
 
 @contextmanager

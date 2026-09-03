@@ -67,8 +67,10 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 - Existing source commits: `7153b3e` and `3d50b0e`. Earlier 13 backend tests,
   Android build/lint, and selected emulator paths passed; this is not full UAT.
-- Student dashboards contain static percentages. Active learning flow is not
-  restored on process death. Local unlocks and preferences are not owner-scoped.
+- Baseline student dashboards contained static percentages; current code uses
+  grade-filtered backend chapter/subject results. Adaptive session recovery is
+  now wired to the server; document-flow recovery is still missing. Shared local
+  unlock values are no longer trusted; profile and token-storage work remains.
 - Baseline defect: SQLite foreign keys were enabled during schema creation but
   not each runtime connection, allowing dependent records to survive deletion.
   Fixed with per-connection enforcement and explicit transaction rollback.
@@ -89,3 +91,20 @@ feature to UAT accepted or production verified. All release gates below remain o
   removal, invalidation of deleted-account tokens, and another user's survival.
   This does not yet establish a production retention policy or migration cleanup
   of any orphaned records created by an older running application.
+- 2026-09-03: corrected premature chapter mastery after one rewrite; successful
+  remediation now continues the remaining assessment. Added owner-scoped resume
+  endpoint and persisted tutor payload, grade-isolated reports, backend-derived
+  student percentages and unlock evidence, Android resume and explicit phase
+  navigation. Backend **18 tests passed**; Android **4 unit tests passed**,
+  `assembleDebug` and `lintDebug` passed. Added repeatable emulator QA script
+  `scripts/qa-mastery-resume.ps1` restricted to the dedicated test AVD and a
+  deterministic backend. Device runtime evidence is recorded separately below.
+- Device QA: `scripts/qa-mastery-resume.ps1 -ResetTestAppData` completed with
+  exit 0 on `LearnSmart_API36`, using an isolated deterministic backend and
+  synthetic account. Verified tutor recovery after forced process stop, persisted
+  selected wrong answer, remediation advancing to question 2, another process
+  restart recovering question 2, remaining questions before mastery, and the
+  backend-derived 100% chapter display. Inspected `artifacts/qa-mastery-progress.png`.
+  This is deterministic workflow QA, not provider-quality evaluation, full Grade 8
+  curriculum verification, or user UAT acceptance. Existing legacy prematurely
+  mastered sessions still need a data-repair strategy before production migration.

@@ -96,7 +96,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                     when (state.screen) {
                         Screen.SignIn -> SignInScreen(state.loading, viewModel::authenticate)
                         Screen.Grade -> GradeScreen(viewModel::selectGrade)
-                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings)
+                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning)
                         Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects)
                         Screen.Diagnostic -> DiagnosticScreen(state, viewModel::selectDiagnosticAnswer, viewModel::submitDiagnostic)
                         Screen.Tutor -> TutorScreen(state, viewModel::startPractice)
@@ -172,16 +172,18 @@ private fun GradeScreen(onSelect: (Int) -> Unit) = Page {
 }
 
 @Composable
-private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit) = Page {
+private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit) = Page {
     Header("Grade ${state.grade ?: 6}", "What would you like to learn?", "Pick a subject to continue your personalised path.")
+    if (state.canResumeMastery) PrimaryButton("Resume saved learning", !state.loading, onResume)
     LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxWidth().height(390.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         items(learningSubjects) { subject ->
+            val progress = state.progressSnapshot?.subjects?.get(subject.id)
             Card(modifier = Modifier.fillMaxWidth().height(178.dp).clickable { onSelect(subject) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(22.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(subject.icon, style = MaterialTheme.typography.headlineLarge, color = Indigo)
                     Text(subject.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    LinearProgressIndicator(progress = { subject.progress / 100f }, modifier = Modifier.fillMaxWidth(), color = Success, trackColor = Color(0xFFE2E8F0))
-                    Text("${subject.progress}% mastered", color = Muted, style = MaterialTheme.typography.labelMedium)
+                    LinearProgressIndicator(progress = { (progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = Success, trackColor = Color(0xFFE2E8F0))
+                    Text(if (progress == null) "No assessment yet" else "$progress% assessed progress", color = Muted, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -197,7 +199,7 @@ private fun ChapterScreen(state: AppUiState, onSelect: (MasteryChapter) -> Unit,
     Header(state.subject?.title ?: "Mathematics", "Choose a chapter", "Master a concept to unlock what comes next.")
     (chaptersBySubject[state.subject?.id] ?: emptyList()).forEach { chapter ->
         val effectivelyLocked = chapter.locked && "${state.subject?.id}:${chapter.id}" !in state.unlockedChapterIds
-        val progress = if (chapter.id == "fractions" && state.masteryChapter?.id == "fractions" && state.screen == Screen.MasteryChapters) 92 else chapter.progress
+        val progress = state.progressSnapshot?.chapterScores?.get("${state.subject?.id}:${chapter.id}") ?: 0
         Card(modifier = Modifier.fillMaxWidth().clickable(enabled = !effectivelyLocked) { onSelect(chapter) }, colors = CardDefaults.cardColors(containerColor = if (effectivelyLocked) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp)) {
             Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(if (effectivelyLocked) "🔒" else if (progress >= 80) "✓" else "•", color = if (effectivelyLocked) Muted else Success, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
@@ -20,6 +20,7 @@ from .mastery_service import (
     public_question,
     parse_diagnostic_bank,
     serialize_diagnostic_bank,
+    tutor_for,
 )
 from .tutor_provider import tutor_provider
 from .schemas import (
@@ -46,6 +47,8 @@ from .schemas import (
     RewriteRequest,
     UserProfile,
     WeeklyReport,
+    MasterySessionState,
+    TutorIntervention,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 
@@ -266,16 +269,18 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
     new_correct = session["correct_answers"] + int(correct)
     next_index = index + 1 if correct else index
     next_status = "mastered" if correct and next_index == len(bank) else ("diagnostic" if correct else "tutor")
+    # Generate before advancing state: provider failures must leave the question retryable.
+    lesson = None if correct else tutor_provider(settings).explain(session["grade"], item, request.selected_option)
     with connection(settings.database_path) as db:
         db.execute(
             "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (str(uuid.uuid4()), session_id, "diagnostic", item.prompt, request.selected_option, int(correct), item.concept, now()),
         )
         db.execute(
-            "UPDATE mastery_sessions SET current_question = ?, correct_answers = ?, status = ?, completed_at = ? WHERE id = ?",
-            (next_index, new_correct, next_status, now() if next_status == "mastered" else None, session_id),
+            "UPDATE mastery_sessions SET current_question = ?, correct_answers = ?, status = ?, completed_at = ?, tutor_json = ? WHERE id = ?",
+            (next_index, new_correct, next_status, now() if next_status == "mastered" else None, lesson.model_dump_json() if lesson else None, session_id),
         )
-    score = new_correct / len(bank)
+    score = next_index / len(bank)
     next_question = public_question(bank[next_index], next_index, len(bank)) if correct and next_index < len(bank) else None
     return DiagnosticOutcome(
         correct=correct,
@@ -284,7 +289,7 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
         mastery_score=score,
         next_action="mastery" if next_status == "mastered" else ("next_question" if correct else "tutor"),
         next_question=next_question,
-        tutor=None if correct else tutor_provider(settings).explain(session["grade"], item, request.selected_option),
+        tutor=lesson,
     )
 
 
@@ -319,52 +324,79 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
     item = bank[session["current_question"]]
     assessment = tutor_provider(settings).assess_rewrite(session["grade"], item, request.response)
     understood, coaching = assessment.understood, assessment.coaching
-    diagnostic_score = session["correct_answers"] / len(bank)
-    mastery_score = max(0.85, diagnostic_score) if understood else diagnostic_score
-    next_status = "mastered" if understood else "tutor"
+    next_index = session["current_question"] + int(understood)
+    mastery_score = next_index / len(bank)
+    mastered = understood and next_index == len(bank)
+    next_status = "mastered" if mastered else ("diagnostic" if understood else "tutor")
+    lesson = TutorIntervention.model_validate_json(session["tutor_json"]) if session["tutor_json"] else tutor_for(item)
+    if coaching:
+        lesson = lesson.model_copy(update={"explanation": coaching})
     with connection(settings.database_path) as db:
         db.execute(
             "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (str(uuid.uuid4()), session_id, "rewrite", f"Explain {item.concept} in your own words", request.response, int(understood), item.concept, now()),
         )
         db.execute(
-            "UPDATE mastery_sessions SET status = ?, coaching_rounds = coaching_rounds + ?, completed_at = ? WHERE id = ?",
-            (next_status, 0 if understood else 1, now() if understood else None, session_id),
+            "UPDATE mastery_sessions SET status = ?, current_question = ?, coaching_rounds = coaching_rounds + ?, completed_at = ?, tutor_json = ? WHERE id = ?",
+            (next_status, next_index, 0 if understood else 1, now() if mastered else None, None if understood else lesson.model_dump_json(), session_id),
         )
     return RewriteOutcome(
         understood=understood,
-        mastery_achieved=understood,
+        mastery_achieved=mastered,
         mastery_score=mastery_score,
         confidence=confidence_for(mastery_score),
         coaching=coaching,
-        next_chapter_unlocked=understood,
+        next_chapter_unlocked=mastered,
+        next_action="mastery" if mastered else ("next_question" if understood else "tutor"),
+        next_question=public_question(bank[next_index], next_index, len(bank)) if understood and not mastered else None,
+    )
+
+
+@app.get("/v1/mastery/sessions/{session_id}", response_model=MasterySessionState)
+def mastery_session_state(session_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> MasterySessionState:
+    session = owned_mastery_session(session_id, user_id, settings)
+    bank = session_diagnostic_bank(session)
+    index = session["current_question"]
+    item = bank[index] if index < len(bank) else None
+    with connection(settings.database_path) as db:
+        answer = db.execute(
+            "SELECT response FROM mastery_attempts WHERE session_id = ? AND phase = 'diagnostic' ORDER BY created_at DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+    lesson = None
+    if item and session["status"] in {"tutor", "practice", "rewrite"}:
+        lesson = TutorIntervention.model_validate_json(session["tutor_json"]) if session["tutor_json"] else tutor_for(item)
+    return MasterySessionState(
+        id=session_id, grade=session["grade"], subject_id=session["subject_id"], chapter_id=session["chapter_id"],
+        status=session["status"], question=public_question(item, index, len(bank)) if item else None,
+        tutor=lesson, selected_option=answer["response"] if answer and lesson else None,
+        mastery_score=index / len(bank), coaching_rounds=session["coaching_rounds"], started_at=session["started_at"],
     )
 
 
 @app.get("/v1/progress/dashboard", response_model=ProgressDashboard)
-def progress_dashboard(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> ProgressDashboard:
+def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> ProgressDashboard:
     with connection(settings.database_path) as db:
         sessions = db.execute(
-            "SELECT * FROM mastery_sessions WHERE owner_id = ? ORDER BY started_at DESC", (user_id,)
+            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?) ORDER BY started_at DESC", (user_id, grade, grade)
         ).fetchall()
         attempts = db.execute(
             """SELECT mastery_attempts.* FROM mastery_attempts
                JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
-               WHERE mastery_sessions.owner_id = ?""", (user_id,)
+               WHERE mastery_sessions.owner_id = ? AND (? IS NULL OR mastery_sessions.grade = ?)""", (user_id, grade, grade)
         ).fetchall()
     chapters: list[ChapterProgress] = []
     subjects: dict[str, list[float]] = {}
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[int, str, str]] = set()
     for session in sessions:
-        key = (session["subject_id"], session["chapter_id"])
+        key = (session["grade"], session["subject_id"], session["chapter_id"])
         if key in seen:
             continue
         seen.add(key)
         bank_size = len(session_diagnostic_bank(session))
-        diagnostic_score = session["correct_answers"] / bank_size
-        score = max(0.85, diagnostic_score) if session["status"] == "mastered" else diagnostic_score
+        score = session["current_question"] / bank_size
         subjects.setdefault(session["subject_id"], []).append(score)
-        chapters.append(ChapterProgress(subject_id=key[0], chapter_id=key[1], mastery=score, attempts=sum(1 for row in attempts if row["session_id"] == session["id"]), status=session["status"]))
+        chapters.append(ChapterProgress(grade=key[0], subject_id=key[1], chapter_id=key[2], mastery=score, attempts=sum(1 for row in attempts if row["session_id"] == session["id"]), status=session["status"]))
     incorrect = [row["concept"] for row in attempts if not row["correct"]]
     weak_areas = list(dict.fromkeys(incorrect))[:5]
     subject_scores = {name: sum(values) / len(values) for name, values in subjects.items()}
@@ -373,18 +405,19 @@ def progress_dashboard(user_id: str = Depends(current_user_id), settings: Settin
 
 
 @app.get("/v1/progress/weekly-report", response_model=WeeklyReport)
-def weekly_report(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> WeeklyReport:
+def weekly_report(grade: int | None = Query(default=None, ge=1, le=12), user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> WeeklyReport:
     with connection(settings.database_path) as db:
         attempts = db.execute(
             """SELECT mastery_attempts.* FROM mastery_attempts
                JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
                WHERE mastery_sessions.owner_id = ?
+                 AND (? IS NULL OR mastery_sessions.grade = ?)
                  AND mastery_attempts.created_at >= datetime('now', '-7 days')""",
-            (user_id,),
+            (user_id, grade, grade),
         ).fetchall()
         sessions = db.execute(
-            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND started_at >= datetime('now', '-7 days')",
-            (user_id,),
+            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?) AND started_at >= datetime('now', '-7 days')",
+            (user_id, grade, grade),
         ).fetchall()
     correct = sum(int(row["correct"]) for row in attempts)
     concept_totals: dict[str, list[int]] = {}

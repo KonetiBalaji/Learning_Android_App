@@ -1,0 +1,93 @@
+param(
+    [string]$Serial = 'emulator-5554',
+    [switch]$ResetTestAppData
+)
+$ErrorActionPreference = 'Stop'
+$repo = Split-Path $PSScriptRoot -Parent
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+$package = 'com.konetibalaji.learning'
+function Adb {
+    & $adb -s $Serial @args
+    if ($LASTEXITCODE -ne 0) { throw "ADB failed: $($args[0])" }
+}
+function Ui {
+    Adb shell uiautomator dump /sdcard/qa-mastery.xml | Out-Null
+    [xml]((Adb shell cat /sdcard/qa-mastery.xml) -join "`n")
+}
+function Center($node) {
+    $coordinates = [regex]::Matches($node.bounds, '\d+') | ForEach-Object { [int]$_.Value }
+    @([int](($coordinates[0] + $coordinates[2])/2), [int](($coordinates[1] + $coordinates[3])/2))
+}
+function TextNode([string]$text) {
+    for ($attempt=0; $attempt -lt 5; $attempt++) {
+        $node = (Ui).SelectNodes('//node') | Where-Object { $_.text -eq $text } | Select-Object -First 1
+        if ($node) { return $node }
+        Adb shell input swipe 540 1850 540 750 400 | Out-Null
+        Start-Sleep -Milliseconds 500
+    }
+    throw "UI text not found: $text"
+}
+function TapText([string]$text) {
+    $point = Center (TextNode $text)
+    Adb shell input tap $point[0] $point[1] | Out-Null
+    Start-Sleep -Milliseconds 900
+}
+function EnterField([int]$index, [string]$value) {
+    $fields = @((Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' })
+    if ($fields.Count -le $index) { throw "Input field $index unavailable" }
+    $point = Center $fields[$index]
+    Adb shell input tap $point[0] $point[1] | Out-Null
+    Adb shell input keycombination 113 29 | Out-Null
+    Adb shell input text ($value.Replace(' ', '%s')) | Out-Null
+    Adb shell input keyevent 4 | Out-Null
+}
+function RestartApp {
+    Adb shell am force-stop $package | Out-Null
+    Adb shell am start -n "$package/.MainActivity" | Out-Null
+    Start-Sleep -Seconds 3
+}
+
+if (-not $ResetTestAppData) { throw 'This isolated QA script requires -ResetTestAppData; it clears only the test emulator app.' }
+$avd = (Adb emu avd name) -join "`n"
+if ($avd -notmatch '^LearnSmart_API36') { throw 'Refusing to clear data outside the dedicated LearnSmart_API36 AVD.' }
+$health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
+if ($health.ai_provider -ne 'deterministic') { throw 'Run an isolated deterministic test backend on port 8000 first.' }
+Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
+Adb shell pm clear $package | Out-Null
+RestartApp
+TapText 'New student? Create a private account'
+EnterField 0 ("resume-" + [Guid]::NewGuid().ToString('N') + '@example.com')
+EnterField 1 'qa-password-long-enough'
+TapText 'Create account'
+TapText "Grade`n8"
+TextNode 'No assessment yet' | Out-Null
+TapText 'Mathematics'
+TapText 'Fractions'
+TextNode 'Question 1 of 3' | Out-Null
+TapText '1/2'
+TapText 'Submit answer'
+TextNode 'Your answer: 1/2' | Out-Null
+RestartApp
+TextNode 'Your answer: 1/2' | Out-Null
+Write-Output 'PASS: forced process restart restores the tutor and selected answer'
+TapText 'I understand — practise now'
+EnterField 0 '6/8'
+TapText 'Check answer'
+TapText 'Explain it in your own words'
+EnterField 0 'We add the numerator parts with the same denominator to make one whole'
+TapText 'Submit my explanation'
+TextNode 'Question 2 of 3' | Out-Null
+RestartApp
+TextNode 'Question 2 of 3' | Out-Null
+Write-Output 'PASS: remediation advances to question 2 and survives restart, without early mastery'
+TapText '3/6'
+TapText 'Submit answer'
+TextNode 'Question 3 of 3' | Out-Null
+TapText '4/8'
+TapText 'Submit answer'
+TextNode 'Concept mastered' | Out-Null
+TapText 'Continue learning'
+TextNode '100%' | Out-Null
+Adb shell screencap -p /sdcard/qa-mastery-progress.png | Out-Null
+Adb pull /sdcard/qa-mastery-progress.png (Join-Path $repo 'artifacts\qa-mastery-progress.png') | Out-Null
+Write-Output 'PASS: all questions are completed before mastery; chapter progress is 100% from backend evidence'

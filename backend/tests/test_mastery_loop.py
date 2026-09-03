@@ -46,15 +46,25 @@ def test_wrong_answer_routes_through_tutor_practice_rewrite_and_mastery(monkeypa
             headers=headers,
         )
         assert rewrite.status_code == 200, rewrite.text
-        assert rewrite.json()["mastery_achieved"] is True
-        assert rewrite.json()["next_chapter_unlocked"] is True
-        assert rewrite.json()["mastery_score"] >= 0.85
+        assert rewrite.json()["understood"] is True
+        assert rewrite.json()["mastery_achieved"] is False
+        assert rewrite.json()["next_chapter_unlocked"] is False
+        assert rewrite.json()["next_action"] == "next_question"
+        assert rewrite.json()["next_question"]["ordinal"] == 2
+        assert rewrite.json()["mastery_score"] == 1 / 3
+        for answer in ("3/6", "4/8"):
+            outcome = client.post(
+                f"/v1/mastery/sessions/{session['id']}/diagnostic-answer",
+                json={"selected_option": answer}, headers=headers,
+            )
+            assert outcome.status_code == 200, outcome.text
+        assert outcome.json()["next_action"] == "mastery"
 
         dashboard = client.get("/v1/progress/dashboard", headers=headers)
         assert dashboard.status_code == 200, dashboard.text
         assert "Adding like fractions" in dashboard.json()["weak_areas"]
         assert dashboard.json()["chapters"][0]["status"] == "mastered"
-        assert dashboard.json()["chapters"][0]["mastery"] >= 0.85
+        assert dashboard.json()["chapters"][0]["mastery"] == 1
     finally:
         client.__exit__(None, None, None)
 
