@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: reran the revised demand plan on five Hard and five Mixed items
+  with four metered requests using the approved existing key. Both batches passed
+  automated checks, but manual review still rejects difficulty quality and found
+  a tank-drainage assumption missed by the blind reviewer. No production code
+  changed; this is not a holdout, UAT or production acceptance. See
+  `difficulty-evaluation.md` for item-level findings and local evidence.
 - 2026-09-03: live synthetic difficulty evaluation exposed non-verbatim quote
   failures, then insufficient Hard/Mixed reasoning demand after quote guidance
   improved acceptance. Correct answers did not count as difficulty success.

@@ -32,19 +32,44 @@ facts used in its explanation, although the full supplied source supported the
 answer. Exact substring validation does not prove citation completeness for every
 reasoning step. This remains a separate grounding-quality gap.
 
-## Follow-up implemented, not yet live-verified
+## Follow-up and fourth live round
 
 Hard now explicitly requires at least two dependent reasoning steps. A per-item
 plan supplies all-Hard demands for Hard or a balanced Easy/Medium/Hard sequence
 for Mixed. Prompt instructions reject disguising single arithmetic operations as
 Hard. These are guidance changes, not semantic enforcement or calibrated ratings.
-The final demand-plan revision has NOT received a live rerun. Reusing this same
-source also would not constitute an independent holdout.
+The final demand-plan revision received a Hard/Mixed rerun on the same source:
+two five-question batches, four metered requests including blind answer reviews.
+Both batches passed existing checks, but semantic difficulty acceptance still
+FAILED. This reused source is not an independent holdout.
+
+- Hard: combining 60 + 90 litres, dividing by daily demand and finding a remainder
+  adds linked operations, but the question does not explain how the tanks' stated
+  continuous drainage is reconciled with supplying a garden over twelve days.
+  Its intended arithmetic (12 days, 6 litres) is correct only with an unstated
+  water-collection/use assumption. The blind reviewer missed this ambiguity.
+- Hard: two gardens need 24 litres, requiring two full 15-litre buckets; this
+  has a dependent demand-then-capacity calculation. Combining A/B into containers
+  similarly yields 23 full containers and 2 litres by linked operations.
+- Hard: comparing A/D emptying times repeats the same single division on each
+  tank; it does not convincingly establish the required dependent-step demand.
+  Dividing 100 litres into containers with a remainder is likewise too close to
+  one division operation to establish distinct Hard quality.
+- Mixed follows the requested Easy/Medium/Hard/Easy/Medium order nominally, but
+  the third item asks how many gardens a full 15-litre bucket supplies. Its answer
+  of one garden is a simple capacity comparison, not the required multi-step
+  reasoning. The other four items fit direct recall or one-step application.
+- All ten references contain the numeric facts used in the intended answers on
+  manual inspection. This narrow observation does not resolve the earlier
+  citation-completeness failure or prove semantic enforcement.
 
 121 backend tests passed, including prompt fields, balanced plans for counts
 5–20, persistence and legacy behavior. Script help was checked without API calls.
-Remaining: fresh live evaluation of the revised plan, diverse/held-out material,
-independent educator review, citation completeness and measured difficulty.
+No production code changed for this fourth round. The 121-test result above is
+from the preceding implementation turn, not a rerun for this documentation update.
+Remaining: enforce/review actual demand and source assumptions rather than trust
+requested labels, diverse/held-out material, independent educator review,
+citation completeness and measured difficulty.
 No UAT or production acceptance is claimed.
 
 Local evidence files:
@@ -52,3 +77,4 @@ Local evidence files:
 - `artifacts/difficulty-eval-20260903T082001884549Z.json`
 - `artifacts/difficulty-eval-20260903T082110244688Z.json`
 - `artifacts/difficulty-eval-20260903T082239652891Z.json`
+- `artifacts/difficulty-eval-20260903T082901412293Z.json`
