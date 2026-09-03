@@ -186,3 +186,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   remaining tutor/practice/rewrite flow through all questions before mastery.
   Fraction-model screenshot inspected. Broader accessibility and other concepts
   remain unverified; the initial missed test tap was corrected, not waived.
+- Adaptive concurrency regressions reproduced duplicate commits for diagnostic,
+  practice and rewrite snapshots. Added transactional snapshot checks; competing
+  stale writes now return 409 without another attempt. Backend 69 tests passed;
+  Android build/lint/27 tests passed with conflict-triggered session refresh.
+  Delayed retries/idempotency and device conflict injection remain open. See
+  `mastery-concurrency.md`; ASM-01 is still partial.

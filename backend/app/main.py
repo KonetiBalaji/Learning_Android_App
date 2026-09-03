@@ -54,6 +54,7 @@ from .schemas import (
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
+from .mastery_transactions import lock_mastery_snapshot
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -303,6 +304,7 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
     # Generate before advancing state: provider failures must leave the question retryable.
     lesson = None if correct else tutor_provider(settings).explain(session["grade"], item, request.selected_option)
     with connection(settings.database_path) as db:
+        lock_mastery_snapshot(db, session)
         db.execute(
             "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (str(uuid.uuid4()), session_id, "diagnostic", item.prompt, request.selected_option, int(correct), item.concept, now()),
@@ -333,6 +335,7 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
     item = bank[session["current_question"]]
     correct, normalized = response_matches(request.response, item.practice_answers)
     with connection(settings.database_path) as db:
+        lock_mastery_snapshot(db, session)
         db.execute(
             "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (str(uuid.uuid4()), session_id, "practice", item.practice_prompt, request.response, int(correct), item.concept, now()),
@@ -365,6 +368,7 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
     if coaching:
         lesson = lesson.model_copy(update={"explanation": coaching})
     with connection(settings.database_path) as db:
+        lock_mastery_snapshot(db, session)
         db.execute(
             "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at, assessment_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (str(uuid.uuid4()), session_id, "rewrite", f"Explain {item.concept} in your own words", request.response, int(understood), item.concept, now(), assessment.model_dump_json()),

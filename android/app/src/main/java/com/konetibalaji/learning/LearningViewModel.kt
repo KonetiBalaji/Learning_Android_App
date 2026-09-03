@@ -285,6 +285,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private fun perform(destination: Screen?, block: suspend () -> Unit) = viewModelScope.launch {
         if (operationInFlight) return@launch
         operationInFlight = true
+        var resumeAfterConflict = false
         mutableState.value = mutableState.value.copy(loading = true, error = null)
         try {
             withContext(Dispatchers.IO) { block() }
@@ -298,6 +299,10 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 // Keep account-scoped resume pointers. Reauthentication can restore server progress.
                 mutableState.value = AppUiState(darkMode = mutableState.value.darkMode,
                     error = if (cleared) failure.message else "Your session is invalid. Saved credentials could not be cleared. Please sign in again.")
+            } else if (failure is ApiFailure && failure.status == 409 && mutableState.value.masterySessionId != null &&
+                mutableState.value.screen in setOf(Screen.Diagnostic, Screen.Tutor, Screen.Practice, Screen.Rewrite)) {
+                resumeAfterConflict = true
+                mutableState.value = mutableState.value.copy(loading = false)
             } else {
                 val message = when (failure) {
                     is ApiFailure -> failure.message
@@ -310,6 +315,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         } finally {
             operationInFlight = false
         }
+        if (resumeAfterConflict) resumeLearning()
     }
 }
 
