@@ -76,7 +76,7 @@ RestartApp
 TextNode 'Choose a chapter' | Out-Null
 $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
 $headers = @{Authorization="Bearer $($login.access_token)"}
-$documents = @(Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers)
+$documents = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers
 if ($documents.Count -ne 1) { throw 'Expected exactly one uploaded document' }
 $document = $documents[0]
 $selectedChapter = $document.chapters | Where-Object title -eq 'Chapter 2 Plants'
@@ -132,7 +132,7 @@ TapText 'Open qa-biology.txt'
 TextNode 'Choose a chapter' | Out-Null
 RestartApp
 TextNode 'Choose a chapter' | Out-Null
-$documents = @(Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers)
+$documents = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers
 if ($documents.Count -ne 1) { throw 'Opening the library unexpectedly duplicated the document' }
 if ((Invoke-RestMethod $quizPath -Headers $headers).answered -ne 10) { throw 'Reopening material changed the previous quiz' }
 Write-Output 'PASS: empty library is clear; saved material reopens without upload, survives restart and preserves the old quiz'

@@ -232,3 +232,10 @@ feature to UAT accepted or production verified. All release gates below remain o
   and preservation of the previous quiz; screenshot inspected. Offline/library
   scale, prior-quiz browsing and individual deletion UI remain open. See
   `document-library.md`.
+- Added named, confirmed document deletion in the Android library and back
+  navigation from chapter selection. Backend 76 tests and Android build/lint/35
+  JVM tests passed. API 36 QA verified Cancel, actual deletion, empty library and
+  restart cleanup; screenshot inspected. Regression checks cover file removal,
+  quiz/question cascade and unrelated-material preservation. Filesystem cleanup
+  failure/retry and production backup retention remain open; see the deletion
+  section in `document-library.md`.

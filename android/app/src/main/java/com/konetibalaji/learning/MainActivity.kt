@@ -121,8 +121,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Mastery -> MasteryScreen(state, viewModel::continueFromMastery)
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
-                        Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
-                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz)
+                        Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
+                        Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
                         Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects)
@@ -435,7 +435,9 @@ private fun StudyMaterialScreen(loading: Boolean, onUpload: (android.content.Con
 }
 
 @Composable
-private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, onRefresh: () -> Unit, onBack: () -> Unit) = Page {
+private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, onDelete: (String) -> Unit, onRefresh: () -> Unit, onBack: () -> Unit) {
+    var pendingDeletion by remember { mutableStateOf<StudyDocument?>(null) }
+    Page {
     TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
     Header("Your library", "Uploaded documents", "Open saved material to select a chapter and start a new quiz. Your existing quizzes are not deleted.")
     OutlinedButton(onClick = onRefresh, enabled = !state.loading) { Text("Refresh documents") }
@@ -448,16 +450,25 @@ private fun DocumentLibraryScreen(state: AppUiState, onOpen: (String) -> Unit, o
                     Text(document.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("${document.chapters.size} detected sections", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedButton(onClick = { onOpen(document.id) }, enabled = !state.loading) { Text("Open ${document.name}") }
+                    TextButton(onClick = { pendingDeletion = document }, enabled = !state.loading) { Text("Delete ${document.name}", color = MaterialTheme.colorScheme.error) }
                 }
             }
         }
     }
+    }
+    pendingDeletion?.let { document ->
+        AlertDialog(onDismissRequest = { pendingDeletion = null },
+            title = { Text("Delete this document?") },
+            text = { Text("Permanently delete ${document.name} and all quizzes and answers created from it? This cannot be undone.") },
+            dismissButton = { TextButton(onClick = { pendingDeletion = null }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = { pendingDeletion = null; onDelete(document.id) }) { Text("Delete document permanently", color = MaterialTheme.colorScheme.error) } })
+    }
 }
 
 @Composable
-private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit) {
+private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit, onCreate: () -> Unit, onBack: () -> Unit) {
     val document = state.document ?: return
-    Page { Header("Study material", "Choose a chapter", "Select one section from ${document.name} for a ten-question session."); document.chapters.forEach { chapter -> AnswerChoice(chapter.title, state.selectedChapterId == chapter.id) { onSelect(chapter.id) } }; PrimaryButton("Generate 10 questions", state.selectedChapterId != null && !state.loading, onCreate) }
+    Page { TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }; Header("Study material", "Choose a chapter", "Select one section from ${document.name} for a ten-question session."); document.chapters.forEach { chapter -> AnswerChoice(chapter.title, state.selectedChapterId == chapter.id) { onSelect(chapter.id) } }; PrimaryButton("Generate 10 questions", state.selectedChapterId != null && !state.loading, onCreate) }
 }
 
 @Composable

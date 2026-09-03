@@ -10,7 +10,7 @@ reopening material starts a new quiz after chapter selection.
 This makes server-committed uploads discoverable even without a local pointer.
 It does not make upload retries idempotent: a retry after an unknown outcome can
 still produce duplicate documents. There is not yet a library of prior quizzes,
-document search/pagination or individual document deletion in this screen.
+document search/pagination. Individual deletion is described below.
 
 Backend tests verify own-document listing, other-account empty listing,
 unauthenticated rejection and removal from the list after deletion. Backend
@@ -31,3 +31,31 @@ fixed the ambiguous text selector and the complete rerun passed.
 Offline library failure, a second physical device, large libraries and user UAT
 remain unverified. The theme QA script expects the default document recovery run
 without `-VerifyLibrary`, which leaves the app at completed results.
+
+## Confirmed document deletion
+
+Each library item now offers a named Delete action and a confirmation describing
+permanent removal of the document and its quizzes/answers. Cancel makes no API
+request. Successful deletion removes the library item and clears active document
+state/pointers when they identify the deleted item. Other active material and
+adaptive learning state remain unchanged. A 404 is treated as already deleted;
+other failures retain the item for refresh/retry. A stale quiz-only pointer whose
+source is not currently loaded still resolves through the existing 404 resume
+cleanup rather than guessing which unrelated quiz pointer to clear.
+
+Backend 76 tests passed, including file removal, dependent quiz/question removal
+and preservation of a second document/quiz. Android build/lint/35 JVM tests passed;
+new state tests cover active deletion, unrelated deletion and repeat cleanup.
+The dedicated `qa-document-deletion.ps1` uses only the disposable account and
+single synthetic file left by document recovery QA. On 2026-09-03 it passed Cancel,
+confirmed deletion, empty server library and process-restart checks on API 36.
+`artifacts/qa-deleted-document.png` was visually inspected. The initial test
+incorrectly wrapped the empty REST array and reported a count of one; direct
+inspection confirmed zero documents. The count check was corrected and the full
+test passed with a fresh fixture. Only disposable QA documents/quizzes were
+removed; their original synthetic source remains in `scripts/fixtures`.
+
+Production limitations remain: filesystem-unlink failure after database commit
+needs durable cleanup/retry handling, and backup retention is not defined. UI
+deletion is not evidence that production backups or third-party retention have
+been erased. No production data was involved in this QA.

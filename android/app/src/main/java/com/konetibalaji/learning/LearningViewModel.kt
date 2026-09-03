@@ -304,6 +304,19 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         // Revalidate ownership/existence instead of trusting a potentially stale list.
         rememberUploadedDocument(api.getDocument(id))
     }
+    fun deleteDocument(id: String) = perform(null) {
+        try { api.deleteDocument(id) } catch (failure: ApiFailure) {
+            if (failure.status != 404) throw failure // Already removed on another device.
+        }
+        val current = mutableState.value
+        val clearsActive = current.document?.id == id || preferences.getString(documentKey(), null) == id
+        if (clearsActive) {
+            preferences.edit().remove(documentKey()).remove(documentChapterKey()).remove(documentQuizKey()).apply()
+        }
+        mutableState.value = stateAfterDocumentDeletion(current, id).let {
+            if (clearsActive) it.copy(canResumeDocumentQuiz = false) else it
+        }
+    }
 
     fun upload(context: Context, uri: Uri) = perform(Screen.Chapters) {
         rememberUploadedDocument(api.upload(context.contentResolver, uri))
@@ -414,6 +427,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         } finally { connection.disconnect() }
     }
     fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
+    fun deleteDocument(id: String) { requestNoContent("DELETE", "/v1/documents/$id") }
     fun listDocuments(): List<StudyDocument> {
         val response = JSONArray(readApiResponse(connection("GET", "/v1/documents", "application/json")))
         return (0 until response.length()).map { document(response.getJSONObject(it)) }
