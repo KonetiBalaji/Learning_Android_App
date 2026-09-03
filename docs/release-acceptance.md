@@ -83,6 +83,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: replaced model-transcribed quotes with server-reconstructed
+  contiguous source-excerpt selections; repeated text retains its selected offset.
+  Backend 138 tests passed. Live Mixed generation passed all three checks with
+  correct arithmetic and a multi-step item; Hard was rejected by quality review.
+  Internal excerpt labels in explanations and omitted shared source conditions
+  remain issues. Broader generation quality, device timing and UAT remain open;
+  see `difficulty-evaluation.md`.
 - 2026-09-03: added a separate fail-closed document quality audit after blind
   answer verification. Checks cover demand, assumptions, cited evidence and
   explanations. Backend 129 tests passed; five live synthetic regression cases

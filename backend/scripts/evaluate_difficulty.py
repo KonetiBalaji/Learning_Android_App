@@ -50,7 +50,8 @@ def main():
         except Exception as error:
             cause = error.__cause__
             known = {'Incorrect question count', 'Invalid choices', 'Ungrounded quote',
-                     'Duplicate question', 'Independent review rejected questions', 'Quality review rejected questions'}
+                     'Duplicate question', 'Independent review rejected questions', 'Quality review rejected questions',
+                     'Invalid evidence selection'}
             return {'difficulty': level, 'accepted_by_existing_checks': False,
                     'error_type': type(error).__name__, 'cause_type': type(cause).__name__,
                     'validation_reason': str(cause) if type(cause) is ValueError and str(cause) in known else None}

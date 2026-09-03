@@ -97,6 +97,36 @@ Fresh generation through all three requests, diverse held-out material, false
 rejection rates, timing/device behavior and independent educator review remain
 unverified. This added safeguard does not close the overall difficulty requirement.
 
+## Full-generation follow-up and source-excerpt selection
+
+The next Easy/Hard/Mixed round made six requests: Easy passed all three checks,
+Hard failed quote validation after generation, and Mixed failed blind answers.
+The five accepted Easy items correctly recall Tank C capacity, Tank D drain rate,
+pump rate, bucket capacity and container capacity, with appropriate source spans.
+
+To remove quote-transcription failures, generation now selects chapter-local
+excerpt IDs. The server reconstructs the exact continuous source slice, rejects
+invalid/reversed/oversized selections and preserves the selected occurrence's
+offset even for repeated text. This does not relax semantic evidence validation.
+138 backend tests passed, including source whitespace, bounds, length constraints,
+repeated occurrence offsets and existing quality rejection behavior.
+
+A subsequent Hard/Mixed round made six requests. Both cleared source selection
+and blind answers. Hard was rejected by the quality audit; the exact criterion
+and rejected questions were not retained, so no more specific cause is claimed.
+Mixed passed all checks. Development-agent review found five correct answers and
+the planned recall/application/multi-step/recall/application order: its multi-step
+item calculates B and D remaining water after ten minutes (30 and 50 litres) and
+combines them to 80 litres. This is a successful narrow Mixed generation sample,
+not broad difficulty acceptance. Hard generation reliability remains unresolved.
+
+Two limitations remain visible in the accepted Mixed sample: explanations refer
+to internal excerpt IDs that the Android user cannot see, and some source spans
+contain the numerical facts but omit shared initial conditions stated earlier in
+the source. The model audit is therefore not proof of complete evidence coverage.
+Broader material, larger counts, Android live timing and educator review remain
+open. No actual user UAT or production acceptance is claimed.
+
 Local evidence files:
 
 - `artifacts/difficulty-eval-20260903T082001884549Z.json`
@@ -104,3 +134,5 @@ Local evidence files:
 - `artifacts/difficulty-eval-20260903T082239652891Z.json`
 - `artifacts/difficulty-eval-20260903T082901412293Z.json`
 - `artifacts/document-quality-eval-20260903T083247745632Z.json`
+- `artifacts/difficulty-eval-20260903T083525113670Z.json`
+- `artifacts/difficulty-eval-20260903T083839675452Z.json`

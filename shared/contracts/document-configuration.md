@@ -32,6 +32,13 @@ timeout; each review uses 30 seconds. These are SDK timeouts, not an end-to-end
 deadline. Operational failures return the existing safe generation-unavailable
 response; the server does not silently downgrade difficulty or save a partial quiz.
 
+Generation selects inclusive, chapter-local numbered source excerpts rather than
+copying a quote. The server rebuilds the exact contiguous original text between
+those endpoints, including intervening whitespace, and preserves the chosen
+occurrence's source offset. Out-of-range, reversed, unknown-chapter and unsupported
+length selections are rejected. This prevents transcription errors, not irrelevant
+evidence: blind answer verification and citation-completeness review still apply.
+
 Deterministic mode accepts only null/Easy recall. Other explicit levels return
 422 before saving a quiz; it must not label unchanged recall content as Hard.
 Android now sends the selected difficulty and displays saved request metadata on
