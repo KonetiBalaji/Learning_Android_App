@@ -1,5 +1,20 @@
 # Generated diagnostic answer review
 
+## Post-repair generated-bank smoke
+
+`uv run python scripts/evaluate_diagnostic.py --live` passed using `gpt-5-mini`
+after the format repair: generated Grade 8 Fractions bank accepted in 21.99 seconds,
+and corrupted diagnostic key detected at index 0 in 7.69 seconds. Three requests,
+no retries; generation timeout 60 seconds and review timeout 20 seconds. This
+does not establish the default production latency budget or a success rate.
+
+The returned diagnostic answers were independently checked: 18/24 reduces to 3/4;
+3/8 + 1/6 = 13/24; 2 1/5 = 11/5. Practice keys were 14/28 simplified to 1/2,
+5/12 + 1/3 simplified to 3/4, and 3 2/7 converted to improper fraction 23/7.
+All three practice prompts required a representation, and all persisted policies
+were exact. This is synthetic provider-path evidence, not device/session UAT or
+broad curriculum and teaching-quality certification.
+
 ## Format-classification repair
 
 The reviewer no longer directly selects exact/number matching. It identifies a
