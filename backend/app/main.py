@@ -51,6 +51,7 @@ from .schemas import (
     TutorIntervention,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
+from .weekly_reporting import build_weekly_report
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -417,36 +418,18 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
 
 @app.get("/v1/progress/weekly-report", response_model=WeeklyReport)
 def weekly_report(grade: int | None = Query(default=None, ge=1, le=12), user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> WeeklyReport:
+    as_of = datetime.fromisoformat(now())
     with connection(settings.database_path) as db:
         attempts = db.execute(
             """SELECT mastery_attempts.* FROM mastery_attempts
                JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
                WHERE mastery_sessions.owner_id = ?
-                 AND (? IS NULL OR mastery_sessions.grade = ?)
-                 AND mastery_attempts.created_at >= datetime('now', '-7 days')""",
+                 AND (? IS NULL OR mastery_sessions.grade = ?)""",
             (user_id, grade, grade),
         ).fetchall()
         sessions = db.execute(
-            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?) AND started_at >= datetime('now', '-7 days')",
+            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?)",
             (user_id, grade, grade),
         ).fetchall()
-    correct = sum(int(row["correct"]) for row in attempts)
-    concept_totals: dict[str, list[int]] = {}
-    for row in attempts:
-        concept_totals.setdefault(row["concept"], []).append(int(row["correct"]))
-    concept_scores = {name: sum(values) / len(values) for name, values in concept_totals.items()}
-    strongest = [name for name, _ in sorted(concept_scores.items(), key=lambda item: item[1], reverse=True)[:3]]
-    weak = [name for name, score in sorted(concept_scores.items(), key=lambda item: item[1]) if score < 0.7][:3]
-    mastered = sum(1 for row in sessions if row["status"] == "mastered")
-    active_subjects = len({row["subject_id"] for row in sessions})
-    accuracy = correct / len(attempts) if attempts else 0.0
-    completion = mastered / len(sessions) if sessions else 0.0
-    readiness = round((accuracy * 0.6 + completion * 0.4) * 100, 1)
-    label = "high" if readiness >= 85 else ("developing" if readiness >= 60 else "needs_support")
-    recommendations = [f"Review {concept} for 15 minutes" for concept in weak] or ["Complete one diagnostic this week"]
-    return WeeklyReport(
-        period_days=7, questions_answered=len(attempts), correct_answers=correct, accuracy=accuracy,
-        mastered_chapters=mastered, active_subjects=active_subjects, strongest_concepts=strongest,
-        weak_areas=weak, estimated_exam_readiness=readiness, readiness_label=label,
-        recommendations=recommendations,
-    )
+    return build_weekly_report(sessions, attempts, as_of,
+                               {row['id']: len(session_diagnostic_bank(row)) for row in sessions})

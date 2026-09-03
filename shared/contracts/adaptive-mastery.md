@@ -42,6 +42,22 @@ not substitute static progress values. The unfiltered dashboard keeps grades as
 separate chapter entries. Subject percentages summarize assessed chapters, not
 an authoritative curriculum-wide completion denominator.
 
+Weekly reports return `period_start` and `period_end` in UTC and use the half-open
+interval `[period_start, period_end)` spanning exactly seven days. Responses are
+dated by attempt time, not by the parent session start. `questions_answered` is
+retained for API compatibility but counts diagnostic, practice and rewrite
+responses; clients should label it **Learning responses**, not unique questions.
+`mastered_chapters` counts unique `(grade, subject_id, chapter_id)` completions
+inside the window, including sessions started earlier. A completed status alone
+does not qualify unless every stored assessment item has been resolved.
+The active-chapter denominator includes starts, responses and completions in the
+window. Repeated sessions of one chapter do not multiply this denominator.
+`readiness_is_calibrated` is false: the indicator remains a 60% response-accuracy /
+40% active-chapter-completion heuristic, not an exam-performance prediction.
+No responses produces `insufficient_evidence`. Strongest concepts must have at
+least 70% observed response accuracy; weak concepts are below that threshold.
+All-time current chapter progress is a separate dashboard metric.
+
 Still outstanding: mutation idempotency/concurrency protection, durable document
-quiz recovery, full account-scoped profile/preferences, secure token storage,
+quiz recovery, full account-scoped profile/preferences and device security failure tests,
 server-enforced curriculum prerequisites and evaluation calibration.

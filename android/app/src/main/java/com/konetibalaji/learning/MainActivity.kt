@@ -358,19 +358,23 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("7-day learning report", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Metric("Exam readiness", "${snapshot.examReadiness}% · ${snapshot.readinessLabel}", Success)
-                Metric("Questions answered", snapshot.questionsAnswered.toString(), Indigo)
-                Metric("Accuracy", "${snapshot.accuracy}%", Success)
-                Metric("Chapters mastered", snapshot.masteredChapters.toString(), Indigo)
+                Metric("Learning indicator", if (snapshot.questionsAnswered == 0) "Not enough evidence" else "${snapshot.examReadiness}% · ${snapshot.readinessLabel}", Success)
+                Text("Uncalibrated heuristic, not a prediction of exam performance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Metric("Learning responses", snapshot.questionsAnswered.toString(), Indigo)
+                Text("Includes diagnostic answers, guided practice and explanations in the last 7 days (UTC).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Metric("Response accuracy", if (snapshot.questionsAnswered == 0) "No responses yet" else "${snapshot.accuracy}%", Success)
+                Metric("Unique chapters mastered", snapshot.masteredChapters.toString(), Indigo)
             }
         }
     }
-    val displaySubjects = snapshot?.subjects?.takeIf { it.isNotEmpty() }?.map { (id, progress) -> id.replaceFirstChar(Char::uppercase) to progress } ?: listOf("Mathematics" to 0)
+    Text("Current assessed-chapter progress (not limited to this week)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val displaySubjects = snapshot?.subjects?.map { (id, progress) -> id.replaceFirstChar(Char::uppercase) to progress } ?: emptyList()
+    if (displaySubjects.isEmpty()) Text("No assessment yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
     displaySubjects.forEach { (subject, progress) ->
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(subject, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); Text("$progress%", color = Success, fontWeight = FontWeight.Bold) }; LinearProgressIndicator(progress = { progress / 100f }, color = Success, trackColor = Color(0xFFE2E8F0), modifier = Modifier.fillMaxWidth()) } }
     }
     Header("Focus next", "Weak areas", snapshot?.weakAreas?.joinToString(" · ")?.ifBlank { "Complete a diagnostic to identify focus areas" } ?: "Complete a diagnostic to identify focus areas")
-    TipCard("AI recommendation", snapshot?.recommendations?.joinToString("\n") ?: "Start a diagnostic to personalize your learning path.")
+    TipCard("Suggested next step", snapshot?.recommendations?.joinToString("\n") ?: "Start a diagnostic to personalize your learning path.")
 }
 
 @Composable

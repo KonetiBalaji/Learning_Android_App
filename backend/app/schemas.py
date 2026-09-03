@@ -182,6 +182,9 @@ class UserProfile(BaseModel):
 
 class WeeklyReport(BaseModel):
     period_days: int
+    period_start: str
+    period_end: str
+    readiness_is_calibrated: bool = False
     questions_answered: int
     correct_answers: int
     accuracy: float

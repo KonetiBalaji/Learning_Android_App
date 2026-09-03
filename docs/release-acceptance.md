@@ -139,3 +139,14 @@ feature to UAT accepted or production verified. All release gates below remain o
   showed the safe sign-in message, tokens were absent from saved preferences,
   restart stayed signed out, and invalid login displayed the credential message.
   This tests deleted-account invalidation, not timed expiry on a real device.
+- Weekly report regressions reproduced out-of-window counts and unsupported
+  empty-week classification. Corrected UTC boundaries, unique completed chapters,
+  activity from older sessions and evidence-labelled heuristic. Backend 44 tests,
+  Android build/lint and 14 JVM tests passed. Parent UI distinguishes learning
+  responses from unique questions and weekly metrics from current chapter progress.
+  Parent access/consent, predictive calibration and device/UAT evidence remain
+  separate gates; see `weekly-report-qa.md`.
+- Refreshed API 36 scripted QA passed the weekly report extension. Screenshot
+  inspection confirmed 5 responses, 80% accuracy, 1 unique chapter and a clearly
+  labelled 88% heuristic, with all-time progress separately described. Initial
+  stale-server metadata failure was resolved by refreshing the verified fixture.

@@ -2,7 +2,8 @@ param(
     [string]$Serial = 'emulator-5554',
     [switch]$ResetTestAppData,
     [switch]$ExpectRubricFeedback,
-    [switch]$VerifyDeletedSession
+    [switch]$VerifyDeletedSession,
+    [switch]$VerifyWeeklyReport
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -111,6 +112,21 @@ TextNode '100%' | Out-Null
 Adb shell screencap -p /sdcard/qa-mastery-progress.png | Out-Null
 Adb pull /sdcard/qa-mastery-progress.png (Join-Path $repo 'artifacts\qa-mastery-progress.png') | Out-Null
 Write-Output 'PASS: all questions are completed before mastery; chapter progress is 100% from backend evidence'
+if ($VerifyWeeklyReport) {
+    TapText '‹ All subjects'
+    TapText 'View parent & teacher progress'
+    TextNode 'Uncalibrated heuristic, not a prediction of exam performance.' | Out-Null
+    TextNode 'Learning responses' | Out-Null
+    TextNode 'Unique chapters mastered' | Out-Null
+    $reportLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail; password='qa-password-long-enough'} | ConvertTo-Json)
+    $report = Invoke-RestMethod 'http://127.0.0.1:8000/v1/progress/weekly-report?grade=8' -Headers @{Authorization="Bearer $($reportLogin.access_token)"}
+    if ($report.questions_answered -ne 5 -or $report.mastered_chapters -ne 1 -or $report.readiness_is_calibrated -ne $false) { throw 'Weekly report did not match the scripted five responses and one unique mastered chapter' }
+    Adb shell screencap -p /sdcard/qa-weekly-report.png | Out-Null
+    Adb pull /sdcard/qa-weekly-report.png (Join-Path $repo 'artifacts\qa-weekly-report.png') | Out-Null
+    TapText '‹ Back to subjects'
+    TapText 'Mathematics'
+    Write-Output 'PASS: weekly report labels the heuristic and includes five learning responses, one unique chapter'
+}
 if ($VerifyDeletedSession) {
     # Delete only this run's disposable account via the public API. Never print its token.
     $loginBody = @{ email = $qaEmail; password = 'qa-password-long-enough' } | ConvertTo-Json

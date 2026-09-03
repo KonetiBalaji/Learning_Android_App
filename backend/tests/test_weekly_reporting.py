@@ -1,0 +1,65 @@
+from test_mastery_loop import registered_client
+from app.database import connection
+from app.config import get_settings
+from app.mastery_service import diagnostic_bank, serialize_diagnostic_bank
+
+
+def test_weekly_window_and_distinct_completion_use_activity_not_session_start(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        monkeypatch.setattr('app.main.now', lambda: '2026-09-03T12:00:00+00:00')
+        owner = client.get('/v1/account', headers=headers).json()['id']
+        with connection(get_settings().database_path) as db:
+            for sid, chapter, started, completed, index in [
+                ('old-completed-now', 'fractions', '2026-08-01T00:00:00+00:00', '2026-09-02T11:00:00+00:00', 3),
+                ('repeat', 'fractions', '2026-09-01T00:00:00+00:00', '2026-09-02T12:00:00+00:00', 3),
+                ('legacy-false-mastery', 'decimals', '2026-09-01T00:00:00+00:00', '2026-09-02T12:00:00+00:00', 1),
+                ('future', 'algebra', '2026-09-04T00:00:00+00:00', '2026-09-04T12:00:00+00:00', 3),
+            ]:
+                db.execute('INSERT INTO mastery_sessions (id, owner_id, grade, subject_id, chapter_id, started_at, completed_at, status, current_question, questions_json) VALUES (?, ?, 8, ?, ?, ?, ?, ?, ?, ?)',
+                           (sid, owner, 'math', chapter, started, completed, 'mastered', index,
+                            serialize_diagnostic_bank(diagnostic_bank('math', 'fractions'))))
+            for aid, timestamp, correct in [
+                ('before-start', '2026-08-27T11:59:59.999999+00:00', 0),
+                ('at-start', '2026-08-27T12:00:00+00:00', 1),
+                ('inside-offset', '2026-08-28T13:00:00+01:00', 1),
+                ('before-end', '2026-09-03T11:59:59.999999+00:00', 0),
+                ('at-end', '2026-09-03T12:00:00+00:00', 1),
+                ('future', '2026-09-04T00:00:00+00:00', 1),
+            ]:
+                db.execute('INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                           (aid, 'old-completed-now', 'diagnostic', 'synthetic', 'synthetic', correct, 'Fractions', timestamp))
+        report = client.get('/v1/progress/weekly-report?grade=8', headers=headers).json()
+        assert report['questions_answered'] == 3
+        assert report['correct_answers'] == 2
+        assert report['mastered_chapters'] == 1
+        assert report['active_subjects'] == 1
+        assert report['period_start'] == '2026-08-27T12:00:00+00:00'
+        assert report['period_end'] == '2026-09-03T12:00:00+00:00'
+        assert report['readiness_is_calibrated'] is False
+        assert report['estimated_exam_readiness'] == 60.0  # 2/3 response accuracy and 1/2 active chapters complete.
+        assert report['strongest_concepts'] == []  # 2/3 is below the 70% evidence threshold.
+        assert report['weak_areas'] == ['Fractions']
+        assert client.get('/v1/progress/weekly-report?grade=6', headers=headers).json()['questions_answered'] == 0
+        other = client.post('/v1/auth/register', json={'email': 'other-weekly@example.com', 'password': 'long-enough-password'}).json()
+        other_report = client.get('/v1/progress/weekly-report?grade=8', headers={'Authorization': f"Bearer {other['access_token']}"}).json()
+        assert other_report['questions_answered'] == other_report['mastered_chapters'] == 0
+        with connection(get_settings().database_path) as db:
+            db.execute("""INSERT INTO mastery_sessions (id, owner_id, grade, subject_id, chapter_id, started_at, completed_at, status, current_question, questions_json)
+                          SELECT 'another-grade', owner_id, 6, subject_id, chapter_id, started_at, completed_at, status, current_question, questions_json
+                          FROM mastery_sessions WHERE id = 'old-completed-now'""")
+        assert client.get('/v1/progress/weekly-report', headers=headers).json()['mastered_chapters'] == 2
+        assert client.get('/v1/progress/weekly-report?grade=8', headers=headers).json()['mastered_chapters'] == 1
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_empty_week_has_no_claimed_strength_or_readiness_evidence(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        report = client.get('/v1/progress/weekly-report?grade=8', headers=headers).json()
+        assert report['questions_answered'] == report['mastered_chapters'] == report['active_subjects'] == 0
+        assert report['readiness_label'] == 'insufficient_evidence'
+        assert report['strongest_concepts'] == report['weak_areas'] == []
+    finally:
+        client.__exit__(None, None, None)
