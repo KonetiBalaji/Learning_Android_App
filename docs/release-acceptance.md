@@ -83,6 +83,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Replaced fixed text-control/card heights with minimum heights and made grade/
+  subject grids font/width-responsive within the page scroll. Android build/lint
+  and 97 JVM tests passed. Targeted API 36 font-scale 2.0 QA passed: single-column
+  subject cards, wrapped parent-progress button and Grade 8 navigation; screenshots
+  inspected and original font setting restored. First script navigation assumptions
+  were corrected and rerun. TalkBack, other screens/devices and UAT remain open;
+  UX-01 is partial. See `large-text-qa.md`.
+
 - API 36 recovery-message QA passed against `06b4bec`: textless-page and
   insufficient-material messages were readable without clipping; dismissal and
   correction preserved selection, five-question restart/creation retry, exact

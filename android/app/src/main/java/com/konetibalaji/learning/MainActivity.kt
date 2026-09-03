@@ -15,18 +15,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -159,7 +155,7 @@ private fun Header(eyebrow: String, title: String, body: String) = Column(vertic
 
 @Composable
 private fun PrimaryButton(label: String, enabled: Boolean = true, onClick: () -> Unit) = Button(
-    onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp),
+    onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp), shape = RoundedCornerShape(16.dp),
     colors = ButtonDefaults.buttonColors(containerColor = Indigo),
 ) { Text(label, fontWeight = FontWeight.Bold) }
 
@@ -186,11 +182,9 @@ private fun SignInScreen(loading: Boolean, onAuthenticate: (String, String, Bool
 private fun GradeScreen(onSelect: (Int) -> Unit) = Page {
     Text("👋 Hello, learner", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
     Header("Your learning path", "Select your grade", "We use your grade to explain concepts at the right level.")
-    LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxWidth().height(330.dp), contentPadding = PaddingValues(2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        items((1..12).toList()) { grade ->
-            Card(modifier = Modifier.fillMaxWidth().height(84.dp).clickable { onSelect(grade) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Grade\n$grade", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = Indigo) }
-            }
+    AccessibleSelectionGrid((1..12).toList(), 96f, 3) { grade ->
+        Card(modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).clickable { onSelect(grade) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 84.dp).padding(12.dp), contentAlignment = Alignment.Center) { Text("Grade\n$grade", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = Indigo) }
         }
     }
     TipCard("You can change this later", "Your tutor adapts each explanation as you grow.")
@@ -201,20 +195,18 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
     Header("Grade ${state.grade ?: 6}", "What would you like to learn?", "Pick a subject to continue your personalised path.")
     if (state.canResumeMastery) PrimaryButton("Resume saved learning", !state.loading, onResume)
     if (state.canResumeDocumentQuiz) PrimaryButton("Resume document study", !state.loading, onResumeDocument)
-    LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxWidth().height(390.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        items(learningSubjects) { subject ->
-            val progress = state.progressSnapshot?.subjects?.get(subject.id)
-            Card(modifier = Modifier.fillMaxWidth().height(178.dp).clickable { onSelect(subject) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(22.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(subject.icon, style = MaterialTheme.typography.headlineLarge, color = Indigo)
-                    Text(subject.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    LinearProgressIndicator(progress = { (progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = Success, trackColor = Color(0xFFE2E8F0))
-                    Text(if (progress == null) "No assessment yet" else "$progress% assessed progress", color = Muted, style = MaterialTheme.typography.labelMedium)
-                }
+    AccessibleSelectionGrid(learningSubjects, 160f, 2) { subject ->
+        val progress = state.progressSnapshot?.subjects?.get(subject.id)
+        Card(modifier = Modifier.fillMaxWidth().heightIn(min = 178.dp).clickable { onSelect(subject) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(22.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(subject.icon, style = MaterialTheme.typography.headlineLarge, color = Indigo)
+                Text(subject.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                LinearProgressIndicator(progress = { (progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = Success, trackColor = Color(0xFFE2E8F0))
+                Text(if (progress == null) "No assessment yet" else "$progress% assessed progress", color = Muted, style = MaterialTheme.typography.labelMedium)
             }
         }
     }
-    OutlinedButton(onClick = onParent, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp)) { Text("View parent & teacher progress") }
+    OutlinedButton(onClick = onParent, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("View parent & teacher progress") }
     TextButton(onClick = onDocuments, modifier = Modifier.fillMaxWidth()) { Text("Study from my own document") }
     TextButton(onClick = onSettings, modifier = Modifier.fillMaxWidth()) { Text("Settings and account") }
 }
@@ -305,14 +297,14 @@ private fun PracticeScreen(state: AppUiState, onHint: () -> Unit, onCheck: (Stri
             null -> Unit
         }
         if (state.practiceResult == true) PrimaryButton("Explain it in your own words", onClick = onContinue)
-        else { OutlinedButton(onClick = onHint, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp)) { Text("Show hint") }; PrimaryButton("Check answer", answer.isNotBlank()) { onCheck(answer) } }
+        else { OutlinedButton(onClick = onHint, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("Show hint") }; PrimaryButton("Check answer", answer.isNotBlank()) { onCheck(answer) } }
     }
 }
 
 @Composable
 private fun RewriteScreen(state: AppUiState, onChange: (String) -> Unit, onSubmit: () -> Unit) = Page {
     Header("Show your thinking", "Explain it in your own words", "Explain ${state.tutorLesson?.title ?: "the concept"} and connect it to the practice example.")
-    OutlinedTextField(state.rewrite, onChange, modifier = Modifier.fillMaxWidth().height(190.dp), label = { Text("My explanation") }, placeholder = { Text("I know this equals 1 because…") }, shape = RoundedCornerShape(16.dp))
+    OutlinedTextField(state.rewrite, onChange, modifier = Modifier.fillMaxWidth().heightIn(min = 190.dp), label = { Text("My explanation") }, placeholder = { Text("I know this equals 1 because…") }, shape = RoundedCornerShape(16.dp))
     VoiceInputButton("Speak my explanation") { spoken -> onChange(listOf(state.rewrite, spoken).filter(String::isNotBlank).joinToString(" ")) }
     TipCard("AI evaluates understanding", "You will receive another friendly coaching step if your explanation needs more detail.")
     PrimaryButton("Submit my explanation", state.rewrite.trim().isNotEmpty(), onSubmit)
@@ -337,7 +329,7 @@ private fun VoiceInputButton(label: String, onResult: (String) -> Unit) {
         } catch (_: SecurityException) {
             message = "The speech service could not be opened. Please type your answer."
         }
-    }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp)) { Text("🎙 $label") }
+    }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("🎙 $label") }
     Text("Uses your device's speech service, which may process audio online.", style = MaterialTheme.typography.bodySmall)
     message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
@@ -423,9 +415,9 @@ private fun SettingsScreen(state: AppUiState, onBack: () -> Unit, onDarkMode: (B
                 Switch(checked = state.darkMode, onCheckedChange = onDarkMode)
             }
         }
-        OutlinedButton(onClick = onGrade, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) { Text("Change grade · ${state.grade ?: "Not selected"}") }
+        OutlinedButton(onClick = onGrade, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), shape = RoundedCornerShape(16.dp)) { Text("Change grade · ${state.grade ?: "Not selected"}") }
         OutlinedButton(onClick = onInterests, modifier = Modifier.fillMaxWidth()) { Text("Learning interests") }
-        OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) { Text("Sign out") }
+        OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), shape = RoundedCornerShape(16.dp)) { Text("Sign out") }
         TextButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) { Text("Delete my account and learning data", color = MaterialTheme.colorScheme.error) }
     }
     if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("Delete account?") }, text = { Text("This permanently removes your account, documents, quizzes, and mastery history.") }, dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }, confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete permanently", color = MaterialTheme.colorScheme.error) } })
