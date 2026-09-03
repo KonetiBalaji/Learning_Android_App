@@ -1,5 +1,32 @@
 # Voice failure handling
 
+## API 36 playback lifecycle QA
+
+Command: `scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyReadAloud`.
+Tested the debug APK from `c1c600b` on the dedicated LearnSmart_API36 emulator,
+using its installed Google TTS service and a synthetic Grade 8 Fractions account
+against the isolated scripted-qa backend. No OpenAI request was made. Only this
+dedicated emulator app's local test data was reset; server account data was not
+deleted. The script installs the built APK and validates the AVD/backend first.
+
+Passed: engine readiness, playback status, Home/background then same-activity
+return, stopped state with disabled Stop, no automatic resume, explicit restart,
+explicit Stop, another restart and real speech-service completion callback.
+The setup also verified tutor restoration after process restart and encrypted
+session storage. Transient null-root UI dumps were retried with fresh hierarchies.
+
+Captured and visually inspected `artifacts/qa-read-aloud-background.png` and
+`artifacts/qa-read-aloud-complete.png`: controls and stopped/finished messages are
+readable without clipping at the tested size. Screenshots remain generated local
+QA artifacts, not source files. The read-aloud mode exits after these focused
+checks and does not claim to run the rest of the mastery suite.
+
+This proves UI/lifecycle behavior and speech-service callbacks, not acoustic
+silence, pronunciation, volume, speaker output or listening quality. Audible
+verification, longer multi-chunk speech, engine-error injection, lesson replacement,
+navigation during playback, TalkBack and broader devices remain open. It is not
+UAT acceptance or the separate conversational/animated teacher implementation.
+
 ## Playback lifecycle repair
 
 Read-aloud now stops on lifecycle ON_STOP (including backgrounding), lesson-text

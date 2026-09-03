@@ -11,7 +11,8 @@ param(
     [switch]$VerifyUnlocks,
     [switch]$VerifyStudyTime,
     [switch]$VerifyFreshPractice,
-    [switch]$VerifyRejectedRewrite
+    [switch]$VerifyRejectedRewrite,
+    [switch]$VerifyReadAloud
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -168,6 +169,42 @@ if ($savedNames -contains 'token' -or $sealedSession.Count -ne 1 -or -not $seale
     throw 'Session is not stored exclusively as a versioned encrypted envelope'
 }
 Write-Output 'PASS: restarted session uses encrypted storage with no legacy plaintext token (secret values omitted)'
+if ($VerifyReadAloud) {
+    $readLabel = TextNode 'Read explanation aloud'
+    $readButton = $readLabel.SelectSingleNode("ancestor-or-self::node[@clickable='true'][1]")
+    if (-not $readButton -or $readButton.enabled -ne 'true') {
+        Adb shell screencap -p /sdcard/qa-read-aloud-unavailable.png | Out-Null
+        Adb pull /sdcard/qa-read-aloud-unavailable.png (Join-Path $repo 'artifacts\qa-read-aloud-unavailable.png') | Out-Null
+        throw 'Speech engine not ready; cannot verify playback lifecycle on this device.'
+    }
+    TapText 'Read explanation aloud'
+    TextNode 'Reading explanation…' | Out-Null
+    Adb shell input keyevent 3 | Out-Null
+    Start-Sleep -Seconds 2
+    # Resume the same activity, without process death, to exercise ON_STOP.
+    Adb shell am start -n "$package/.MainActivity" | Out-Null
+    Start-Sleep -Seconds 2
+    TextNode 'Reading stopped. Tap Read explanation aloud to restart.' | Out-Null
+    $stop = (TextNode 'Stop reading').SelectSingleNode("ancestor-or-self::node[@clickable='true'][1]")
+    if (-not $stop -or $stop.enabled -ne 'false') { throw 'Stop remains enabled after background cancellation' }
+    Adb shell screencap -p /sdcard/qa-read-aloud-background.png | Out-Null
+    Adb pull /sdcard/qa-read-aloud-background.png (Join-Path $repo 'artifacts\qa-read-aloud-background.png') | Out-Null
+    TapText 'Read explanation aloud'
+    TextNode 'Reading explanation…' | Out-Null
+    TapText 'Stop reading'
+    TextNode 'Reading stopped.' | Out-Null
+    TapText 'Read explanation aloud'
+    $finished = $false
+    for ($speechWait = 0; $speechWait -lt 30; $speechWait++) {
+        if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Finished reading.') { $finished = $true; break }
+        Start-Sleep -Seconds 1
+    }
+    if (-not $finished) { throw 'Speech did not report completion within the bounded wait' }
+    Adb shell screencap -p /sdcard/qa-read-aloud-complete.png | Out-Null
+    Adb pull /sdcard/qa-read-aloud-complete.png (Join-Path $repo 'artifacts\qa-read-aloud-complete.png') | Out-Null
+    Write-Output 'PASS: real speech service callbacks, background stop, no auto-resume, explicit restart/stop and completion UI. Audible quality not verified.'
+    return
+}
 if ($VerifyFractionModel) {
     TextNode 'Explore equal-sized parts' | Out-Null
     TextNode 'Reset fraction model' | Out-Null

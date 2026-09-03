@@ -20,6 +20,12 @@ an accessibility live region. Android build/lint and 115 JVM tests pass. Real
 audio, background/restart and TalkBack verification remain open; TUT-06 is partial.
 See `docs/voice-recovery.md`.
 
+API 36 follow-up verified read-aloud readiness, background/return stopped state,
+no automatic resume, explicit restart/stop and speech-service completion callback.
+Stopped/finished screenshots were inspected and readable. Acoustic output,
+TalkBack, error injection and conversational teaching remain unverified; see the
+voice recovery record for the exact command and limited scope.
+
 Practice matcher hardening: meaningful symbols/word boundaries are preserved,
 with persisted opt-in rational equivalence for curated arithmetic and exact
 matching for denominator-constrained exercises. Legacy banks remain exact. New
