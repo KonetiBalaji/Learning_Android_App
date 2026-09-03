@@ -503,3 +503,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   limits without equating presence to attention. Build/lint/71 JVM tests passed;
   device timing and report rendering still need verification. Parent access and
   UAT gates remain open. See the study-presence contract.
+- API 36 study-presence QA passed using actual elapsed time: foreground accrual,
+  background exclusion, fresh restart interval, idle cutoff and no accrual on the
+  report screen. Weekly display matched the API at 1m 32s; screenshot inspected.
+  Fractions remediation/restart/completion and weekly response counts passed.
+  Network/account-switch timing, broader device/accessibility coverage, retention
+  and UAT remain open. See `shared/contracts/study-presence.md` for exact scope.

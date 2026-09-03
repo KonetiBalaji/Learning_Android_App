@@ -91,3 +91,25 @@ weekly window; negative, fractional, string and overflowing totals are rejected.
 Android debug build, lint and 71 JVM tests passed, covering unavailable/zero
 distinction, formatting boundaries and malformed values. Device timing and visual
 report verification remain outstanding; no actual learner time is claimed here.
+
+## API 36 timing and report verification
+
+`scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyStudyTime
+-VerifyWeeklyReport` passed against the isolated current backend on LearnSmart_API36.
+The test used real elapsed time and Android lifecycle/input signals, not seeded
+time intervals or a duration injection. The first foreground window recorded
+15 seconds; the total stayed unchanged during a 30-second background observation
+after settling, restart credited no background gap, and the total stopped changing
+after the foreground idle threshold. A subsequent 20-second observation on the
+report screen also accrued no time.
+
+The full Fractions remediation/restart/completion flow passed. The weekly API
+reported 92 seconds and Android displayed `1m 32s`, with five learning responses
+and one unique mastered chapter. `artifacts/qa-study-time.png` was inspected and
+shows the value and the coverage/attention disclaimer clearly. The measured total
+includes recorded portions of that disposable test flow, not all wall-clock time.
+
+No live AI requests were made. This verifies one emulator and workflow; in-flight
+network failures/account switches, multi-device timing, speech/accessibility idle
+behavior, long passive reading usability and production retention/rate limits
+remain open. Automated QA is not user acceptance or proof of attention.

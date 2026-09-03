@@ -8,7 +8,8 @@ param(
     [switch]$VerifyStaleSubmission,
     [switch]$VerifyFailedResponse,
     [switch]$MalformedResponse,
-    [switch]$VerifyUnlocks
+    [switch]$VerifyUnlocks,
+    [switch]$VerifyStudyTime
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -71,6 +72,7 @@ if ($ExpectRubricFeedback -and $health.ai_provider -ne 'scripted-qa') { throw 'R
 if ($VerifyFailedResponse -and ($VerifyStaleSubmission -or $health.ai_provider -ne 'scripted-qa')) { throw 'Failed-response QA requires scripted-qa and cannot combine with stale-submission QA.' }
 if ($MalformedResponse -and -not $VerifyFailedResponse) { throw '-MalformedResponse requires -VerifyFailedResponse' }
 if ($VerifyUnlocks -and ($health.ai_provider -ne 'scripted-qa' -or $VerifyWeeklyReport)) { throw 'Unlock QA requires scripted-qa and cannot combine with weekly-count assertions' }
+if ($VerifyStudyTime -and -not $VerifyWeeklyReport) { throw 'Study time QA requires -VerifyWeeklyReport to verify the displayed total' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -121,6 +123,34 @@ if ($VerifyUnlocks) {
 }
 TapText 'Fractions'
 TextNode 'Question 1 of 3' | Out-Null
+if ($VerifyStudyTime) {
+    $timeLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+    $timeHeaders = @{Authorization="Bearer $($timeLogin.access_token)"}
+    function RecordedTime {
+        $snapshot = Invoke-RestMethod 'http://127.0.0.1:8000/v1/progress/weekly-report?grade=8' -Headers $timeHeaders
+        if ($null -eq $snapshot.observed_study_seconds) { throw 'Backend lacks observed study time support' }
+        return [long]$snapshot.observed_study_seconds
+    }
+    Start-Sleep -Seconds 30
+    $foregroundTime = RecordedTime
+    if ($foregroundTime -lt 10 -or $foregroundTime -gt 50) { throw "Unexpected foreground presence: $foregroundTime seconds" }
+    Write-Output "PASS: foreground learning recorded $foregroundTime seconds without synthetic duration injection"
+    Adb shell input keyevent 3 | Out-Null
+    Start-Sleep -Seconds 5
+    $backgroundBaseline = RecordedTime
+    Start-Sleep -Seconds 30
+    if ((RecordedTime) -ne $backgroundBaseline) { throw 'Study time accrued while backgrounded' }
+    RestartApp
+    TextNode 'Question 1 of 3' | Out-Null
+    Start-Sleep -Seconds 3
+    if ((RecordedTime) -ne $backgroundBaseline) { throw 'Restart credited the background gap' }
+    Write-Output 'PASS: background time is excluded and restart begins a fresh interval'
+    Start-Sleep -Seconds 50
+    $idleBaseline = RecordedTime
+    Start-Sleep -Seconds 20
+    if ((RecordedTime) -ne $idleBaseline) { throw 'Study time accrued after the idle threshold' }
+    Write-Output 'PASS: idle foreground screen stops accruing recorded study presence'
+}
 TapText '1/2'
 TapText 'Submit answer'
 TextNode 'Your answer: 1/2' | Out-Null
@@ -236,6 +266,20 @@ if ($VerifyWeeklyReport) {
     $reportLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail; password='qa-password-long-enough'} | ConvertTo-Json)
     $report = Invoke-RestMethod 'http://127.0.0.1:8000/v1/progress/weekly-report?grade=8' -Headers @{Authorization="Bearer $($reportLogin.access_token)"}
     if ($report.questions_answered -ne 5 -or $report.mastered_chapters -ne 1 -or $report.readiness_is_calibrated -ne $false) { throw 'Weekly report did not match the scripted five responses and one unique mastered chapter' }
+    if ($VerifyStudyTime) {
+        $seconds = [long]$report.observed_study_seconds
+        if ($seconds -le 0) { throw 'Weekly study total is missing' }
+        $timeLabel = if ($seconds -lt 60) { "${seconds}s" } elseif ($seconds -lt 3600) { "$([math]::Floor($seconds / 60))m $($seconds % 60)s" } else { "$([math]::Floor($seconds / 3600))h $([math]::Floor(($seconds % 3600) / 60))m" }
+        TextNode 'Recorded study presence' | Out-Null
+        TextNode $timeLabel | Out-Null
+        TextNode 'Last 7 days, selected grade. Counts recorded activity on learning screens only, not total study time or proof of attention. Idle, offline and older untracked activity may be missing.' | Out-Null
+        $completedBaseline = RecordedTime
+        Start-Sleep -Seconds 20
+        if ((RecordedTime) -ne $completedBaseline) { throw 'Non-learning report screen accrued study time' }
+        Adb shell screencap -p /sdcard/qa-study-time.png | Out-Null
+        Adb pull /sdcard/qa-study-time.png (Join-Path $repo 'artifacts\qa-study-time.png') | Out-Null
+        Write-Output "PASS: weekly UI matches server total ($timeLabel) and report screen does not accrue time"
+    }
     Adb shell screencap -p /sdcard/qa-weekly-report.png | Out-Null
     Adb pull /sdcard/qa-weekly-report.png (Join-Path $repo 'artifacts\qa-weekly-report.png') | Out-Null
     TapText '‹ Back to subjects'
