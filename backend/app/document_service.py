@@ -72,10 +72,14 @@ def detect_chapters(text: str) -> list[Chapter]:
     if not matches:
         return [Chapter(id="whole-document", title="Whole document", start_character=0, end_character=len(text), confidence=0.35)]
     chapters: list[Chapter] = []
+    if text[:matches[0].start()].strip():
+        chapters.append(Chapter(id="document-introduction", title="Introduction / before first heading",
+                                start_character=0, end_character=matches[0].start(), confidence=0.55))
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         title = match.group(0).strip()[:160]
-        if end - match.start() < 80:
-            continue
-        chapters.append(Chapter(id=f"chapter-{len(chapters) + 1}", title=title, start_character=match.start(), end_character=end, confidence=0.85))
+        # Small sections can contain important definitions. Keep their source
+        # range and report lower confidence instead of silently discarding it.
+        chapters.append(Chapter(id=f"chapter-{index + 1}", title=title, start_character=match.start(),
+                                end_character=end, confidence=0.85 if end - match.start() >= 80 else 0.55))
     return chapters or [Chapter(id="whole-document", title="Whole document", start_character=0, end_character=len(text), confidence=0.35)]

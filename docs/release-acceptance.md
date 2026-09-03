@@ -83,6 +83,12 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: repaired detection that silently omitted short sections and
+  introductory text. New analyses preserve these exact ranges with lower
+  confidence; existing stored IDs remain untouched. 164 backend tests passed,
+  then seven focused coverage/upload-reopen tests passed. Safe stored-document
+  reanalysis, device QA and richer selection modes remain open; see
+  `document-selection.md`. DOC-02 remains partial.
 - 2026-09-03: API 36 creation-retry QA passed: one quiz commits behind an
   injected HTTP 503, Android preserves the request ID across restart, and retry
   opens the same quiz with no duplicate. Pending identity clears only after

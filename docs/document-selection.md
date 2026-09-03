@@ -64,3 +64,26 @@ chapter coverage or live generation quality for arbitrary documents.
 Remaining work: section/page/topic retrieval with explicit boundaries; selection
 review/recovery device tests; and coverage/quality evaluation over selected material.
 This is not UAT or production sign-off.
+
+## Detection coverage repair
+
+The detector previously discarded heading ranges shorter than 80 characters and
+omitted non-heading introductory text. Selecting every detected chapter could
+therefore omit real source content. New analyses now preserve short sections with
+confidence 0.55 and expose nonblank introductory material as
+`document-introduction`, titled `Introduction / before first heading`. Heading
+IDs count headings independently of that introduction. Long sections retain the
+existing 0.85 heuristic confidence; these numbers are not calibrated probabilities.
+
+164 backend tests passed, followed by seven focused coverage tests after adding
+an upload/reopen integration case. Tests verify short intermediate/final sections,
+introductory coverage, contiguous reconstruction, heading IDs, whitespace-only
+prefixes, the unheaded fallback and stored structure preservation. No live AI
+calls or Android edits were needed for this repair.
+
+Existing stored chapter arrays are intentionally unchanged: silently renumbering
+them could invalidate saved selections. Safe reanalysis/migration and a new-device
+selection check are still needed. Detection remains a flat heading heuristic, not
+a hierarchical section model, PDF page selection or topic retrieval. DOC-02 remains
+partial. This repair prevents tested omissions in newly analyzed material; it does
+not prove quiz coverage of every included fact.
