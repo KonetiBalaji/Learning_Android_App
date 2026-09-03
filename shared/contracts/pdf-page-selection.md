@@ -132,7 +132,8 @@ Usability gap observed in that QA run: Android intentionally suppresses arbitrar
 to avoid exposing sensitive validation data, but its generic 422 message does not
 explain insufficient material or blank-only page selections. Safe structured error
 codes with actionable, client-owned messages are now implemented in
-`document-error-codes.md`; their updated device checks remain pending.
+`document-error-codes.md`; its subsequent API 36 run verified both messages and
+the same selection/quiz recovery flow. Broader error/device coverage remains open.
 
 The full backend regression suite passed **251 tests, 1 Windows symlink-privilege
 test skipped**, with the existing Starlette/httpx deprecation warning on 2026-09-03.

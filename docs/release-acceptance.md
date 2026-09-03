@@ -83,6 +83,16 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- API 36 recovery-message QA passed against `06b4bec`: textless-page and
+  insufficient-material messages were readable without clipping; dismissal and
+  correction preserved selection, five-question restart/creation retry, exact
+  page-2 sources, conflict recovery and final results. Remaining answers used
+  the API fixture; screenshots inspected. Other error codes, large-text/TalkBack,
+  network failures and UAT remain open. See `shared/contracts/document-error-codes.md`.
+- Added `uat-runbook.md` with candidate identity/signing/staging prerequisites,
+  tester journeys, privacy safeguards, issue/retest records and explicit user
+  acceptance gates. This is preparation, not a release candidate or UAT sign-off.
+
 - Added fixed document-recovery error codes and Android-owned guidance for
   insufficient quiz material, textless PDF pages, omitted chapter coverage and
   the 50-range limit. Arbitrary response bodies remain excluded; unknown codes

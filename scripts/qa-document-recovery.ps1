@@ -193,6 +193,8 @@ if ($VerifyPdfPages) {
     EnterPage 'Last physical PDF page (inclusive)' '3'
     TapText 'Review original page range'
     TextNode 'These PDF pages have no extracted text. Choose pages with text; scanned pages need OCR, which is not available. Your selection is unchanged.' | Out-Null
+    Adb shell screencap -p /sdcard/qa-pdf-empty-error.png | Out-Null
+    Adb pull /sdcard/qa-pdf-empty-error.png (Join-Path $repo 'artifacts\qa-pdf-empty-error.png') | Out-Null
     AssertNoPageConfirmation
     TapText 'Try again'
     EnterPage 'First physical PDF page' '4'
@@ -204,6 +206,8 @@ if ($VerifyPdfPages) {
     TextNode 'No extracted text on pages: 3' | Out-Null
     AssertNoPageConfirmation
     EnterPage 'Last physical PDF page (inclusive)' '2'
+    # Inspect the bottom of the form, where any stale confirmation would appear.
+    TextNode 'Generate 10 questions' | Out-Null
     if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Use these PDF pages instead of current selection') { throw 'Editing page input retained stale confirmation' }
     TapText 'Review original page range'
     $pageScope = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/pdf-pages/selection" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"first_page":2,"last_page":2}'
@@ -276,6 +280,8 @@ if ($VerifyPdfPages) {
     # normal admission failure before choosing a count the source can support.
     TapText 'Generate 10 questions'
     TextNode 'This selection cannot support that many distinct questions. Choose fewer questions or select more source text. Your selection is unchanged.' | Out-Null
+    Adb shell screencap -p /sdcard/qa-pdf-count-error.png | Out-Null
+    Adb pull /sdcard/qa-pdf-count-error.png (Join-Path $repo 'artifacts\qa-pdf-count-error.png') | Out-Null
     TapText 'Try again'
     [xml]$shortPagePrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     if (($shortPagePrefs.map.ChildNodes | Where-Object name -eq $excerptKey).InnerText -ne $savedExcerpt) { throw 'Unsupported count changed PDF selection' }

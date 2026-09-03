@@ -30,10 +30,28 @@ is performed by error handling.
 Verification covers emitted HTTP codes for blank pages and insufficient material,
 unchanged success/unauthorized/schema-error behavior, domain coverage/range-limit
 codes, Android allowlist/fallback/authentication behavior and suppression of
-synthetic sensitive bodies. The PDF device QA script now expects the new messages,
-but its previous successful run predates this change; device rendering/recovery
-with these longer messages must be rerun before calling them device verified.
+synthetic sensitive bodies. The PDF device QA script expects the new messages
+and captures each error dialog for visual inspection.
 
 On 2026-09-03, the full backend suite passed 254 tests with one existing Windows
 symlink-privilege skip and the existing Starlette/httpx warning. Android debug
 build, lint and all 95 JVM tests passed. No live AI calls were made.
+
+## Android message checks
+
+The API 36 rerun against implementation `06b4bec` displayed both the textless-page
+and insufficient-question-material messages. Screenshots were visually inspected:
+the complete recovery text and dismissal control were readable without clipping
+at the emulator's current font scale. Both failures preserved saved selection.
+The control labelled Try again dismisses the dialog; it does not automatically
+repeat a request. The learner then changes page/count inputs and submits again.
+
+The full run exited zero: five-question count and selected range survived restart;
+the simulated committed-response 503 retried into exactly one quiz; all five source
+references stayed within page 2 (288–591); conflicting-answer recovery and completed
+results restored correctly. Remaining answers were submitted by the API fixture.
+Transient uiautomator null-root warnings recovered through fresh-dump retries.
+
+These observations do not cover the omitted-coverage/range-limit messages on a
+device, large text, TalkBack, arbitrary network failures or live-provider quality.
+Those checks and actual user acceptance remain open.
