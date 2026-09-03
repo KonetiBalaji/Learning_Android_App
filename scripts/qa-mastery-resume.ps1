@@ -5,7 +5,8 @@ param(
     [switch]$VerifyDeletedSession,
     [switch]$VerifyWeeklyReport,
     [switch]$VerifyFractionModel,
-    [switch]$VerifyStaleSubmission
+    [switch]$VerifyStaleSubmission,
+    [switch]$VerifyFailedResponse
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -58,6 +59,7 @@ if ($avd -notmatch '^LearnSmart_API36') { throw 'Refusing to clear data outside 
 $health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
 if ($health.ai_provider -notin @('deterministic', 'scripted-qa')) { throw 'Run an isolated deterministic or scripted-qa backend on port 8000 first.' }
 if ($ExpectRubricFeedback -and $health.ai_provider -ne 'scripted-qa') { throw 'Rubric display checks require scripts/serve_qa.py --qa-only.' }
+if ($VerifyFailedResponse -and ($VerifyStaleSubmission -or $health.ai_provider -ne 'scripted-qa')) { throw 'Failed-response QA requires scripted-qa and cannot combine with stale-submission QA.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -121,7 +123,7 @@ if ($ExpectRubricFeedback) {
 }
 TextNode 'Question 2 of 3' | Out-Null
 Write-Output 'PASS: remediation advances to question 2 and survives restart, without early mastery'
-if ($VerifyStaleSubmission) {
+if ($VerifyStaleSubmission -or $VerifyFailedResponse) {
     # Advance this disposable session through another client while Android keeps Q2.
     [xml]$sessionPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     $activeKey = "active_mastery:$($qaEmail.ToLowerInvariant())"
@@ -132,12 +134,32 @@ if ($VerifyStaleSubmission) {
     $sessionUrl = "http://127.0.0.1:8000/v1/mastery/sessions/$sessionId"
     $beforeStale = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
     if ($beforeStale.question.ordinal -ne 2 -or -not $beforeStale.state_token) { throw 'Expected token-bearing question 2' }
-    $otherAnswer = Invoke-RestMethod "$sessionUrl/diagnostic-answer" -Method Post -Headers $qaHeaders -ContentType 'application/json' -Body (@{selected_option='3/6'; expected_state=$beforeStale.state_token} | ConvertTo-Json)
-    if ($otherAnswer.next_question.ordinal -ne 3) { throw 'Second client did not advance to question 3' }
+    if ($VerifyStaleSubmission) {
+        $otherAnswer = Invoke-RestMethod "$sessionUrl/diagnostic-answer" -Method Post -Headers $qaHeaders -ContentType 'application/json' -Body (@{selected_option='3/6'; expected_state=$beforeStale.state_token} | ConvertTo-Json)
+        if ($otherAnswer.next_question.ordinal -ne 3) { throw 'Second client did not advance to question 3' }
+    } else {
+        $armed = Invoke-RestMethod "http://127.0.0.1:8000/__qa/mastery/$sessionId/fail-next-response" -Method Post -Headers $qaHeaders
+        if (-not $armed.armed) { throw 'QA response fault was not armed' }
+    }
 }
 TapText '3/6'
 TapText 'Submit answer'
+if ($VerifyFailedResponse) {
+    TextNode 'The learning service is temporarily unavailable. Please try again.' | Out-Null
+    $committed = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
+    if ($committed.question.ordinal -ne 3 -or $committed.state_token -eq $beforeStale.state_token) { throw 'Failed response did not follow a committed answer' }
+    TapText 'Try again'
+    TextNode 'Question 2 of 3' | Out-Null
+    TapText 'Submit answer'
+}
 TextNode 'Question 3 of 3' | Out-Null
+if ($VerifyFailedResponse) {
+    $recovered = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
+    if ($recovered.state_token -ne $committed.state_token) { throw 'Retry after failed response changed server state' }
+    RestartApp
+    TextNode 'Question 3 of 3' | Out-Null
+    Write-Output 'PASS: post-commit 503 retains old submission state; retry resumes Q3 without another answer'
+}
 if ($VerifyStaleSubmission) {
     $afterStale = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
     if ($afterStale.state_token -ne $otherAnswer.state_token -or $afterStale.status -ne 'diagnostic') { throw 'Stale Android answer changed server state' }

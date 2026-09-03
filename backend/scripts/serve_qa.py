@@ -36,6 +36,8 @@ def main():
                                      coaching=base.coaching)
 
     api.tutor_provider = lambda settings, interests=(): ScriptedQAProvider()
+    from scripts.qa_response_fault import install_response_fault
+    install_response_fault(api.app)
     uvicorn.run(api.app, host="127.0.0.1", port=8000)
 
 

@@ -279,3 +279,9 @@ feature to UAT accepted or production verified. All release gates below remain o
   and a weekly total of five responses/one chapter passed; screenshot inspected.
   Actual network-response loss, practice/rewrite device conflicts, account switch
   and legacy-client enforcement remain open. See `adaptive-submission-preconditions.md`.
+- Verified Android recovery from a committed diagnostic answer whose response is
+  replaced by a QA-only 503. Retry receives 409 and resumes without mutation;
+  restart, completion and the five-response weekly count passed. Backend 93 tests
+  passed. This is an HTTP failure after commit, not a TCP-loss simulation. Actual
+  connection loss, malformed success payloads and other phase injections remain
+  open; see `adaptive-submission-preconditions.md`.

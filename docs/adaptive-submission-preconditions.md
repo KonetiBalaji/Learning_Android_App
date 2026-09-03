@@ -65,3 +65,33 @@ mastered chapter, with the uncalibrated-readiness disclosure visible in Android.
 This proves the tested diagnostic stale-screen/409 recovery path, not dropped
 response bytes, repeated practice/rewrite recovery on device, account switching,
 or legacy-client protection. Those cases remain distinct QA work.
+
+## Post-commit failed-response verification
+
+On 2026-09-03, the same dedicated emulator passed:
+
+```powershell
+.\scripts\qa-mastery-resume.ps1 -ResetTestAppData -ExpectRubricFeedback -VerifyWeeklyReport -VerifyFailedResponse
+```
+
+The explicit localhost QA runner installs `scripts/qa_response_fault.py`; the
+production application does not install its route or middleware. The fault's
+authenticated arm route verifies session ownership and is limited to 100 pending
+paths. It substitutes a single 503 for a successful diagnostic answer response
+after the endpoint has committed. It does not simulate a TCP disconnect, timeout
+or partial JSON payload. No live AI calls were made.
+
+Android submitted question 2, displayed its safe service-unavailable message,
+and retained the old question and answer. A separate GET confirmed that question
+3 was already pending on the server. After dismissing the error and resubmitting,
+Android received 409 and automatically resumed question 3. The server token did
+not change during that retry, and a process restart retained question 3.
+Server logs confirmed the 503 -> 409 -> GET 200 sequence. The run then completed
+mastery and verified exactly five weekly learning responses and one mastered
+chapter, demonstrating no duplicate response credit in this scenario.
+
+93 backend tests passed, including a test that the fault acts after success,
+fires once, rejects another session and is not installed in the production app.
+Android code was unchanged from the prior build/lint/40-test verification.
+TCP loss, malformed successful responses, practice/rewrite failure injection,
+physical-device coverage and user acceptance remain unverified.
