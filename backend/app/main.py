@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import Settings, get_settings
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
+from .document_errors import document_error_headers
 from .quiz_service import generate_grounded_questions, question_id
 from .quiz_creation import creation_fingerprint
 from .document_selection import repair_chapter_coverage, resolve_quiz_selection
@@ -272,7 +273,7 @@ def document_pdf_page_selection(document_id: str, request: PdfPageRequest,
         chapters = [Chapter.model_validate(item) for item in parse_json(row['chapters_json'])]
         return select_pdf_pages(document_id, row['extracted_text'], chapters, pages, request.first_page, request.last_page)
     except (ValueError, TypeError) as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+        raise HTTPException(status_code=422, detail=str(error), headers=document_error_headers(error)) from error
 
 
 @app.post('/v1/documents/{document_id}/search', response_model=SourceSearchResults)
@@ -361,7 +362,7 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
     except QuestionGenerationUnavailable as error:
         raise HTTPException(status_code=503, detail='Could not validate this quiz request. Please retry.') from error
     except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error), headers=document_error_headers(error)) from error
     quiz_id = str(uuid.uuid4())
     with connection(settings.database_path) as db:
         db.execute('BEGIN IMMEDIATE')

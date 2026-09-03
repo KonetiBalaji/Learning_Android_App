@@ -4,6 +4,7 @@ from pathlib import Path
 import fitz
 
 from .document_selection import resolve_chapters
+from .document_errors import DocumentErrorCode, DocumentValidationError
 from .schemas import Chapter, PdfPage, PdfPageSelection, SourceRange
 
 
@@ -50,16 +51,16 @@ def select_pdf_pages(document_id: str, text: str, chapters: list[Chapter], pages
         if left >= right:
             continue
         if text[position:left].strip():
-            raise ValueError('Selected pages contain omitted source text; repair document structure first')
+            raise DocumentValidationError(DocumentErrorCode.PDF_COVERAGE_GAP, 'Selected pages contain omitted source text; repair document structure first')
         if text[left:right].strip():
             ranges.append(SourceRange(chapter_id=chapter.id, start_character=left, end_character=right))
         position = right
     if text[position:end].strip():
-        raise ValueError('Selected pages contain omitted source text; repair document structure first')
+        raise DocumentValidationError(DocumentErrorCode.PDF_COVERAGE_GAP, 'Selected pages contain omitted source text; repair document structure first')
     if not ranges:
-        raise ValueError('Selected PDF pages have no extractable text; scanned pages require OCR')
+        raise DocumentValidationError(DocumentErrorCode.EMPTY_PDF_PAGES, 'Selected PDF pages have no extractable text; scanned pages require OCR')
     if len(ranges) > 50:
-        raise ValueError('Choose fewer pages, with at most fifty source ranges')
+        raise DocumentValidationError(DocumentErrorCode.TOO_MANY_PDF_RANGES, 'Choose fewer pages, with at most fifty source ranges')
     return PdfPageSelection(document_id=document_id, first_page=first, last_page=last,
         chapter_ids=[part.chapter_id for part in ranges], source_ranges=ranges,
         empty_pages=[page.page for page in pages[first - 1:last] if not page.has_text])

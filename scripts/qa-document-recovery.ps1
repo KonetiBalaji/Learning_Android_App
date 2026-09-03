@@ -192,7 +192,7 @@ if ($VerifyPdfPages) {
     EnterPage 'First physical PDF page' '3'
     EnterPage 'Last physical PDF page (inclusive)' '3'
     TapText 'Review original page range'
-    TextNode 'Please check your input or selected document and try again.' | Out-Null
+    TextNode 'These PDF pages have no extracted text. Choose pages with text; scanned pages need OCR, which is not available. Your selection is unchanged.' | Out-Null
     AssertNoPageConfirmation
     TapText 'Try again'
     EnterPage 'First physical PDF page' '4'
@@ -275,7 +275,7 @@ if ($VerifyPdfPages) {
     # This physical page has five distinct source sentences, not ten. Verify the
     # normal admission failure before choosing a count the source can support.
     TapText 'Generate 10 questions'
-    TextNode 'Please check your input or selected document and try again.' | Out-Null
+    TextNode 'This selection cannot support that many distinct questions. Choose fewer questions or select more source text. Your selection is unchanged.' | Out-Null
     TapText 'Try again'
     [xml]$shortPagePrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     if (($shortPagePrefs.map.ChildNodes | Where-Object name -eq $excerptKey).InnerText -ne $savedExcerpt) { throw 'Unsupported count changed PDF selection' }

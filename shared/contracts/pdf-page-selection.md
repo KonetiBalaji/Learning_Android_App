@@ -128,10 +128,11 @@ admission failure and explicitly selects five questions through Android before
 testing the injected creation-response failure. It does not expand the source
 scope or weaken distinct-question validation to obtain a pass.
 
-Known usability gap: Android intentionally suppresses arbitrary server error bodies
+Usability gap observed in that QA run: Android intentionally suppresses arbitrary server error bodies
 to avoid exposing sensitive validation data, but its generic 422 message does not
 explain insufficient material or blank-only page selections. Safe structured error
-codes with actionable, client-owned messages remain needed.
+codes with actionable, client-owned messages are now implemented in
+`document-error-codes.md`; their updated device checks remain pending.
 
 The full backend regression suite passed **251 tests, 1 Windows symlink-privilege
 test skipped**, with the existing Starlette/httpx deprecation warning on 2026-09-03.

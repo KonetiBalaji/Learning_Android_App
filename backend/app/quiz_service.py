@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from .schemas import Chapter
 from .document_selection import resolve_chapters
+from .document_errors import DocumentErrorCode, DocumentValidationError
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids
             seen.add(fingerprint)
             unique.append((chapter, sentence))
     if len(unique) < 4:
-        raise ValueError("The selected material needs at least four clear sentences before a reliable quiz can be generated")
+        raise DocumentValidationError(DocumentErrorCode.INSUFFICIENT_MATERIAL, "The selected material needs at least four clear sentences before a reliable quiz can be generated")
     rng = random.Random(hashlib.sha256((text + ",".join(selected_ids)).encode()).hexdigest())
     rng.shuffle(unique)
     output: list[GeneratedQuestion] = []
@@ -58,7 +59,7 @@ def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids
             )
         )
     if len(output) != count:
-        raise ValueError('The selected material cannot support the requested number of distinct questions; select more material or fewer questions')
+        raise DocumentValidationError(DocumentErrorCode.INSUFFICIENT_MATERIAL, 'The selected material cannot support the requested number of distinct questions; select more material or fewer questions')
     return output
 
 

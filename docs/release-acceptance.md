@@ -83,6 +83,14 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Added fixed document-recovery error codes and Android-owned guidance for
+  insufficient quiz material, textless PDF pages, omitted chapter coverage and
+  the 50-range limit. Arbitrary response bodies remain excluded; unknown codes
+  and authentication failures keep safe fallbacks. Backend 254 tests passed,
+  1 existing Windows test skipped; Android build/lint/95 JVM tests passed. Updated
+  PDF device assertions have not yet been rerun. See
+  `shared/contracts/document-error-codes.md`; UX and release gates remain partial.
+
 - API 36 PDF-page QA passed against `8f11cba`: blank-only/invalid ranges, explicit
   confirmation, page-2 scope 288–591 and restart preservation, insufficient-count
   rejection then five-question recovery, committed-response 503 replay without
