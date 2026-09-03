@@ -83,6 +83,13 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- Android now supports explicit highlighted-source excerpts, disjoint additions,
+  account/document-scoped persistence, Unicode-safe boundaries and scope-aware
+  request identity. Creation and resume must confirm the requested bounds before
+  accepting a new quiz. Debug build/lint and 78 JVM tests passed. Device selection,
+  restart/failure/accessibility QA and UAT remain open. See the excerpt-selection
+  contract; page/topic retrieval and the full DOC-02 gate remain incomplete.
+
 - Added exact source-excerpt quiz selection to the backend: bounded Unicode
   offsets within selected chapters, no widening/omission, provider-boundary
   validation, persisted scope on resume and scope-aware creation retries without

@@ -76,3 +76,40 @@ Android selection feature**. Android text-selection controls, selected-source
 review, durable pending request state and device recovery tests remain to be
 implemented. It is not semantic topic retrieval or original PDF-page indexing;
 those original DOC-02 requirements remain open, as do educator evaluation and UAT.
+
+## Android selection and persistence
+
+Android now exposes a read-only source text field in chapter preview. Long-press
+and highlight text, then explicitly choose **Use highlighted excerpt instead of
+whole chapters**. In excerpt mode, **Add highlighted excerpt** adds another
+disjoint range. The first confirmation replaces whole-chapter selection; simply
+viewing, highlighting or paging does not commit anything. A selection is limited
+to the currently displayed preview part, but additional parts can be added.
+
+The chapter screen labels excerpt mode and lists chapter names and absolute
+offsets. Its checkbox, Entire document and Clear selection controls explicitly
+reset excerpt mode, as explained on-screen. Selecting overlapping/repeated or
+blank excerpts produces an error instead of merging or widening the source.
+
+Confirmed selections atomically save chapter IDs and canonical excerpt ranges in
+account/document-scoped preferences. They contain no copied source text. Reopening
+the active upload restores them; malformed saved data fails rather than falling
+back to whole chapters. Opening another document starts a new selection. Deletion
+clears its stored selection; quiz creation clears local excerpt metadata only
+after the server confirms the requested ranges on both POST and authoritative GET.
+Saved quizzes load their scope from the server. Request identity includes bounds
+but retains the old fingerprint for whole-chapter requests.
+
+Selection indices are converted from Android UTF-16 into server Unicode code
+points, with split surrogate pairs rejected. Pending highlight gestures are not
+durable; only the explicitly confirmed selection is saved. The backend must be
+upgraded before this Android build: an older server may ignore unknown fields
+and create a whole-chapter quiz, but Android will reject its unconfirmed scope
+and keep the pending identity instead of presenting that quiz as selected text.
+
+Debug build, lint and 78 JVM tests passed. Added tests cover emoji/reversed
+selection, partial surrogate/empty/whitespace rejection, disjoint persistence,
+corrupt preferences, overlap limits, scope-aware request IDs and deletion cleanup.
+No live calls were made. Device text-highlight usability, restart/account-switch,
+lost-response recovery, malformed-response injection and accessibility QA remain
+open. This implementation is not yet device-verified or UAT accepted.

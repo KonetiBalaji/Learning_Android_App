@@ -92,6 +92,7 @@ data class AppUiState(
     val documentLibrary: List<StudyDocument>? = null,
     val documentRepairNotice: String? = null,
     val documentPreview: DocumentPreview? = null,
+    val documentExcerpts: List<DocumentExcerpt> = emptyList(),
     val savedInterests: List<String>? = null, val interestDraft: List<String> = emptyList(), val interestSaveMessage: String? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val canResumeMastery: Boolean = false,
@@ -175,6 +176,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private fun documentQuizKey() = "active_document_quiz:${mutableState.value.accountEmail.lowercase()}"
     private fun documentKey() = "active_document:${mutableState.value.accountEmail.lowercase()}"
     private fun documentChapterKey() = "active_document_chapter:${mutableState.value.accountEmail.lowercase()}"
+    private fun documentExcerptKey(documentId: String) = "document_excerpts:$documentId:${mutableState.value.accountEmail.lowercase()}"
     private fun documentCountKey() = "document_question_count:${mutableState.value.accountEmail.lowercase()}"
     private fun documentDifficultyKey() = "document_difficulty:${mutableState.value.accountEmail.lowercase()}"
     private fun documentQuestionTypeKey() = "document_question_type:${mutableState.value.accountEmail.lowercase()}"
@@ -197,7 +199,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             }
             preferences.edit().putString(activeFlowKey(), "document").apply()
             val completed = resumed.question == null
-            mutableState.value = mutableState.value.copy(document = resumed.document, quizId = id,
+            mutableState.value = mutableState.value.copy(document = resumed.document, quizId = id, documentExcerpts = resumed.excerpts,
                 documentQuestionTotal = resumed.total, savedQuizDifficulty = resumed.difficulty, savedQuizQuestionType = resumed.questionType, question = resumed.question, feedback = resumed.feedback,
                 results = if (completed) api.results(id) else null, canResumeDocumentQuiz = true,
                 screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
@@ -220,8 +222,10 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 else setOf(value) // Migrate the previous single-chapter preference.
             }
             val chapters = restoredChapterSelection(savedIds, document.chapters.map { it.id })
+            val excerpts = decodeExcerpts(preferences.getString(documentExcerptKey(document.id), null))
+            require(excerpts.isEmpty() || excerpts.map { it.chapterId }.toSet() == chapters) { "Saved excerpt selection does not match these chapters. Reopen the document to select again." }
             preferences.edit().putString(activeFlowKey(), "document").apply()
-            mutableState.value = mutableState.value.copy(document = document, selectedChapterIds = chapters,
+            mutableState.value = mutableState.value.copy(document = document, selectedChapterIds = chapters, documentExcerpts = excerpts,
                 documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
                 documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
                 documentQuestionType = restoredDocumentQuestionType(preferences.getString(documentQuestionTypeKey(), null)), savedQuizQuestionType = null,
@@ -391,6 +395,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         if (clearsActive) {
             preferences.edit().remove(documentKey()).remove(documentChapterKey()).remove(documentQuizKey()).remove(pendingQuizCreationKey()).apply()
         }
+        preferences.edit().remove(documentExcerptKey(id)).apply()
         mutableState.value = stateAfterDocumentDeletion(current, id).let {
             if (clearsActive) it.copy(canResumeDocumentQuiz = false) else it
         }
@@ -402,8 +407,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private fun rememberUploadedDocument(document: StudyDocument) {
         val chapter = document.chapters.firstOrNull()?.id
         check(preferences.edit().putString(documentKey(), document.id).putString(documentChapterKey(), chapter)
-            .remove(documentQuizKey()).putString(activeFlowKey(), "document").commit())
-        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, documentPreview = null, selectedChapterIds = setOfNotNull(chapter),
+            .remove(documentQuizKey()).remove(documentExcerptKey(document.id)).putString(activeFlowKey(), "document").commit())
+        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, documentPreview = null, documentExcerpts = emptyList(), selectedChapterIds = setOfNotNull(chapter),
             documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
             documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
             documentQuestionType = restoredDocumentQuestionType(preferences.getString(documentQuestionTypeKey(), null)), savedQuizQuestionType = null,
@@ -419,8 +424,12 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun clearDocumentChapters() = saveChapterSelection(emptySet())
     private fun saveChapterSelection(ids: Set<String>) {
         if (mutableState.value.loading) return
-        preferences.edit().putString(documentChapterKey(), JSONArray(ids.toList()).toString()).apply()
-        mutableState.value = mutableState.value.copy(selectedChapterIds = ids)
+        val document = mutableState.value.document ?: return
+        if (!preferences.edit().putString(documentChapterKey(), JSONArray(ids.toList()).toString()).remove(documentExcerptKey(document.id)).commit()) {
+            mutableState.value = mutableState.value.copy(error = "Could not save chapter selection")
+            return
+        }
+        mutableState.value = mutableState.value.copy(selectedChapterIds = ids, documentExcerpts = emptyList())
     }
     fun setDocumentQuestionCount(input: String) {
         if (mutableState.value.loading || input.length > 3) return
@@ -451,6 +460,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun closeDocumentPreview() {
         if (!mutableState.value.loading) mutableState.value = mutableState.value.copy(screen = Screen.Chapters, documentPreview = null)
     }
+    fun addDocumentExcerpt(first: Int, last: Int) = perform(Screen.Chapters) {
+        val current = mutableState.value
+        val document = requireNotNull(current.document)
+        val preview = requireNotNull(current.documentPreview)
+        require(preview.documentId == document.id)
+        val excerpts = canonicalExcerpts(current.documentExcerpts + excerptFromSelection(preview, first, last))
+        val ids = excerpts.map { it.chapterId }.toSet()
+        check(preferences.edit().putString(documentExcerptKey(document.id), encodeExcerpts(excerpts))
+            .putString(documentChapterKey(), JSONArray(ids.toList()).toString()).commit()) { "Could not save excerpt selection" }
+        mutableState.value = current.copy(documentExcerpts = excerpts, selectedChapterIds = ids, documentPreview = null)
+    }
     fun repairDocumentStructure() = perform(null) {
         val current = mutableState.value
         val document = requireNotNull(current.document)
@@ -464,18 +484,20 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val count = requireNotNull(validDocumentQuestionCount(current.documentQuestionCountInput)) { "Choose 5 to 20 questions" }
         val documentId = requireNotNull(current.document).id
         val chapterIds = current.selectedChapterIds.sorted()
-        val fingerprint = quizCreationFingerprint(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType)
+        require(current.documentExcerpts.isEmpty() || current.documentExcerpts.map { it.chapterId }.toSet() == current.selectedChapterIds)
+        val fingerprint = quizCreationFingerprint(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType, current.documentExcerpts)
         val pendingKey = pendingQuizCreationKey()
         val requestId = prepareQuizCreation(preferences.getString(pendingKey, null), fingerprint,
             persist = { preferences.edit().putString(pendingKey, it).commit() })
-        val quiz = api.createQuiz(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType, requestId)
+        val quiz = api.createQuiz(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType, requestId, current.documentExcerpts)
         val resumed = api.resumeDocumentQuiz(quiz.id)
         check(resumed.document.id == documentId && resumed.total == count) { "Recovered quiz does not match the request" }
         validateDocumentFormat(current.documentQuestionType, resumed.questionType)
+        check(resumed.excerpts == canonicalExcerpts(current.documentExcerpts)) { "Server did not preserve the selected excerpts. Update the backend before retrying." }
         val completed = resumed.question == null
         val results = if (completed) api.results(quiz.id) else null
         check(preferences.edit().putString(documentQuizKey(), quiz.id).putString(activeFlowKey(), "document")
-            .remove(documentKey()).remove(documentChapterKey()).remove(pendingKey).commit())
+            .remove(documentKey()).remove(documentChapterKey()).remove(documentExcerptKey(documentId)).remove(pendingKey).commit())
         mutableState.value = current.copy(quizId = quiz.id, question = resumed.question, feedback = resumed.feedback, results = results,
             documentQuestionTotal = resumed.total, savedQuizDifficulty = resumed.difficulty, savedQuizQuestionType = resumed.questionType,
             canResumeDocumentQuiz = true, screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
@@ -483,7 +505,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
-    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
+    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
     private var operationInFlight = false
@@ -588,15 +610,18 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         return (0 until response.length()).map { document(response.getJSONObject(it)) }
     }
     data class StartedDocumentQuiz(val id: String, val question: QuizQuestion, val total: Int, val difficulty: String?, val questionType: String?)
-    fun createQuiz(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, questionType: String, requestId: String): StartedDocumentQuiz {
-        val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray(chapterIds)).put("question_count", count).put("difficulty", difficulty).put("question_type", questionType).put("request_id", requestId).toString())
+    fun createQuiz(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, questionType: String, requestId: String, excerpts: List<DocumentExcerpt> = emptyList()): StartedDocumentQuiz {
+        val body = JSONObject().put("chapter_ids", JSONArray(chapterIds)).put("question_count", count).put("difficulty", difficulty).put("question_type", questionType).put("request_id", requestId)
+        if (excerpts.isNotEmpty()) body.put("source_ranges", excerptsJson(excerpts))
+        val response = request("POST", "/v1/documents/$documentId/quizzes", body.toString())
+        check(responseExcerpts(response) == canonicalExcerpts(excerpts)) { "Server did not confirm the requested excerpts" }
         val returnedType = if (response.isNull("question_type")) null else response.getString("question_type")
         validateDocumentFormat(questionType, returnedType)
         val first = question(response.getJSONObject("first_question"))
         validateDocumentOptions(returnedType, first.options)
         return StartedDocumentQuiz(response.getString("id"), first, response.getInt("question_count"), if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType)
     }
-    data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?, val difficulty: String?, val questionType: String?)
+    data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?, val difficulty: String?, val questionType: String?, val excerpts: List<DocumentExcerpt> = emptyList())
     fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {
         val response = request("GET", "/v1/quizzes/$id", null)
         val feedback = response.optJSONObject("last_feedback")?.let { value -> Feedback(value.getBoolean("correct"), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"), value.getString("source_reference"), value.optJSONObject("next_question")?.let(::question)) }
@@ -605,7 +630,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val pending = response.optJSONObject("question")?.let(::question)
         pending?.let { validateDocumentOptions(returnedType, it.options) }
         feedback?.next?.let { validateDocumentOptions(returnedType, it.options) }
-        return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), pending, feedback, if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType)
+        return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), pending, feedback, if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType, responseExcerpts(response))
     }
     fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)) }
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").toQuestionList()) }

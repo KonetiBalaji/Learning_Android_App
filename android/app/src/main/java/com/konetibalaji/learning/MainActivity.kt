@@ -129,7 +129,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
                         Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) })
-                        Screen.DocumentPreview -> DocumentPreviewScreen(state, viewModel::closeDocumentPreview, viewModel::changePreviewPage)
+                        Screen.DocumentPreview -> DocumentPreviewScreen(state, viewModel::closeDocumentPreview, viewModel::changePreviewPage, viewModel::addDocumentExcerpt)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
                         Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
                         Screen.Results -> DocumentResultsScreen(state.results, viewModel::startAnotherDocument, viewModel::backToSubjects, state.savedQuizDifficulty, state.savedQuizQuestionType)
@@ -513,6 +513,13 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
         state.documentRepairNotice?.let { Text(it) }
         Row { TextButton(onClick = onAll, enabled = !state.loading) { Text("Entire document") }; TextButton(onClick = onClear, enabled = !state.loading) { Text("Clear selection") } }
         Text("${state.selectedChapterIds.size} of ${document.chapters.size} chapters selected")
+        if (state.documentExcerpts.isNotEmpty()) {
+            Text("Excerpt mode: ${state.documentExcerpts.size} selected text ranges only", fontWeight = FontWeight.Bold)
+            state.documentExcerpts.forEach { excerpt ->
+                Text("${document.chapters.firstOrNull { it.id == excerpt.chapterId }?.title ?: excerpt.chapterId}: characters ${excerpt.start}–${excerpt.end}")
+            }
+            Text("Preview another chapter to add text. Any chapter checkbox, Entire document or Clear selection resets excerpt mode.")
+        } else Text("Whole selected chapters. To choose an excerpt, open Preview and highlight source text.")
         document.chapters.forEach { chapter ->
             val selected = chapter.id in state.selectedChapterIds
             Row(Modifier.fillMaxWidth().toggleable(value = selected, enabled = !state.loading,
@@ -560,8 +567,9 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
 }
 
 @Composable
-private fun DocumentPreviewScreen(state: AppUiState, onBack: () -> Unit, onPage: (Int) -> Unit) {
+private fun DocumentPreviewScreen(state: AppUiState, onBack: () -> Unit, onPage: (Int) -> Unit, onExcerpt: (Int, Int) -> Unit) {
     val preview = state.documentPreview ?: return
+    var selection by remember(preview) { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(preview.text)) }
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to chapter selection") }
         Header("Source preview", preview.title, "Extracted text, not AI-generated. Preview chunks are not original PDF pages.")
@@ -570,8 +578,15 @@ private fun DocumentPreviewScreen(state: AppUiState, onBack: () -> Unit, onPage:
             TextButton(onClick = { onPage(preview.page - 1) }, enabled = !state.loading && preview.page > 0) { Text("Previous part") }
             TextButton(onClick = { onPage(preview.page + 1) }, enabled = !state.loading && preview.page + 1 < preview.totalPages) { Text("Next part") }
         }
-        androidx.compose.foundation.text.selection.SelectionContainer { Text(preview.text) }
-        Text("Previewing does not change your quiz selection.")
+        OutlinedTextField(value = selection, onValueChange = { if (it.text == preview.text) selection = it },
+            readOnly = true, enabled = !state.loading, modifier = Modifier.fillMaxWidth(),
+            label = { Text("Source text — long press to highlight") })
+        Text("Previewing alone does not change your quiz selection. Highlight text, then confirm below. Excerpts must contain enough material for your question count.")
+        val selectedExcerpt = runCatching { excerptFromSelection(preview, selection.selection.start, selection.selection.end) }.getOrNull()
+        selectedExcerpt?.let { Text("Selected source characters ${it.start}–${it.end}") }
+        PrimaryButton(if (state.documentExcerpts.isEmpty()) "Use highlighted excerpt instead of whole chapters" else "Add highlighted excerpt", selectedExcerpt != null && !state.loading) {
+            onExcerpt(selection.selection.start, selection.selection.end)
+        }
     }
 }
 

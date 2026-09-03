@@ -3,8 +3,9 @@ package com.konetibalaji.learning
 import java.security.MessageDigest
 import java.util.UUID
 
-fun quizCreationFingerprint(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, type: String): String {
-    val parts = listOf(documentId, count.toString(), difficulty, type) + chapterIds.sorted()
+fun quizCreationFingerprint(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, type: String, excerpts: List<DocumentExcerpt> = emptyList()): String {
+    val parts = listOf(documentId, count.toString(), difficulty, type) + chapterIds.sorted() +
+        if (excerpts.isEmpty()) emptyList() else listOf("excerpts-v1", encodeExcerpts(excerpts))
     val canonical = parts.joinToString("") { "${it.length}:$it" }
     return MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
