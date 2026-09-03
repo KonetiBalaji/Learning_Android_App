@@ -502,13 +502,22 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     data class StartedDocumentQuiz(val id: String, val question: QuizQuestion, val total: Int, val difficulty: String?, val questionType: String?)
     fun createQuiz(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, questionType: String): StartedDocumentQuiz {
         val response = request("POST", "/v1/documents/$documentId/quizzes", JSONObject().put("chapter_ids", JSONArray(chapterIds)).put("question_count", count).put("difficulty", difficulty).put("question_type", questionType).toString())
-        return StartedDocumentQuiz(response.getString("id"), question(response.getJSONObject("first_question")), response.getInt("question_count"), if (response.isNull("difficulty")) null else response.getString("difficulty"), if (response.isNull("question_type")) null else response.getString("question_type"))
+        val returnedType = if (response.isNull("question_type")) null else response.getString("question_type")
+        validateDocumentFormat(questionType, returnedType)
+        val first = question(response.getJSONObject("first_question"))
+        validateDocumentOptions(returnedType, first.options)
+        return StartedDocumentQuiz(response.getString("id"), first, response.getInt("question_count"), if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType)
     }
     data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?, val difficulty: String?, val questionType: String?)
     fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {
         val response = request("GET", "/v1/quizzes/$id", null)
         val feedback = response.optJSONObject("last_feedback")?.let { value -> Feedback(value.getBoolean("correct"), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"), value.getString("source_reference"), value.optJSONObject("next_question")?.let(::question)) }
-        return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), response.optJSONObject("question")?.let(::question), feedback, if (response.isNull("difficulty")) null else response.getString("difficulty"), if (response.isNull("question_type")) null else response.getString("question_type"))
+        val returnedType = if (response.isNull("question_type")) null else response.getString("question_type")
+        require(returnedType == null || returnedType in documentQuestionTypes) { "Unsupported saved quiz format" }
+        val pending = response.optJSONObject("question")?.let(::question)
+        pending?.let { validateDocumentOptions(returnedType, it.options) }
+        feedback?.next?.let { validateDocumentOptions(returnedType, it.options) }
+        return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), pending, feedback, if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType)
     }
     fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)) }
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").toQuestionList()) }
@@ -586,7 +595,11 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     private fun connection(method: String, path: String, contentType: String): HttpURLConnection = (URL(baseUrl + path).openConnection() as HttpURLConnection).apply { requestMethod = method; instanceFollowRedirects = false; connectTimeout = 15_000; readTimeout = if (method == "POST" && path.endsWith("/quizzes")) 135_000 else 30_000; doInput = true; setRequestProperty("Content-Type", contentType); token?.let { setRequestProperty("Authorization", "Bearer $it") }; if (method == "POST" || method == "PUT" || method == "PATCH") doOutput = true }
     private fun readJson(connection: HttpURLConnection, authenticationRequest: Boolean = false): JSONObject = JSONObject(readApiResponse(connection, authenticationRequest))
     private fun document(value: JSONObject) = StudyDocument(value.getString("id"), value.getString("original_name"), value.getJSONArray("chapters").let { array -> (0 until array.length()).map { index -> array.getJSONObject(index).let { Chapter(it.getString("id"), it.getString("title"), it.getDouble("confidence").toFloat()) } } })
-    private fun question(value: JSONObject) = QuizQuestion(value.getString("id"), value.getInt("ordinal"), value.getString("prompt"), value.getJSONArray("options").let { array -> (0 until array.length()).map(array::getString) }, value.getString("source_reference"))
+    private fun question(value: JSONObject): QuizQuestion {
+        val options = value.getJSONArray("options").strings()
+        validateDocumentOptions(if (value.isNull("question_type")) null else value.getString("question_type"), options)
+        return QuizQuestion(value.getString("id"), value.getInt("ordinal"), value.getString("prompt"), options, value.getString("source_reference"))
+    }
     private fun adaptiveQuestion(value: JSONObject) = DiagnosticQuestion(value.getString("prompt"), value.getJSONArray("options").strings(), "")
     private fun JSONArray.toQuestionList(): List<QuizQuestion> = (0 until length()).map { question(getJSONObject(it)) }
     private fun JSONArray.strings(): List<String> = (0 until length()).map(::getString)

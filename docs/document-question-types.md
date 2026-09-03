@@ -39,7 +39,7 @@ Local evidence:
 Android now provides format radio controls, sends the selection, saves it in
 account-scoped device preferences and restores it when opening an uploaded
 document. Question/results labels use server-saved metadata, not the current
-preference. Missing or unknown server metadata displays unspecified. Existing
+preference. Legacy missing server metadata displays unspecified. Existing
 dynamic answer rendering supports two or four options without changing grading.
 Controls are disabled while loading; the screen explains that binary formats
 require live generation. Debug build, lint and 51 JVM tests passed, including
@@ -65,6 +65,21 @@ replaces the document provider before serving, and rejects non-binary requests
 instead of calling a live provider. Normal application startup never installs
 these fixtures. All 154 backend tests passed, including explicit QA opt-in,
 fixture labels/choices and refusal to fall back for unsupported formats.
+
+Android response validation now rejects an unconfirmed binary creation format,
+unknown saved format, mismatched quiz-level options, noncanonical binary choices,
+and empty/duplicate/wrong-count multiple-choice options. Missing type metadata
+remains compatible only with legacy four-option questions. Creation validation
+occurs before the view model saves a new active quiz pointer. Resume validates
+pending/next choices against the saved quiz format; individual question decoding
+also validates choices against that question's declared format.
+
+Debug build, lint and 54 JVM tests passed, including supported/legacy formats,
+mismatched or missing binary metadata and malformed choices. No live requests
+were needed. These pure validation tests do not prove device error recovery for
+injected malformed responses. A server may already have committed creation before
+Android rejects its response; this change does not implement creation idempotency
+or rollback. Cross-response consistency and creation-retry recovery remain open.
 
 Both API 36 fixture runs passed with `-ResetTestAppData -BinaryFixtureType
 true_false` and `-ResetTestAppData -BinaryFixtureType yes_no`. Android renders two

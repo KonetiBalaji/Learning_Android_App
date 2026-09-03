@@ -83,6 +83,11 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Work log
 
+- 2026-09-03: hardened Android format decoding against unconfirmed binary
+  creation, unknown formats and malformed/mismatched choices while retaining
+  legacy four-option quizzes. Build/lint/54 JVM tests passed. No live requests.
+  Malformed-response device QA and server creation-idempotency remain open; see
+  `document-question-types.md`.
 - 2026-09-03: both binary formats passed API 36 scripted answering/recovery:
   two choices, saved type, conflict handling, committed wrong answer, feedback
   restart, next question and completed results. Both screenshots inspected;

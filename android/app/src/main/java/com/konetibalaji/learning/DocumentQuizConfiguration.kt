@@ -25,3 +25,21 @@ fun restoredDocumentQuestionType(value: String?): String =
 
 fun documentQuestionTypeLabel(value: String?): String =
     documentQuestionTypes[value]?.let { "Question type: $it" } ?: "Question type: unspecified"
+
+fun validateDocumentFormat(requested: String, returned: String?) {
+    require(requested in documentQuestionTypes) { "Unsupported requested quiz format" }
+    require(returned == requested || (returned == null && requested == "multiple_choice")) {
+        "Server did not confirm the requested quiz format"
+    }
+}
+
+fun validateDocumentOptions(type: String?, options: List<String>) {
+    val valid = when (type) {
+        null, "multiple_choice" -> options.size == 4 && options.all { it.isNotBlank() } &&
+            options.map { it.trim().lowercase(java.util.Locale.ROOT) }.distinct().size == 4
+        "true_false" -> options == listOf("True", "False")
+        "yes_no" -> options == listOf("Yes", "No")
+        else -> false
+    }
+    require(valid) { "Invalid answer choices for the quiz format" }
+}
