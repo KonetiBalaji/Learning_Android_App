@@ -47,7 +47,10 @@ def test_failure_happens_after_save_and_keeps_rejected_upload_unchanged(monkeypa
         return {'id': 'document'}
     install_upload_delay(app, 1, True)
     with TestClient(app) as client:
-        assert client.post('/v1/documents').status_code == 503
+        headers = {'X-Upload-Request-ID': '12345678-1234-4234-8234-123456789012'}
+        assert client.post('/v1/documents', headers=headers).status_code == 503
         assert saved == ['document']
+        assert client.post('/v1/documents', headers=headers).status_code == 201
+        assert saved == ['document', 'document']  # Route fixture is not itself idempotent.
         assert client.post('/v1/documents?reject=true').status_code == 422
-        assert saved == ['document']
+        assert saved == ['document', 'document']

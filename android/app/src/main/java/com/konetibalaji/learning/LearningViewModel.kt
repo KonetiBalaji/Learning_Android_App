@@ -193,6 +193,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private fun documentDifficultyKey() = "document_difficulty:${mutableState.value.accountEmail.lowercase()}"
     private fun documentQuestionTypeKey() = "document_question_type:${mutableState.value.accountEmail.lowercase()}"
     private fun pendingQuizCreationKey() = "pending_quiz_creation:${mutableState.value.accountEmail.lowercase()}"
+    private fun pendingDocumentUploadKey() = "pending_document_upload:${mutableState.value.accountEmail.lowercase()}"
     private fun activeFlowKey() = "active_flow:${mutableState.value.accountEmail.lowercase()}"
 
     fun resumeDocumentQuiz() {
@@ -542,9 +543,15 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun upload(context: Context, uri: Uri) = perform(Screen.Chapters) {
         mutableState.value = mutableState.value.copy(uploadProgress = DocumentUploadProgress())
         try {
-            rememberUploadedDocument(api.upload(context.contentResolver, uri) { progress ->
+            val pendingKey = pendingDocumentUploadKey()
+            val selection = documentUploadSelection(context.contentResolver, uri)
+            val requestId = prepareDocumentUpload(preferences.getString(pendingKey, null),
+                documentUploadSelectionFingerprint(selection),
+                persist = { preferences.edit().putString(pendingKey, it).commit() })
+            rememberUploadedDocument(api.upload(context.contentResolver, uri, selection, requestId) { progress ->
                 mutableState.value = mutableState.value.copy(uploadProgress = progress)
             })
+            check(preferences.edit().remove(pendingKey).commit()) { "Could not clear completed upload request" }
         } finally {
             mutableState.value = mutableState.value.copy(uploadProgress = null)
         }
@@ -827,17 +834,10 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun revokeGuardian(id: String) = requestNoContent("DELETE", "/v1/guardian/access/$id")
     fun saveInterests(values: List<String>): List<String> = request("PUT", "/v1/account/interests",
         JSONObject().put("interests", JSONArray(values)).toString()).getJSONArray("interests").strings()
-    fun upload(resolver: ContentResolver, uri: Uri, onProgress: (DocumentUploadProgress) -> Unit): StudyDocument {
-        var originalName = "study-material.txt"
-        var declaredSize: Long? = null
-        resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
-                if (nameIndex >= 0 && !cursor.isNull(nameIndex)) originalName = cursor.getString(nameIndex)
-                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) declaredSize = cursor.getLong(sizeIndex)
-            }
-        }
+    fun upload(resolver: ContentResolver, uri: Uri, selection: DocumentUploadSelection, requestId: String, onProgress: (DocumentUploadProgress) -> Unit): StudyDocument {
+        require(UUID.fromString(requestId).toString() == requestId) { "Upload request identity is invalid" }
+        val originalName = selection.originalName
+        val declaredSize = selection.declaredSize
         validateDocumentSize(declaredSize)
         val knownSize = declaredSize?.takeIf { it > 0 }
         onProgress(DocumentUploadProgress(declaredBytes = knownSize))
@@ -847,6 +847,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val mediaType = documentMediaType(name)
         val boundary = "Learnly-${UUID.randomUUID()}"
         val connection = connection("POST", "/v1/documents", "multipart/form-data; boundary=$boundary")
+        connection.setRequestProperty("X-Upload-Request-ID", requestId)
         connection.setChunkedStreamingMode(16 * 1024)
         try {
             resolver.openInputStream(uri)?.use { input ->

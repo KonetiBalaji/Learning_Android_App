@@ -69,6 +69,12 @@ CREATE TABLE IF NOT EXISTS pending_file_deletions (
   stored_path TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
   last_error TEXT
 );
+CREATE TABLE IF NOT EXISTS document_upload_requests (
+  owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL, fingerprint TEXT NOT NULL CHECK(length(fingerprint) = 64),
+  document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  PRIMARY KEY(owner_id, request_id)
+);
 CREATE TABLE IF NOT EXISTS quiz_creation_requests (
   owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   request_id TEXT NOT NULL, fingerprint TEXT NOT NULL,

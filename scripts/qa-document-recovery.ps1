@@ -62,6 +62,19 @@ function RestartApp {
     Adb shell am start -n "$package/.MainActivity" | Out-Null
     Start-Sleep -Seconds 3
 }
+function SelectFixtureForUpload {
+    TapText 'Choose document'
+    $roots = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -eq 'Show roots' } | Select-Object -First 1
+    if (-not $roots) { throw 'Missing Android document-picker roots' }
+    $point = Center $roots
+    Adb shell input tap $point[0] $point[1] | Out-Null
+    $downloads = (Ui).SelectNodes('//node') | Where-Object { $_.text -eq 'Downloads' -and $_.'resource-id' -eq 'android:id/title' } | Select-Object -Last 1
+    if (-not $downloads) { throw 'Missing Downloads provider in picker drawer' }
+    $point = Center $downloads
+    Adb shell input tap $point[0] $point[1] | Out-Null
+    Start-Sleep -Milliseconds 900
+    TapText $fixtureName
+}
 if (-not $ResetTestAppData) { throw 'Supply -ResetTestAppData for the dedicated QA emulator only.' }
 if (((Adb emu avd name) -join "`n") -notmatch '^LearnSmart_API36') { throw 'Not the dedicated QA emulator.' }
 $health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
@@ -82,17 +95,7 @@ TapText 'Study from my own document'
 TapText 'My uploaded documents'
 TextNode 'No uploaded documents yet. Return to your study space to upload one.' | Out-Null
 TapText '‹ Back to study space'
-TapText 'Choose document'
-$roots = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -eq 'Show roots' } | Select-Object -First 1
-if (-not $roots) { throw 'Missing Android document-picker roots' }
-$point = Center $roots
-Adb shell input tap $point[0] $point[1] | Out-Null
-$downloads = (Ui).SelectNodes('//node') | Where-Object { $_.text -eq 'Downloads' -and $_.'resource-id' -eq 'android:id/title' } | Select-Object -Last 1
-if (-not $downloads) { throw 'Missing Downloads provider in picker drawer' }
-$point = Center $downloads
-Adb shell input tap $point[0] $point[1] | Out-Null
-Start-Sleep -Milliseconds 900
-TapText $fixtureName
+SelectFixtureForUpload
 if ($VerifyUploadProgress) {
     # Run the explicit QA server with --upload-response-delay 20. Small fixture
     # bytes transfer too quickly to claim visual percentage coverage.
@@ -107,10 +110,17 @@ if ($VerifySavedUploadFailure) {
     if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Waiting for document analysis…') { throw 'Wait overlay remained behind upload error' }
     Adb shell screencap -p /sdcard/qa-upload-uncertain-error.png | Out-Null
     Adb pull /sdcard/qa-upload-uncertain-error.png (Join-Path $repo 'artifacts\qa-upload-uncertain-error.png') | Out-Null
+    $savedPreferences = [xml]((Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n")
+    $pendingUpload = ($savedPreferences.map.ChildNodes | Where-Object name -eq "pending_document_upload:$($qaEmail.ToLowerInvariant())").InnerText
+    if ($pendingUpload -notmatch '^[0-9a-f-]{36}\|[0-9a-f]{64}$') { throw 'Durable pending upload identity was not saved before submission' }
     TapText 'Try again'
-    TapText 'My uploaded documents'
-    TapText "Open $fixtureName"
-    # Check saved server count: dismissing the message must not replay the upload.
+    SelectFixtureForUpload
+    TextNode 'Waiting for document analysis…' | Out-Null
+    Start-Sleep -Seconds 20
+    TextNode 'Entire document' | Out-Null
+    $completedPreferences = [xml]((Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n")
+    if ($completedPreferences.map.ChildNodes | Where-Object name -eq "pending_document_upload:$($qaEmail.ToLowerInvariant())") { throw 'Completed upload identity was not cleared' }
+    # The retry must replay the committed document instead of creating a duplicate.
     $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
     $saved = @(Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers @{Authorization="Bearer $($login.access_token)"})
     if ($saved.Count -ne 1) { throw 'Uncertain response created duplicate or missing documents' }
@@ -121,7 +131,7 @@ if ($VerifyUploadProgress) {
     if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Waiting for document analysis…') { throw 'Upload wait remained after success' }
     Adb shell screencap -p /sdcard/qa-upload-analysis-complete.png | Out-Null
     Adb pull /sdcard/qa-upload-analysis-complete.png (Join-Path $repo 'artifacts\qa-upload-analysis-complete.png') | Out-Null
-    if ($VerifySavedUploadFailure) { Write-Output 'PASS: saved-upload 503 clears wait, shows library-first recovery, and opens the single saved document without reupload.' }
+    if ($VerifySavedUploadFailure) { Write-Output 'PASS: saved-upload 503 retains a durable request identity; explicit same-file retry replays one document, opens it, and clears the identity.' }
     else { Write-Output 'PASS: real picker upload shows analysis-wait copy during delayed response, then clears it and opens selectable chapters. Not transfer percentage or failure QA.' }
     return
 }

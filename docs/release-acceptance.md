@@ -142,6 +142,15 @@ account was deleted. This covers ciphertext corruption with AndroidKeyStore but 
 OEM key invalidation, hardware-backed certification or user UAT; see
 `android-session-security.md`. Android 126 JVM tests, lint and debug assembly pass.
 
+Upload retries now use a durable owner-scoped UUID and transactional server replay
+mapping. Identical retries return the original document, changed content conflicts,
+and concurrent identical requests commit once. Backend 473 tests passed with one
+existing Windows skip; Android build/lint and 138 JVM tests passed. API 36 post-commit
+503 injection retained the identity, reselected the same file, reopened the single
+original document and cleared the identity after confirmation. DOC-01 remains
+partial for cancellation/background transfer, broader malformed/network failures,
+physical-device accessibility, UAT and production evidence; see `upload-progress.md`.
+
 OA-02 selectively adapts OpenMAIC's owner-scoped material count/byte quota and
 serialized admission pattern. This implementation uses SQLite `BEGIN IMMEDIATE`,
 measured file bytes, rejection cleanup and stable Android-owned recovery codes.

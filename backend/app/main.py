@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import sqlite3
 import asyncio
+import hashlib
 import logging
 import uuid
+from uuid import UUID
 from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status, Query
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
@@ -258,6 +260,7 @@ def revoke_guardian(guardian_id: str, user_id: str = Depends(current_user_id), s
 @app.post("/v1/documents", response_model=DocumentSummary, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),
+    x_upload_request_id: UUID | None = Header(default=None, alias='X-Upload-Request-ID'),
     user_id: str = Depends(current_user_id),
     settings: Settings = Depends(get_settings),
 ) -> DocumentSummary:
@@ -265,10 +268,36 @@ async def upload_document(
     try:
         chapters = detect_chapters(extracted_text)
         document_id = str(uuid.uuid4())
+        request_id = str(x_upload_request_id) if x_upload_request_id is not None else None
+        digest = hashlib.sha256()
+        for value in (filename, file.content_type or 'application/octet-stream'):
+            encoded = value.encode('utf-8')
+            digest.update(len(encoded).to_bytes(8, 'big'))
+            digest.update(encoded)
+        with stored.open('rb') as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                digest.update(chunk)
+        fingerprint = digest.hexdigest()
         with connection(settings.database_path) as db:
             # SQLite's write lock makes quota-read plus insert one owner-safe critical
             # section; the temporary file is discarded on rejection or contention.
             db.execute('BEGIN IMMEDIATE')
+            if request_id is not None:
+                replay = db.execute('''SELECT document_upload_requests.fingerprint, documents.id,
+                    documents.original_name, documents.chapters_json
+                    FROM document_upload_requests JOIN documents
+                      ON documents.id = document_upload_requests.document_id
+                    WHERE document_upload_requests.owner_id = ? AND request_id = ?
+                      AND documents.owner_id = ?''', (user_id, request_id, user_id)).fetchone()
+                if replay is not None:
+                    if replay['fingerprint'] != fingerprint:
+                        raise HTTPException(status_code=409, detail='Upload request identity was already used for different content.')
+                    try:
+                        stored.unlink(missing_ok=True)
+                    except OSError:
+                        queue_file_deletion(db, str(stored))
+                    return DocumentSummary(id=replay['id'], original_name=replay['original_name'],
+                        chapters=[Chapter.model_validate(item) for item in parse_json(replay['chapters_json'])])
             usage = db.execute(
                 'SELECT COUNT(*) AS count, COALESCE(SUM(stored_bytes), 0) AS bytes FROM documents WHERE owner_id = ?',
                 (user_id,),
@@ -285,6 +314,9 @@ async def upload_document(
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (document_id, user_id, filename, file.content_type or "application/octet-stream", str(stored), extracted_text, json_value([chapter.model_dump() for chapter in chapters]), now(), incoming_bytes),
             )
+            if request_id is not None:
+                db.execute('INSERT INTO document_upload_requests (owner_id, request_id, fingerprint, document_id) VALUES (?, ?, ?, ?)',
+                           (user_id, request_id, fingerprint, document_id))
     except DocumentValidationError as error:
         discard_uncommitted_upload(settings, stored)
         raise HTTPException(status_code=422, detail=str(error), headers=document_error_headers(error)) from error

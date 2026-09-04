@@ -16,10 +16,9 @@ The existing 50 MiB streaming limit still applies even if metadata is false.
 
 Progress is kept in ViewModel state for ordinary activity recreation and cleared
 in a `finally` block on success, exception or cancellation. It is not persisted as
-a resumable transfer. Process death, upload cancellation controls, server-side
-idempotency and background transfer are separate unfinished work. No automatic
-upload retry is added, since an uncertain response could otherwise create a
-duplicate document. The study-space back and upload/library controls are disabled
+a resumable transfer. Process death during picker recovery, upload cancellation
+controls and background transfer are separate unfinished work. The study-space
+back and upload/library controls are disabled
 while the operation is in flight. Error presentation continues using safe
 client-owned messages.
 
@@ -83,3 +82,30 @@ run passed, recovering a transient null automation root via the existing retry.
 The server was restored to normal no-fault mode afterward. This proves the injected
 post-save 503 path, not real connection-loss/malformed-response recovery, cancellation,
 process death, automatic deduplication or user acceptance.
+
+## Idempotent upload retry
+
+Uploads now carry an owner-scoped UUID in `X-Upload-Request-ID`. After validating
+and storing the temporary file, the backend fingerprints the normalized filename,
+media type and exact bytes. The document and request mapping commit in the same
+`BEGIN IMMEDIATE` transaction. An identical retry returns the original document;
+the temporary retry file is removed or durably queued, and quota is not charged
+twice. Reusing the UUID for different content returns `409`. Requests without the
+header remain compatible but do not gain replay protection.
+
+Android saves an account-scoped request identity before opening the connection.
+Selecting the same filename and declared size reuses it after an uncertain response;
+different metadata allocates a new identity. The backend fingerprint remains
+authoritative if metadata stayed the same while bytes changed. A confirmed decoded
+success clears the pending identity; failures retain it.
+
+Backend verification covers identical replay, changed-content conflict, separate
+owners, invalid UUIDs and concurrent identical requests. The full suite passed
+473 tests with one existing Windows privilege skip. Android build, lint and 138 JVM
+tests passed. API 36 fault injection replaced the first committed response with 503;
+the UI retained its pending identity, the learner reselected the same document, and
+the retry opened the original server document. The identity then cleared and the
+library contained exactly one document. This closes duplicate prevention for
+explicit same-document retries, but not background/resumable transfer, picker
+process-death recovery, cancellation, real network loss, physical-device UAT or
+production deployment.
