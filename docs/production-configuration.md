@@ -62,6 +62,13 @@ is returned to the caller. Raw paths, queries, headers, bodies, identities, cont
 and exception text are excluded; see `operational-observability.md`. The production
 host must still provide a protected log sink, retention, metrics and alerts.
 
+Application-level body admission rejects declared and streamed requests above
+`LEARNING_MAX_UPLOAD_BYTES` plus a fixed 256 KiB multipart envelope before route
+handling. This protects direct/container operation from unbounded multipart spooling
+and retains the correlated Support ID on rejection. The production TLS proxy must
+set an equal or tighter body-size limit and a measured request timeout; this control
+does not replace edge bandwidth, connection, slow-client or denial-of-service limits.
+
 `GET /health` returns only safe deployment identity: status, environment, revision,
 provider name and model. A deployment verifier must compare its revision to the
 private APK candidate manifest and expected Git commit before testing. A healthy

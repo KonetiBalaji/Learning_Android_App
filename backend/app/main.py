@@ -99,6 +99,7 @@ from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter, unlocks_de
 from .ai_usage import consume_ai_operation
 from .operational_logging import OperationalLoggingMiddleware
 from .runtime_readiness import verify_runtime_readiness
+from .request_limits import RequestBodyLimitMiddleware
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -136,6 +137,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     expose_headers=["X-Request-ID"],
 )
+app.add_middleware(RequestBodyLimitMiddleware)
 app.add_middleware(OperationalLoggingMiddleware)
 
 
