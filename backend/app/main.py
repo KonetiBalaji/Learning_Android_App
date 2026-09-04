@@ -89,6 +89,7 @@ from .guardian_access import (
 from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter, unlocks_dependent_chapter
 from .ai_usage import consume_ai_operation
 from .operational_logging import OperationalLoggingMiddleware
+from .runtime_readiness import verify_runtime_readiness
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -167,6 +168,16 @@ def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
         "ai_provider": tutor_provider(settings).name,
         "model": settings.openai_model if settings.ai_mode == "openai" else "none",
     }
+
+
+@app.get('/ready')
+def ready(settings: Settings = Depends(get_settings)):
+    try:
+        checks = verify_runtime_readiness(settings)
+    except (OSError, sqlite3.Error) as error:
+        raise HTTPException(status_code=503, detail='Runtime storage is not ready') from error
+    return {'status': 'ready', 'environment': settings.environment,
+            'revision': settings.release_revision, 'checks': list(checks)}
 
 
 @app.get('/v1/catalog', response_model=CurriculumCatalog)

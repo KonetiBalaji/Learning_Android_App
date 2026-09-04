@@ -61,14 +61,23 @@ private APK candidate manifest and expected Git commit before testing. A healthy
 response proves process readiness only; it does not prove migrations, model quality,
 storage durability, backup/restore, TLS routing or capacity.
 
+`GET /ready` is a stricter deployment/readiness probe. It fails with a generic 503
+unless the required runtime schema exists, SQLite passes a bounded quick integrity
+check, an immediate database write transaction can be acquired, and a flushed
+probe file can be created and removed on the configured upload volume. Its success
+payload contains only environment, revision, and the fixed check names `database`
+and `upload_storage`. It does not expose paths, errors, record counts, or content.
+Use health for process liveness and readiness for deployment admission.
+
 `uv run python -m app.release_candidate <manifest> --expected-environment
 production` performs that comparison and independently rehashes the APK. It also
 rejects placeholder/local endpoints and a production health response that does not
-identify the reviewed OpenAI provider and model. Run it from `backend`; see
+identify the reviewed OpenAI provider and model. It also requires `/ready` to prove
+the matching revision's database and upload volume are currently ready. Run it from `backend`; see
 `private-apk-release.md`. A pass binds an artifact to one reachable deployment but
 does not replace the remaining operational or human gates.
 
-Configuration and quota tests cover the valid production profile, each required
+Configuration, readiness, and quota tests cover the valid production profile, each required
 input, invalid limits, UTC rollover, owner isolation, pre-provider rejection and
 deterministic bypass. Real production acceptance still
 requires the user-confirmed host/domain, TLS and proxy configuration, encrypted

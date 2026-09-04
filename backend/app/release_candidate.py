@@ -103,6 +103,32 @@ def verify_health(manifest: dict[str, object], expected_environment: str,
     return health
 
 
+def verify_readiness(manifest: dict[str, object], expected_environment: str,
+                     *, timeout: float = 10.0, opener=urllib.request.urlopen) -> dict[str, object]:
+    url = _public_https_url(manifest['backend_url']) + '/ready'
+    request = urllib.request.Request(url, headers={'Accept': 'application/json'})
+    try:
+        with opener(request, timeout=timeout) as response:
+            if response.status != 200:
+                raise CandidateVerificationError(f'Backend readiness returned HTTP {response.status}')
+            payload = response.read(65537)
+            if len(payload) > 65536:
+                raise CandidateVerificationError('Backend readiness response is unexpectedly large')
+            readiness = json.loads(payload)
+    except CandidateVerificationError:
+        raise
+    except (OSError, urllib.error.URLError, UnicodeError, json.JSONDecodeError) as exc:
+        raise CandidateVerificationError('Backend readiness could not be verified') from exc
+    expected = {'status', 'environment', 'revision', 'checks'}
+    if not isinstance(readiness, dict) or set(readiness) != expected:
+        raise CandidateVerificationError('Backend readiness identity is incomplete or unexpected')
+    if (readiness['status'] != 'ready' or readiness['environment'] != expected_environment
+            or readiness['revision'] != manifest['git_commit']
+            or readiness['checks'] != ['database', 'upload_storage']):
+        raise CandidateVerificationError('Backend runtime is not ready for this candidate')
+    return readiness
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path)
@@ -112,12 +138,14 @@ def main() -> int:
     try:
         manifest = load_and_verify_artifact(args.manifest)
         health = verify_health(manifest, args.expected_environment, timeout=args.timeout)
+        readiness = verify_readiness(manifest, args.expected_environment, timeout=args.timeout)
     except CandidateVerificationError as exc:
         parser.exit(2, f"Candidate verification failed: {exc}\n")
     print(json.dumps({
         "verified": True, "environment": health["environment"], "revision": health["revision"],
         "apk_sha256": manifest["apk_sha256"],
         "signing_certificate_sha256": manifest["signing_certificate_sha256"],
+        "runtime_checks": readiness["checks"],
     }, sort_keys=True))
     return 0
 

@@ -7,7 +7,8 @@ from contextlib import contextmanager
 
 import pytest
 
-from app.release_candidate import CandidateVerificationError, load_and_verify_artifact, verify_health
+from app.release_candidate import (CandidateVerificationError, load_and_verify_artifact,
+                                   verify_health, verify_readiness)
 
 
 REVISION = "a" * 40
@@ -29,10 +30,10 @@ def candidate(tmp_path, **changes):
     return path
 
 
-def opener(payload, status=200):
+def opener(payload, status=200, endpoint='health'):
     @contextmanager
     def open_response(request, timeout):
-        assert request.full_url == "https://learn.example.org/health" and timeout > 0
+        assert request.full_url == f"https://learn.example.org/{endpoint}" and timeout > 0
         response = io.BytesIO(json.dumps(payload).encode())
         response.status = status
         yield response
@@ -46,9 +47,37 @@ def health(**changes):
     return result
 
 
+def readiness(**changes):
+    result = {'status': 'ready', 'environment': 'staging', 'revision': REVISION,
+              'checks': ['database', 'upload_storage']}
+    result.update(changes)
+    return result
+
+
 def test_candidate_artifact_and_staging_identity_are_verified(tmp_path):
     manifest = load_and_verify_artifact(candidate(tmp_path))
     assert verify_health(manifest, "staging", opener=opener(health()))["revision"] == REVISION
+    assert verify_readiness(manifest, 'staging',
+                            opener=opener(readiness(), endpoint='ready'))['checks'] == [
+                                'database', 'upload_storage']
+
+
+@pytest.mark.parametrize('changes', [
+    {'status': 'starting'}, {'environment': 'production'}, {'revision': 'c' * 40},
+    {'checks': ['database']}, {'unexpected': True},
+])
+def test_incomplete_or_wrong_runtime_readiness_is_rejected(tmp_path, changes):
+    manifest = load_and_verify_artifact(candidate(tmp_path))
+    with pytest.raises(CandidateVerificationError, match='readiness|runtime'):
+        verify_readiness(manifest, 'staging',
+                         opener=opener(readiness(**changes), endpoint='ready'))
+
+
+def test_non_200_runtime_readiness_is_rejected(tmp_path):
+    manifest = load_and_verify_artifact(candidate(tmp_path))
+    with pytest.raises(CandidateVerificationError, match='HTTP 503'):
+        verify_readiness(manifest, 'staging',
+                         opener=opener({}, status=503, endpoint='ready'))
 
 
 @pytest.mark.parametrize("url", [

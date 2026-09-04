@@ -49,8 +49,11 @@ Use `production` only for the final production deployment. The verifier rejects 
 modified or missing APK, malformed manifest, local or placeholder backend,
 non-HTTPS origin, unhealthy service, wrong environment or revision, and a
 production service that does not report the reviewed OpenAI provider and model.
+It also rejects a backend whose `/ready` probe cannot prove required database
+schema/integrity/write admission and writable upload storage for the same revision.
 Its successful JSON output contains hashes and deployment identity but no secrets.
-It does not install the APK or grant UAT or production acceptance.
+It does not prove backup restoration, sustained capacity, or model quality; install
+the APK; or grant UAT or production acceptance.
 
 The final signing keystore must be owned and durably backed up by the user. Losing
 it prevents trusted upgrades; replacing it creates a different Android signing
