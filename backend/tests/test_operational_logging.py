@@ -8,11 +8,13 @@ from app.operational_logging import OperationalLoggingMiddleware, request_id
 
 
 def event(caplog):
-    record = next(record for record in caplog.records if record.name == 'learning.http')
+    record = next(record for record in caplog.records if record.name == 'uvicorn.error.learning.http')
     return json.loads(record.message)
 
 
 def test_raw_uvicorn_access_logger_is_disabled():
+    logging.getLogger('uvicorn.access').disabled = False
+    OperationalLoggingMiddleware(lambda *_: None)
     assert logging.getLogger('uvicorn.access').disabled is True
 
 
@@ -25,7 +27,7 @@ def test_completion_log_uses_route_template_and_omits_sensitive_request_data(cap
 
     app.add_middleware(OperationalLoggingMiddleware)
     supplied = '123e4567-e89b-12d3-a456-426614174000'
-    caplog.set_level(logging.INFO, logger='learning.http')
+    caplog.set_level(logging.INFO, logger='uvicorn.error.learning.http')
     with TestClient(app) as client:
         response = client.get('/items/private-student-id?answer=private-learner-answer',
                               headers={'Authorization': 'Bearer private-token', 'X-Request-ID': supplied})
@@ -42,7 +44,7 @@ def test_completion_log_uses_route_template_and_omits_sensitive_request_data(cap
 def test_invalid_correlation_id_is_replaced_and_unmatched_route_is_safe(caplog):
     app = FastAPI()
     app.add_middleware(OperationalLoggingMiddleware)
-    caplog.set_level(logging.INFO, logger='learning.http')
+    caplog.set_level(logging.INFO, logger='uvicorn.error.learning.http')
     with TestClient(app) as client:
         response = client.get('/private-missing-path?email=student@example.com',
                               headers={'X-Request-ID': 'attacker-controlled\nlog'})

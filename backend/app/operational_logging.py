@@ -23,7 +23,10 @@ def request_id(headers) -> str:
 class OperationalLoggingMiddleware:
     def __init__(self, app):
         self.app = app
-        self.logger = logging.getLogger('learning.http')
+        # Uvicorn config is applied after module import and can re-enable this
+        # logger, so enforce replacement when the ASGI middleware stack is built.
+        logging.getLogger('uvicorn.access').disabled = True
+        self.logger = logging.getLogger('uvicorn.error.learning.http')
 
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http':
