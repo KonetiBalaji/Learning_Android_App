@@ -124,7 +124,7 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | SEC-01 | Deletion and retention | Partial | Database cascade, recoverable file removal, other-owner preservation and conservative crash-orphan reconciliation are automated; valid learner-data and backup retention durations still require an explicit policy and production verification |
 | SEC-02 | Production hardening | Partial | HTTPS release guard, offline backup checks, persistent authentication peer throttle, atomic per-account daily AI-operation caps, privacy-safe correlated request events, spawned document-parser timeout/output isolation and API 36-verified support IDs implemented; production proxy/capacity, Windows parser memory enforcement, provider budgets, deployed log sink/alerts and deployment recovery still need verification |
 | UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading, OA-02 owner-material quotas and OA-03 bounded native action/highlight patterns are pinned, licensed and tested; this is selective adaptation, not a port |
-| QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
+| QA-01 | Automated regression suite | Partial | Local backend, Android unit/lint/build, AI eval, failure/recovery and security coverage plus a committed three-job GitHub quality gate; remote workflow success, emulator matrix, physical devices and UAT remain |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
 | PROD-01 | Production deployment | Missing | User-confirmed host/domain/distribution, staging verification, rollback, secrets and operational checks |
 
