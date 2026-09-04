@@ -61,3 +61,13 @@ persisted **Medium** after tapping **Increase to Medium**.
 mistake answer/explanation/source and action labels are readable; the second frame
 shows Medium selected. Generated captures remain untracked. This is deterministic
 emulator QA, not live-provider quality, physical-device accessibility or user UAT.
+
+The journey was repeated with the emulator's installed TalkBack service temporarily
+enabled on the results screen. Its active accessibility tree exposed one complete
+mistake teaching record and all five actions: retry incorrect, configure another,
+increase difficulty, study another document, and return to the learning path. The
+runner restored the original disabled service state and notification permission in
+`finally`; post-run inspection confirmed no enabled accessibility service,
+`accessibility_enabled=0`, and TalkBack notification access denied. This proves
+node exposure on the API 36 emulator, not spoken traversal order, gesture-only use,
+switch access, a physical device, or user acceptance.

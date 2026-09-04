@@ -89,6 +89,34 @@ function VerifyTalkBackSourceResult([string]$status) {
         Start-Sleep -Seconds 1
     }
 }
+function VerifyTalkBackResultActions([string]$retryLabel) {
+    $oldServices = ((Adb shell settings get secure enabled_accessibility_services) -join '').Trim()
+    $oldEnabled = ((Adb shell settings get secure accessibility_enabled) -join '').Trim()
+    $talkBackPackage = 'com.google.android.marvin.talkback'
+    $notificationWasGranted = ((Adb shell dumpsys package $talkBackPackage) -join "`n") -match 'android\.permission\.POST_NOTIFICATIONS: granted=true'
+    try {
+        if (-not $notificationWasGranted) { Adb shell pm grant $talkBackPackage android.permission.POST_NOTIFICATIONS | Out-Null }
+        Adb shell settings put secure enabled_accessibility_services "$talkBackPackage/$talkBackPackage.TalkBackService" | Out-Null
+        Adb shell settings put secure accessibility_enabled 1 | Out-Null
+        Start-Sleep -Seconds 2
+        $accessibility = (Adb shell dumpsys accessibility) -join "`n"
+        if ($accessibility -notmatch 'com\.google\.android\.marvin\.talkback/.+TalkBackService') { throw 'TalkBack service did not become active' }
+        $nodes = @((Ui).SelectNodes('//node'))
+        if (-not ($nodes | Where-Object { $_.text -match '^Which word completes.+\nYour answer: .+\nCorrect answer: .+\nWhy: .+\nSource: .+' })) { throw 'TalkBack tree omitted the complete mistake teaching record' }
+        foreach ($label in @($retryLabel, 'Configure another quiz', 'Increase to Medium', 'Study another document', 'Return to learning path')) {
+            if (-not ($nodes | Where-Object text -eq $label)) { throw "TalkBack tree omitted result action: $label" }
+        }
+    } finally {
+        if ([string]::IsNullOrWhiteSpace($oldServices) -or $oldServices -eq 'null') {
+            Adb shell settings delete secure enabled_accessibility_services | Out-Null
+        } else { Adb shell settings put secure enabled_accessibility_services $oldServices | Out-Null }
+        if ([string]::IsNullOrWhiteSpace($oldEnabled) -or $oldEnabled -eq 'null') {
+            Adb shell settings delete secure accessibility_enabled | Out-Null
+        } else { Adb shell settings put secure accessibility_enabled $oldEnabled | Out-Null }
+        if (-not $notificationWasGranted) { Adb shell pm revoke $talkBackPackage android.permission.POST_NOTIFICATIONS | Out-Null }
+        Start-Sleep -Seconds 1
+    }
+}
 function SelectFixtureForUpload {
     TapText 'Choose document'
     $roots = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -eq 'Show roots' } | Select-Object -First 1
@@ -565,6 +593,7 @@ if ($VerifyResultActions) {
     TextNode $retryLabel | Out-Null
     TextNode 'Configure another quiz' | Out-Null
     TextNode 'Increase to Medium' | Out-Null
+    VerifyTalkBackResultActions $retryLabel
     Adb shell screencap -p /sdcard/qa-document-result-actions.png | Out-Null
     Adb pull /sdcard/qa-document-result-actions.png (Join-Path $repo 'artifacts\qa-document-result-actions.png') | Out-Null
 
