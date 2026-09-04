@@ -97,7 +97,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-05 | Interactive examples and visible AI teacher | Partial | Math Fractions plus Grade 8 Science Cells, English Grammar and Social Geography have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversation, read-aloud lifecycle/animation and voice-input cancel/unavailable recovery are API 36 verified; successful microphone transcription, acoustic quality, TalkBack, physical device and UAT remain |
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
-| PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
+| PROG-01 | Real student subject/chapter progress | QA verified | Static percentages are absent; backend-derived chapter/assessed-subject values, zero state, owner isolation, sign-out/sign-in and restart restoration are backend tested and API 36 verified; physical-device/UAT remain |
 | PROG-02 | Weak concepts and personalized learning path | QA verified | Independent recurring-error counts, remediation clearing, account/grade scope, active-session continuation and prerequisite-aware next diagnostic are backend tested and API 36 verified; educator/UAT review remains |
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts and read-only grade reports are device verified; identity/child-consent policy, retention, physical-device and UAT remain open |
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
@@ -542,6 +542,14 @@ curriculum review, physical-device QA and UAT remain open.
   This is deterministic workflow QA, not provider-quality evaluation, full Grade 8
   curriculum verification, or user UAT acceptance. Existing legacy prematurely
   mastered sessions still need a data-repair strategy before production migration.
+- Progress account-isolation QA: the extended `scripts/qa-account-switch.ps1`
+  scenario created two synthetic accounts, seeded assessed progress only for the
+  first, verified the second displayed no assessment rather than leaked progress,
+  then restored the first account's backend-derived 100% Mathematics value after
+  sign-out/sign-in and forced app restart. Both accounts retained only their own
+  interests and were deleted. The API 36 screenshot was inspected; see
+  `docs/progress-account-isolation.md`. This advances PROG-01 to QA verified, not
+  physical-device or user acceptance.
 - 2026-09-03: OA-01 adapts OpenMAIC short-answer score/comment grading from pinned
   source into the rewrite workflow. MIT notice retained; provenance records what
   was ported and what was rejected. Added four-point rubric, strict validation,

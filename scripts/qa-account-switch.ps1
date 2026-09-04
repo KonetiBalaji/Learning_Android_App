@@ -83,6 +83,11 @@ function Login([string]$email) {
     TapText 'Sign in'
     TapText "Grade`n8" 30
 }
+function ApiLogin([string]$email) {
+    Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{
+        email = $email; password = 'qa-password-long-enough'
+    } | ConvertTo-Json)
+}
 if (-not $ResetTestAppData) { throw 'This script requires -ResetTestAppData and clears only the dedicated QA emulator app.' }
 if (((Adb emu avd name) -join "`n") -notmatch '^LearnSmart_API36') { throw 'Dedicated LearnSmart_API36 AVD required.' }
 $health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
@@ -95,7 +100,25 @@ $firstEmail = "switch-a-$suffix@example.com"
 $secondEmail = "switch-b-$suffix@example.com"
 CreateAccount $firstEmail 'Sports'
 CreateAccount $secondEmail 'Music'
+$firstLogin = ApiLogin $firstEmail
+$firstHeaders = @{Authorization = "Bearer $($firstLogin.access_token)"}
+$seed = Invoke-RestMethod 'http://127.0.0.1:8000/__qa/learning-path/algebra?state=mastered' -Method Post -Headers $firstHeaders
+if ($seed.fixture_state -ne 'mastered') { throw 'QA server did not seed first-account progress.' }
+
+Login $secondEmail
+FindText 'No assessment yet' 30 -Scroll | Out-Null
+if ((Ui).SelectNodes('//node') | Where-Object text -eq '100% assessed progress') {
+    throw 'Second account displayed progress belonging to the first account.'
+}
+TapText 'Settings and account' 30 -Scroll
+TapText 'Sign out' 30 -Scroll
+
 Login $firstEmail
+FindText '100% assessed progress' 30 -Scroll | Out-Null
+RestartApp
+FindText '100% assessed progress' 30 -Scroll | Out-Null
+Adb shell screencap -p /sdcard/qa-account-progress.png | Out-Null
+Adb pull /sdcard/qa-account-progress.png (Join-Path $repo 'artifacts\qa-account-progress.png') | Out-Null
 TapText 'Settings and account' 30 -Scroll
 TapText 'Learning interests' 30 -Scroll
 FindText '1 of 3 selected' 30 | Out-Null
@@ -112,9 +135,7 @@ Adb pull /sdcard/qa-account-switch.png (Join-Path $repo 'artifacts\qa-account-sw
 
 $profiles = @{}
 foreach ($email in @($firstEmail, $secondEmail)) {
-    $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{
-        email = $email; password = 'qa-password-long-enough'
-    } | ConvertTo-Json)
+    $login = ApiLogin $email
     $headers = @{Authorization = "Bearer $($login.access_token)"}
     $profiles[$email] = Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Headers $headers
     Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers $headers | Out-Null
@@ -122,4 +143,4 @@ foreach ($email in @($firstEmail, $secondEmail)) {
 if (($profiles[$firstEmail].interests -join ',') -ne 'sports') { throw 'First account preference isolation failed.' }
 if (($profiles[$secondEmail].interests -join ',') -ne 'music') { throw 'Second account preference isolation failed.' }
 Adb shell pm clear $package | Out-Null
-Write-Output 'PASS: two Android accounts kept distinct server preferences across sign-out, sign-in and restart; both disposable accounts were deleted.'
+Write-Output 'PASS: two Android accounts kept distinct progress and preferences across sign-out/sign-in; first-account progress survived restart; both disposable accounts were deleted.'

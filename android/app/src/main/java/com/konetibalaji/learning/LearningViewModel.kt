@@ -30,8 +30,8 @@ data class GuardianAccount(val id: String, val email: String, val linkedAt: Stri
 data class CurriculumCatalogClient(val version: String, val grade: Int, val board: String,
                                    val subjects: List<LearningSubject>, val chapters: Map<String, List<MasteryChapter>>)
 
-data class LearningSubject(val id: String, val title: String, val icon: String, val progress: Int, val accent: Long)
-data class MasteryChapter(val id: String, val title: String, val progress: Int, val locked: Boolean = false)
+data class LearningSubject(val id: String, val title: String, val icon: String, val accent: Long)
+data class MasteryChapter(val id: String, val title: String, val locked: Boolean = false)
 data class DiagnosticQuestion(val prompt: String, val options: List<String>, val correct: String)
 data class TutorLesson(val title: String, val explanation: String, val workedExample: String, val hint: String, val practicePrompt: String)
 data class ProgressSnapshot(
@@ -806,11 +806,11 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             val item = subjectsJson.getJSONObject(index)
             val id = item.getString("id")
             val presentation = requireNotNull(subjectPresentation[id]) { "Unsupported catalog subject" }
-            subjects += LearningSubject(id, item.getString("title"), presentation.first, 0, presentation.second)
+            subjects += LearningSubject(id, item.getString("title"), presentation.first, presentation.second)
             val values = item.getJSONArray("chapters")
             chapters[id] = (0 until values.length()).map { chapterIndex ->
                 val chapter = values.getJSONObject(chapterIndex)
-                MasteryChapter(chapter.getString("id"), chapter.getString("title"), 0,
+                MasteryChapter(chapter.getString("id"), chapter.getString("title"),
                     locked = !chapter.isNull("prerequisite_id"))
             }
         }
