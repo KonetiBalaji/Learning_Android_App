@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 import fitz
 import pytest
@@ -6,7 +7,7 @@ import pytest
 from app.config import get_settings
 from app.database import connection
 from app.document_service import detect_chapters, extract_text
-from app.pdf_page_selection import read_pdf_pages, select_pdf_pages
+from app.pdf_page_selection import read_pdf_pages, read_pdf_pages_isolated, select_pdf_pages
 from app.schemas import Chapter, PdfPage
 from test_mastery_loop import registered_client
 
@@ -59,6 +60,26 @@ def test_physical_page_offsets_match_upload_extraction_and_blank_pages(tmp_path)
     assert select_pdf_pages('doc', text, detect_chapters(text), pages, 1, 3).empty_pages == [3]
     with pytest.raises(ValueError, match='no extractable text'):
         select_pdf_pages('doc', text, detect_chapters(text), pages, 3, 3)
+
+
+def test_isolated_page_parser_matches_direct_index(tmp_path):
+    stored, uploads, text = fixture(tmp_path)
+    assert read_pdf_pages_isolated(stored, uploads, text, 1_000_000, 10) == read_pdf_pages(
+        stored, uploads, text, 1_000_000)
+
+
+def slow_page_worker(pipe, content, text):
+    time.sleep(10)
+
+
+def test_isolated_page_parser_terminates_on_timeout(monkeypatch, tmp_path):
+    stored, uploads, text = fixture(tmp_path)
+    import app.pdf_page_selection as pages
+    monkeypatch.setattr(pages, '_pdf_pages_worker', slow_page_worker)
+    started = time.monotonic()
+    with pytest.raises(TimeoutError, match='time limit'):
+        read_pdf_pages_isolated(stored, uploads, text, 1_000_000, 1)
+    assert time.monotonic() - started < 4
 
 
 @pytest.mark.parametrize('first,last', [(0, 1), (2, 1), (1, 4)])
@@ -135,5 +156,22 @@ def test_api_page_selection_is_owned_read_only_and_drives_exact_quiz(monkeypatch
             stored = Path(db.execute('SELECT stored_path FROM documents').fetchone()[0])
         stored.unlink()
         assert client.get(path, headers=headers).status_code == 503
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_api_page_parser_timeout_returns_stable_recovery(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        response = client.post('/v1/documents', headers=headers,
+                               files={'file': ('pages.pdf', pdf_bytes(), 'application/pdf')})
+        assert response.status_code == 201
+        import app.pdf_page_selection as pages
+        monkeypatch.setattr(pages, 'read_pdf_pages_isolated',
+                            lambda *_: (_ for _ in ()).throw(TimeoutError('private timeout')))
+        result = client.get(f"/v1/documents/{response.json()['id']}/pdf-pages", headers=headers)
+        assert result.status_code == 422
+        assert result.headers['X-Learning-Error'] == 'document_processing_limit'
+        assert 'private timeout' not in result.text
     finally:
         client.__exit__(None, None, None)

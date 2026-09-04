@@ -92,15 +92,7 @@ def extract_text(content: bytes, suffix: str) -> str:
 
 def _bounded_extract_worker(pipe, content: bytes, suffix: str) -> None:
     try:
-        try:
-            import resource
-            current_soft, current_hard = resource.getrlimit(resource.RLIMIT_AS)
-            ceiling = min(PARSER_MEMORY_BYTES, current_hard) if current_hard > 0 else PARSER_MEMORY_BYTES
-            resource.setrlimit(resource.RLIMIT_AS, (ceiling, ceiling))
-        except (ImportError, OSError, ValueError):
-            # Windows has no resource module; the parent still enforces wall time
-            # and terminates this isolated process on timeout.
-            pass
+        apply_parser_memory_limit()
         text = extract_text(content, suffix)
         if len(text) > MAX_EXTRACTED_CHARACTERS:
             pipe.send(('limit', None))
@@ -110,6 +102,18 @@ def _bounded_extract_worker(pipe, content: bytes, suffix: str) -> None:
         pipe.send(('error', None))
     finally:
         pipe.close()
+
+
+def apply_parser_memory_limit() -> None:
+    try:
+        import resource
+        _, current_hard = resource.getrlimit(resource.RLIMIT_AS)
+        ceiling = min(PARSER_MEMORY_BYTES, current_hard) if current_hard > 0 else PARSER_MEMORY_BYTES
+        resource.setrlimit(resource.RLIMIT_AS, (ceiling, ceiling))
+    except (ImportError, OSError, ValueError):
+        # Windows has no resource module; the parent still enforces wall time
+        # and terminates this isolated process on timeout.
+        pass
 
 
 def extract_text_isolated(content: bytes, suffix: str, timeout_seconds: int) -> str:

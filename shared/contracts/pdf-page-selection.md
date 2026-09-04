@@ -35,8 +35,11 @@ exact source ranges, not an independently persisted page-label field.
   Missing/unreadable storage returns 503. No stored text or chapter ID is rewritten.
 - Indexing currently limits files to the configured upload byte limit, 1,000
   physical pages, 200,000 characters per page and 2,000,000 total source characters.
-  These are page-index admission checks, not a parser sandbox or strict peak-memory
-  bound. Parser timeouts/process isolation and abuse limits remain production work.
+  Re-extraction runs in a fresh spawned process with the same configurable timeout
+  and POSIX 1 GiB address-space ceiling as upload extraction. The parent terminates
+  a timed-out child; Windows still has process/time/output isolation but lacks the
+  portable POSIX memory ceiling. Timeout recovery uses the stable client-owned
+  `document_processing_limit` message and never returns parser details.
 - The chosen physical-page span is intersected with stored chapter boundaries,
   including chapters that cross pages and multiple chapters on the same page.
   Nonblank gaps in detected chapter coverage fail with a repair instruction.
@@ -47,10 +50,16 @@ exact source ranges, not an independently persisted page-label field.
 
 ## Verification and remaining work
 
-Tests create synthetic in-memory PDFs and verify physical-page offsets against
+Tests create synthetic in-memory PDFs and verify direct and isolated physical-page offsets against
 upload extraction, blank-page handling, exact page-2 quiz sources excluding page 1,
 cross-page chapter clipping, invalid ranges/types, missing/corrupt/changed storage,
-owner denial and read-only selection behavior. No AI requests are required.
+owner denial, real child timeout termination, stable HTTP recovery and read-only
+selection behavior. No AI requests are required.
+
+After isolating re-extraction, the 18 focused parser/page/error tests and the full
+backend regression (**515 passed, one Windows symlink-privilege skip**) succeeded.
+This is process-boundary QA on Windows, not a hostile-file load test or proof of a
+Windows job-object memory ceiling.
 
 On 2026-09-03 the full backend suite passed **250 tests, with 1 existing Windows
 symlink-privilege test skipped** and the existing Starlette/httpx warning. After
@@ -68,7 +77,7 @@ document or a visual PDF viewer delivered in the app.
 
 Android page-range controls and confirmation are now wired as described below.
 Persistence/recovery device QA, complex-layout PDFs, scanned-material support, accessibility and user
-acceptance remain open. The PDF is re-read on each request; safe cache/index
+acceptance remain open. The PDF is re-read in isolation on each request; safe cache/index
 persistence is not implemented. DOC-02 and production gates remain partial.
 
 ## Android page API validation layer

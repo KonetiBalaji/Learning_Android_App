@@ -39,12 +39,15 @@ Windows lacks Python's portable `resource` limit but still receives process,
 wall-time and output isolation. Child exceptions and parser details never cross
 the boundary. Time/output violations return stable
 `document_processing_limit` recovery guidance and save no document or upload.
+Original-PDF page indexing uses the same spawned-process timeout and memory helper
+when it re-extracts a stored source. A timeout returns the same fixed recovery code
+without changing the document or any saved selection.
 
 DOCX archive admission remains in the API process before spawn and is repeated in
 the child. This deliberately rejects known expansion hazards before process cost,
 but ZIP central-directory parsing itself is not isolated. Focused PDF, corruption,
 output-bound, real timeout/termination, HTTP cleanup and configuration checks pass.
-The complete backend regression passes **512 tests with one Windows symlink
+The complete backend regression passes **515 tests with one Windows symlink
 privilege skip**. Android's client-owned processing-limit recovery message passes
 as part of **141 JVM tests**, lint and debug APK assembly. No live learner document
 or external provider was used.

@@ -367,11 +367,17 @@ def document_chapter_preview(document_id: str, chapter_id: str, page: int = Quer
 
 
 def owned_pdf_pages(document_id: str, user_id: str, settings: Settings):
-    from .pdf_page_selection import read_pdf_pages
+    from .pdf_page_selection import read_pdf_pages_isolated
     row = owned_document(document_id, user_id, settings)
     try:
-        pages = read_pdf_pages(Path(row['stored_path']), settings.uploads_dir,
-                               row['extracted_text'], settings.max_upload_bytes)
+        pages = read_pdf_pages_isolated(Path(row['stored_path']), settings.uploads_dir,
+                                        row['extracted_text'], settings.max_upload_bytes,
+                                        settings.document_parse_timeout_seconds)
+    except TimeoutError as error:
+        limit = DocumentValidationError(DocumentErrorCode.DOCUMENT_PROCESSING_LIMIT,
+                                        'The PDF exceeded safe page-processing limits.')
+        raise HTTPException(status_code=422, detail=str(limit),
+                            headers=document_error_headers(limit)) from error
     except OSError as error:
         raise HTTPException(status_code=503, detail='The stored PDF is temporarily unavailable') from error
     except (ValueError, RuntimeError) as error:

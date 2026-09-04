@@ -1,11 +1,14 @@
 """Physical PDF pages mapped back to immutable extracted-source offsets."""
 from pathlib import Path
+import multiprocessing
+import time
 
 import fitz
 
 from .document_selection import resolve_chapters
 from .document_errors import DocumentErrorCode, DocumentValidationError
 from .schemas import Chapter, PdfPage, PdfPageSelection, SourceRange
+from .document_service import apply_parser_memory_limit
 
 
 def read_pdf_pages(stored: Path, uploads: Path, text: str, max_bytes: int) -> list[PdfPage]:
@@ -19,6 +22,10 @@ def read_pdf_pages(stored: Path, uploads: Path, text: str, max_bytes: int) -> li
         content = stream.read(max_bytes + 1)
     if len(content) > max_bytes:
         raise ValueError('PDF exceeds page-indexing size limit')
+    return _read_pdf_page_content(content, text)
+
+
+def _read_pdf_page_content(content: bytes, text: str) -> list[PdfPage]:
     pages = []
     extracted = []
     position = 0
@@ -36,6 +43,58 @@ def read_pdf_pages(stored: Path, uploads: Path, text: str, max_bytes: int) -> li
     if '\n'.join(extracted) != text:
         raise ValueError('PDF text no longer matches the stored source; upload it again')
     return pages
+
+
+def _pdf_pages_worker(pipe, content: bytes, text: str) -> None:
+    try:
+        apply_parser_memory_limit()
+        pages = _read_pdf_page_content(content, text)
+        pipe.send(('ok', [page.model_dump() for page in pages]))
+    except BaseException:
+        pipe.send(('error', None))
+    finally:
+        pipe.close()
+
+
+def read_pdf_pages_isolated(stored: Path, uploads: Path, text: str, max_bytes: int,
+                            timeout_seconds: int) -> list[PdfPage]:
+    if stored.suffix.lower() != '.pdf':
+        raise ValueError('Original page selection is available only for PDF documents')
+    if stored.is_symlink() or stored.resolve().parent != uploads.resolve():
+        raise ValueError('Invalid PDF storage path')
+    if len(text) > 2_000_000:
+        raise ValueError('PDF text exceeds page-indexing limits')
+    with stored.open('rb') as stream:
+        content = stream.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise ValueError('PDF exceeds page-indexing size limit')
+    if not 1 <= timeout_seconds <= 120:
+        raise ValueError('Invalid PDF page parsing timeout')
+    context = multiprocessing.get_context('spawn')
+    parent, child = context.Pipe(duplex=False)
+    process = context.Process(target=_pdf_pages_worker, args=(child, content, text), daemon=True)
+    process.start()
+    child.close()
+    deadline = time.monotonic() + timeout_seconds
+    try:
+        if not parent.poll(max(0.0, deadline - time.monotonic())):
+            raise TimeoutError('PDF page parsing exceeded its time limit')
+        status, payload = parent.recv()
+        if status != 'ok' or not isinstance(payload, list):
+            raise ValueError('PDF page parser failed its safety checks')
+        return [PdfPage.model_validate(page) for page in payload]
+    except TimeoutError:
+        raise
+    except (EOFError, OSError) as error:
+        raise ValueError('PDF page parser stopped unexpectedly') from error
+    finally:
+        parent.close()
+        if process.is_alive():
+            process.terminate()
+        process.join(timeout=2)
+        if process.is_alive():
+            process.kill()
+            process.join(timeout=2)
 
 
 def select_pdf_pages(document_id: str, text: str, chapters: list[Chapter], pages: list[PdfPage],
