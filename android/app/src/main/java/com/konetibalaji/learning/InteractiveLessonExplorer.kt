@@ -30,17 +30,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
-enum class ExplorerKind { FRACTIONS, CELL_ORGANELLES, SENTENCE_PARTS }
+enum class ExplorerKind { FRACTIONS, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
 
 fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "math" && chapterId == "fractions" -> ExplorerKind.FRACTIONS
     subjectId == "science" && chapterId == "cells" -> ExplorerKind.CELL_ORGANELLES
     subjectId == "english" && chapterId == "grammar" -> ExplorerKind.SENTENCE_PARTS
+    subjectId == "social" && chapterId == "geography" -> ExplorerKind.MAP_COORDINATES
     else -> null
 }
 
 data class OrganelleLesson(val name: String, val function: String, val evidence: String)
 data class SentencePartLesson(val name: String, val words: String, val role: String, val check: String)
+data class MapLineLesson(val name: String, val value: String, val role: String, val check: String)
 
 val organelleLessons = listOf(
     OrganelleLesson("Nucleus", "Stores most of the cell's DNA and helps direct cell activities.",
@@ -60,13 +62,68 @@ val sentencePartLessons = listOf(
         "Ask: What did the student solve? The puzzle."),
 )
 
+val mapLineLessons = listOf(
+    MapLineLesson("Equator", "0° latitude", "Runs east-west and divides Earth into Northern and Southern Hemispheres.",
+        "Latitude measures distance north or south of the Equator."),
+    MapLineLesson("Prime Meridian", "0° longitude", "Runs north-south and divides Earth into Eastern and Western Hemispheres.",
+        "Longitude measures distance east or west of the Prime Meridian."),
+    MapLineLesson("Coordinates", "20° N, 60° E", "Combine latitude first and longitude second to identify one location.",
+        "20° N is north of the Equator; 60° E is east of the Prime Meridian."),
+)
+
 @Composable
 fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {
     when (explorerKind(subjectId, chapterId)) {
         ExplorerKind.FRACTIONS -> FractionExplorer()
         ExplorerKind.CELL_ORGANELLES -> CellOrganelleExplorer()
         ExplorerKind.SENTENCE_PARTS -> SentencePartExplorer()
+        ExplorerKind.MAP_COORDINATES -> MapCoordinateExplorer()
         null -> Unit
+    }
+}
+
+@Composable
+private fun MapCoordinateExplorer() {
+    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val lesson = mapLineLessons[selected]
+    val primary = MaterialTheme.colorScheme.primary
+    val outline = MaterialTheme.colorScheme.outline
+    val surface = MaterialTheme.colorScheme.surface
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Explore map coordinates", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Select a reference to highlight how latitude and longitude locate places on Earth.")
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                mapLineLessons.forEachIndexed { index, item ->
+                    OutlinedButton(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (selected == index) "Selected: ${item.name}" else "Explore ${item.name}")
+                    }
+                }
+            }
+            Canvas(Modifier.fillMaxWidth().size(250.dp).semantics {
+                contentDescription = "Globe diagram with ${lesson.name} highlighted"
+            }) {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val radius = size.minDimension * .39f
+                drawCircle(surface, radius, center)
+                drawCircle(outline, radius, center, style = Stroke(width = 7f))
+                val equatorColor = if (selected == 0 || selected == 2) primary else outline.copy(alpha = .45f)
+                val meridianColor = if (selected == 1 || selected == 2) primary else outline.copy(alpha = .45f)
+                drawLine(equatorColor, Offset(center.x - radius, center.y), Offset(center.x + radius, center.y), strokeWidth = if (selected == 0) 12f else 7f)
+                drawLine(meridianColor, Offset(center.x, center.y - radius), Offset(center.x, center.y + radius), strokeWidth = if (selected == 1) 12f else 7f)
+                drawOval(outline.copy(alpha = .35f), Offset(center.x - radius * .45f, center.y - radius),
+                    Size(radius * .9f, radius * 2f), style = Stroke(width = 4f))
+                if (selected == 2) {
+                    val point = Offset(center.x + radius * .55f, center.y - radius * .34f)
+                    drawCircle(primary, 15f, point)
+                    drawCircle(surface, 6f, point)
+                }
+            }
+            Text("${lesson.name}: ${lesson.value}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(lesson.role)
+            Text(lesson.check, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Exploring this globe does not submit an answer or change mastery.", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

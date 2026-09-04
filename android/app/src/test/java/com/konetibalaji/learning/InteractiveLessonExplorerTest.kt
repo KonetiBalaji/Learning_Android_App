@@ -10,9 +10,11 @@ class InteractiveLessonExplorerTest {
         assertEquals(ExplorerKind.FRACTIONS, explorerKind("math", "fractions"))
         assertEquals(ExplorerKind.CELL_ORGANELLES, explorerKind("science", "cells"))
         assertEquals(ExplorerKind.SENTENCE_PARTS, explorerKind("english", "grammar"))
+        assertEquals(ExplorerKind.MAP_COORDINATES, explorerKind("social", "geography"))
         assertNull(explorerKind("science", "fractions"))
         assertNull(explorerKind("math", "cells"))
         assertNull(explorerKind("english", "cells"))
+        assertNull(explorerKind("science", "geography"))
         assertNull(explorerKind(null, null))
     }
 
@@ -32,5 +34,13 @@ class InteractiveLessonExplorerTest {
             assertTrue(it.role.length >= 35)
             assertTrue(it.check.startsWith("Ask:"))
         }
+    }
+
+    @Test fun coordinateReferencesUseCanonicalZeroLinesAndOrdering() {
+        assertEquals(listOf("Equator", "Prime Meridian", "Coordinates"), mapLineLessons.map { it.name })
+        assertEquals("0° latitude", mapLineLessons[0].value)
+        assertEquals("0° longitude", mapLineLessons[1].value)
+        assertTrue(mapLineLessons[2].role.contains("latitude first"))
+        assertTrue(mapLineLessons[2].check.contains("north") && mapLineLessons[2].check.contains("east"))
     }
 }

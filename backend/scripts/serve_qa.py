@@ -25,10 +25,11 @@ def main():
     parser.add_argument("--binary-fixtures", action="store_true")
     parser.add_argument("--science-fixture", action="store_true")
     parser.add_argument("--english-fixture", action="store_true")
+    parser.add_argument("--social-fixture", action="store_true")
     parser.add_argument("--upload-response-delay", type=int, choices=range(0, 21), default=0)
     parser.add_argument("--fail-saved-upload-response", action="store_true")
     args = parser.parse_args()
-    if sum((args.binary_fixtures, args.science_fixture, args.english_fixture)) > 1:
+    if sum((args.binary_fixtures, args.science_fixture, args.english_fixture, args.social_fixture)) > 1:
         parser.error('Choose only one content fixture.')
     if not args.qa_only:
         parser.error("This scripted evaluator is only for QA; supply --qa-only")
@@ -48,7 +49,8 @@ def main():
         api.generate_document_questions = generate_binary_fixture
 
     class ScriptedQAProvider(DeterministicTutorProvider):
-        name = ("scripted-english-qa" if args.english_fixture else
+        name = ("scripted-social-qa" if args.social_fixture else
+                "scripted-english-qa" if args.english_fixture else
                 "scripted-science-qa" if args.science_fixture else
                 "scripted-binary-qa" if args.binary_fixtures else "scripted-qa")
 
@@ -82,6 +84,21 @@ def main():
                     hint='Ask who acts, what action happens, and what receives that action.',
                     practice_prompt=f'Identify the {concept.lower()} in: The curious student solved the puzzle.',
                     practice_answers=("The curious student" if answer == 'Subject' else "solved" if answer == 'Verb' else "the puzzle",),
+                ) for prompt, options, answer, concept in concepts)
+            if args.social_fixture and (grade, subject_id, chapter_id) == (8, 'social', 'geography'):
+                concepts = (
+                    ('Which reference line is 0 degrees latitude?', ('Prime Meridian', 'Equator', 'Tropic of Cancer', 'International Date Line'), 'Equator', 'Equator'),
+                    ('Which reference line is 0 degrees longitude?', ('Equator', 'Arctic Circle', 'Prime Meridian', 'Tropic of Capricorn'), 'Prime Meridian', 'Prime Meridian'),
+                    ('In 20° N, 60° E, which coordinate is written first?', ('Longitude', 'Time zone', 'Latitude', 'Elevation'), 'Latitude', 'Coordinates'),
+                )
+                return tuple(DiagnosticItem(
+                    prompt=prompt, options=options, correct_option=answer,
+                    concept=f'Map coordinates — {concept.lower()}',
+                    explanation=f'{concept} is a standard reference used to locate places on Earth.',
+                    worked_example=f'Use the globe explorer to highlight {concept.lower()} and connect it to its coordinate role.',
+                    hint='Latitude is written before longitude; connect each zero-degree line to its name.',
+                    practice_prompt=f'Identify the requested map reference for {concept.lower()}.',
+                    practice_answers=(answer,),
                 ) for prompt, options, answer, concept in concepts)
             return super().diagnostic_bank(grade, subject_id, chapter_id)
 

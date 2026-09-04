@@ -94,7 +94,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path and Android save/clear/restart verified; live example quality, failure/account-switch checks remain |
 | TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
-| TUT-05 | Interactive examples and visible AI teacher | Partial | Fractions, Grade 8 Cells and Grade 8 Grammar have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
+| TUT-05 | Interactive examples and visible AI teacher | Partial | Math Fractions plus Grade 8 Science Cells, English Grammar and Social Geography have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
 | PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
@@ -872,3 +872,13 @@ curriculum review, physical-device QA and UAT remain open.
   `openmaic-provenance.md`. Android 129 JVM tests, lint and debug assembly passed;
   backend regression remained 451 passing with one existing Windows skip. Broad grammar/curriculum and remaining interactive
   concepts, TalkBack, physical-device QA and UAT remain open.
+- Added a native Grade 8 Social Studies Geography coordinate explorer. Equator,
+  Prime Meridian and Coordinates actions highlight application-owned globe marks
+  and explain canonical zero lines plus latitude-first ordering. API 36 selected the
+  coordinate point, visually confirmed the result, and an authenticated server read
+  proved no submission, coaching or mastery mutation. See
+  `map-coordinate-explorer.md` and OA-03 in `openmaic-provenance.md`. Android 130
+  JVM tests, lint and debug assembly passed; backend remained 451 passing with one
+  existing Windows skip. This gives one
+  bounded native interactive route in each core subject; it is not broad curriculum,
+  TalkBack, physical-device or UAT acceptance.
