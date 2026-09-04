@@ -78,9 +78,10 @@ from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_un
 from .learner_preferences import InterestPreferences
 from .tutor_conversation import TutorQuestionRequest, TutorTurn, answer_question as answer_tutor_follow_up, conversation_history
 from .guardian_access import (
-    GuardianInvitation, GuardianInvitationRedemption, LinkedAccount,
+    GuardianInvitation, GuardianInvitationRedemption, LinkedAccount, GuardianAccessEvent,
     create_invitation, redeem_invitation, linked_learners, linked_guardians,
-    require_link, revoke_by_guardian, revoke_by_learner, cleanup_invitations,
+    require_link, revoke_by_guardian, revoke_by_learner, cleanup_invitations, access_history,
+    record_guardian_account_deletion,
 )
 from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter, unlocks_dependent_chapter
 from .ai_usage import consume_ai_operation
@@ -201,6 +202,7 @@ def delete_account(user_id: str = Depends(current_user_id), settings: Settings =
         files = [row["stored_path"] for row in db.execute("SELECT stored_path FROM documents WHERE owner_id = ?", (user_id,)).fetchall()]
         for stored_path in files:
             queue_file_deletion(db, stored_path)
+        record_guardian_account_deletion(db, user_id)
         deleted = db.execute("DELETE FROM users WHERE id = ?", (user_id,)).rowcount
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
@@ -245,6 +247,11 @@ def guardian_learners(user_id: str = Depends(current_user_id), settings: Setting
 @app.get('/v1/guardian/access', response_model=list[LinkedAccount])
 def learner_guardians(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> list[LinkedAccount]:
     return linked_guardians(user_id, settings)
+
+
+@app.get('/v1/guardian/access-history', response_model=list[GuardianAccessEvent])
+def learner_guardian_history(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> list[GuardianAccessEvent]:
+    return access_history(user_id, settings)
 
 
 @app.delete('/v1/guardian/learners/{learner_id}', status_code=status.HTTP_204_NO_CONTENT)

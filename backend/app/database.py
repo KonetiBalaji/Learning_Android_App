@@ -54,6 +54,15 @@ CREATE TABLE IF NOT EXISTS guardian_links (
   CHECK(guardian_id <> learner_id)
 );
 CREATE INDEX IF NOT EXISTS guardian_link_learner_idx ON guardian_links(learner_id);
+CREATE TABLE IF NOT EXISTS guardian_access_events (
+  id TEXT PRIMARY KEY,
+  learner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  guardian_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL CHECK(event_type IN ('granted', 'revoked_by_learner', 'revoked_by_guardian')),
+  occurred_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS guardian_access_event_learner_idx
+  ON guardian_access_events(learner_id, occurred_at, id);
 CREATE TABLE IF NOT EXISTS quizzes (
   id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL,

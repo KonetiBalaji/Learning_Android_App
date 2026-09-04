@@ -25,6 +25,14 @@ view their report and can revoke it; the guardian can remove a linked learner.
 Revocation is server-side and takes effect on the next request. Deleting either
 account cascades the link and outstanding learner invitations.
 
+The learner-owned `GET /v1/guardian/access-history` endpoint records each access
+grant and whether the learner or guardian revoked it. Grant/revocation records are
+committed atomically with link changes and remain after ordinary unlinking. If a
+guardian deletes their account, deletion first records a guardian revocation and
+then removes the deleted account identifier and email from prior events. Deleting
+the learner cascades their history. Guardians cannot use this endpoint to inspect
+a learner's history, including for a currently linked learner.
+
 ## Code handling and retention
 
 Codes contain 128 bits of randomness and use 32 lowercase hexadecimal characters
@@ -46,7 +54,8 @@ requirements remain a policy/UAT gate.
 Backend tests prove hashing/no raw storage, replacement, expiry, single use,
 self-link rejection, duplicate protection, separate-account listing, linked report
 equivalence, denial to unrelated accounts, inability to read a mastery session or
-document library, immediate learner revocation, and deletion cascade.
+document library, immediate learner/guardian revocation, learner-owned access
+history, deleted-guardian identity minimization, and deletion cascade.
 The full backend regression passed 451 tests with one existing Windows skip after
 the retention worker and configuration bounds were added.
 

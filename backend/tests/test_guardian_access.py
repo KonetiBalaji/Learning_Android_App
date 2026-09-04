@@ -110,6 +110,49 @@ def test_learner_revocation_immediately_removes_report_access(monkeypatch, tmp_p
             f'/v1/guardian/learners/{learner_id}/progress/dashboard?grade=8',
             headers=guardian).status_code == 404
         assert client.delete(f'/v1/guardian/access/{guardian_id}', headers=learner).status_code == 404
+        history = client.get('/v1/guardian/access-history', headers=learner).json()
+        assert [event['event_type'] for event in history] == ['granted', 'revoked_by_learner']
+        assert all(event['guardian_id'] == guardian_id for event in history)
+        assert all(event['guardian_email'] == 'guardian@example.com' for event in history)
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_guardian_revocation_is_recorded_but_history_is_learner_only(monkeypatch, tmp_path: Path) -> None:
+    client = configured_client(monkeypatch, tmp_path)
+    try:
+        learner = register(client, 'learner@example.com')
+        guardian = register(client, 'guardian@example.com')
+        learner_id = profile(client, learner)['id']
+        code = client.post('/v1/guardian/invitations', headers=learner).json()['code']
+        assert client.post('/v1/guardian/links', headers=guardian, json={'code': code}).status_code == 201
+        assert client.delete(f'/v1/guardian/learners/{learner_id}', headers=guardian).status_code == 204
+        assert client.get('/v1/guardian/access-history', headers=guardian).json() == []
+        history = client.get('/v1/guardian/access-history', headers=learner).json()
+        assert [event['event_type'] for event in history] == ['granted', 'revoked_by_guardian']
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_access_history_minimizes_deleted_guardian_identity_and_cascades_with_learner(monkeypatch, tmp_path: Path) -> None:
+    client = configured_client(monkeypatch, tmp_path)
+    try:
+        learner = register(client, 'learner@example.com')
+        guardian = register(client, 'guardian@example.com')
+        learner_id = profile(client, learner)['id']
+        code = client.post('/v1/guardian/invitations', headers=learner).json()['code']
+        assert client.post('/v1/guardian/links', headers=guardian, json={'code': code}).status_code == 201
+
+        assert client.delete('/v1/account', headers=guardian).status_code == 204
+        history = client.get('/v1/guardian/access-history', headers=learner).json()
+        assert [event['event_type'] for event in history] == ['granted', 'revoked_by_guardian']
+        assert all(event['guardian_id'] is None for event in history)
+        assert all(event['guardian_email'] is None for event in history)
+
+        assert client.delete('/v1/account', headers=learner).status_code == 204
+        with sqlite3.connect(tmp_path / 'runtime' / 'learning.sqlite3') as db:
+            assert db.execute('SELECT * FROM guardian_access_events WHERE learner_id = ?',
+                              (learner_id,)).fetchall() == []
     finally:
         client.__exit__(None, None, None)
 

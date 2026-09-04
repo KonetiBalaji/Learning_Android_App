@@ -5,6 +5,7 @@ import secrets
 import sqlite3
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -14,6 +15,7 @@ from .database import connection
 
 
 INVITATION_MINUTES = 15
+GuardianAccessEventType = Literal['granted', 'revoked_by_learner', 'revoked_by_guardian']
 
 
 class GuardianInvitation(BaseModel):
@@ -29,6 +31,14 @@ class LinkedAccount(BaseModel):
     id: str
     email: str
     linked_at: str
+
+
+class GuardianAccessEvent(BaseModel):
+    id: str
+    guardian_id: str | None
+    guardian_email: str | None
+    event_type: GuardianAccessEventType
+    occurred_at: str
 
 
 def _digest(code: str) -> str:
@@ -82,6 +92,12 @@ def redeem_invitation(guardian_id: str, code: str, settings: Settings) -> Linked
             )
             db.execute('UPDATE guardian_invitations SET redeemed_at = ? WHERE id = ?',
                        (linked_at, invitation['id']))
+            db.execute(
+                '''INSERT INTO guardian_access_events
+                   (id, learner_id, guardian_id, event_type, occurred_at)
+                   VALUES (?, ?, ?, 'granted', ?)''',
+                (str(uuid.uuid4()), invitation['learner_id'], guardian_id, linked_at),
+            )
     except sqlite3.IntegrityError as error:
         raise HTTPException(status_code=409, detail='This learner is already linked') from error
     return LinkedAccount(id=invitation['learner_id'], email=invitation['email'], linked_at=linked_at)
@@ -109,6 +125,33 @@ def linked_guardians(learner_id: str, settings: Settings) -> list[LinkedAccount]
     return [LinkedAccount(id=row['id'], email=row['email'], linked_at=row['created_at']) for row in rows]
 
 
+def access_history(learner_id: str, settings: Settings) -> list[GuardianAccessEvent]:
+    with connection(settings.database_path) as db:
+        rows = db.execute(
+            '''SELECT guardian_access_events.id, guardian_access_events.guardian_id,
+                      users.email AS guardian_email, guardian_access_events.event_type,
+                      guardian_access_events.occurred_at
+               FROM guardian_access_events
+               LEFT JOIN users ON users.id = guardian_access_events.guardian_id
+               WHERE guardian_access_events.learner_id = ?
+               ORDER BY guardian_access_events.occurred_at, guardian_access_events.id''',
+            (learner_id,),
+        ).fetchall()
+    return [GuardianAccessEvent(**dict(row)) for row in rows]
+
+
+def record_guardian_account_deletion(db: sqlite3.Connection, guardian_id: str) -> None:
+    occurred_at = datetime.now(UTC).isoformat()
+    learner_ids = [row['learner_id'] for row in db.execute(
+        'SELECT learner_id FROM guardian_links WHERE guardian_id = ?', (guardian_id,)).fetchall()]
+    db.executemany(
+        '''INSERT INTO guardian_access_events
+           (id, learner_id, guardian_id, event_type, occurred_at)
+           VALUES (?, ?, ?, 'revoked_by_guardian', ?)''',
+        [(str(uuid.uuid4()), learner_id, guardian_id, occurred_at) for learner_id in learner_ids],
+    )
+
+
 def require_link(guardian_id: str, learner_id: str, settings: Settings) -> None:
     with connection(settings.database_path) as db:
         linked = db.execute(
@@ -120,18 +163,26 @@ def require_link(guardian_id: str, learner_id: str, settings: Settings) -> None:
 
 
 def revoke_by_guardian(guardian_id: str, learner_id: str, settings: Settings) -> None:
-    _delete_link(guardian_id, learner_id, settings)
+    _delete_link(guardian_id, learner_id, 'revoked_by_guardian', settings)
 
 
 def revoke_by_learner(learner_id: str, guardian_id: str, settings: Settings) -> None:
-    _delete_link(guardian_id, learner_id, settings)
+    _delete_link(guardian_id, learner_id, 'revoked_by_learner', settings)
 
 
-def _delete_link(guardian_id: str, learner_id: str, settings: Settings) -> None:
+def _delete_link(guardian_id: str, learner_id: str, event_type: GuardianAccessEventType,
+                 settings: Settings) -> None:
     with connection(settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
         deleted = db.execute(
             'DELETE FROM guardian_links WHERE guardian_id = ? AND learner_id = ?',
             (guardian_id, learner_id),
         ).rowcount
-    if not deleted:
-        raise HTTPException(status_code=404, detail='Linked account not found')
+        if not deleted:
+            raise HTTPException(status_code=404, detail='Linked account not found')
+        db.execute(
+            '''INSERT INTO guardian_access_events
+               (id, learner_id, guardian_id, event_type, occurred_at)
+               VALUES (?, ?, ?, ?, ?)''',
+            (str(uuid.uuid4()), learner_id, guardian_id, event_type, datetime.now(UTC).isoformat()),
+        )
