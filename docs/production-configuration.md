@@ -19,6 +19,7 @@ Set the following through the chosen host's secret/configuration facility:
 - `LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY`: 1 through 100000; default 200
 - `LEARNING_ORPHAN_UPLOAD_GRACE_HOURS`: 1 through 720; default 24
 - `LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS`: 1 through 120; default 15
+- `LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS`: 1 through 16; default 2 per API process
 
 Optional Google sign-in and throttle settings remain as documented elsewhere.
 Never place the JWT secret or provider key in Git, the Android APK, a deployment

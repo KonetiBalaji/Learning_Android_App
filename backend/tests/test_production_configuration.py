@@ -95,3 +95,10 @@ def test_unsafe_document_parse_timeout_is_rejected(monkeypatch, seconds):
     monkeypatch.setenv('LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS', seconds)
     with pytest.raises(ValueError, match='Document parse timeout'):
         get_settings()
+
+
+@pytest.mark.parametrize('count', ['0', '17'])
+def test_unsafe_document_parser_concurrency_is_rejected(monkeypatch, count):
+    monkeypatch.setenv('LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS', count)
+    with pytest.raises(ValueError, match='Concurrent document parsers'):
+        get_settings()

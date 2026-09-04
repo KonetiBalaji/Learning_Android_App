@@ -20,6 +20,7 @@ from .document_limits import validate_docx_archive
 from .docx_text import extract_docx_body
 from .document_errors import DocumentErrorCode, DocumentValidationError, document_error_headers
 from .file_cleanup import discard_uncommitted_upload
+from .parser_capacity import ParserCapacityError, parser_slot
 
 ALLOWED_SUFFIXES = {".pdf", ".docx", ".txt"}
 HEADING_PATTERN = re.compile(r"(?m)^(?:chapter|unit|section)\s+(?:\d+|[ivxlcdm]+)\b[^\n]*|^\d+(?:\.\d+)*\s+[^\n]{3,}$", re.IGNORECASE)
@@ -45,7 +46,13 @@ async def validate_and_store(upload: UploadFile, settings: Settings) -> tuple[Pa
     stored = settings.uploads_dir / f"{uuid.uuid4()}-{os_safe_stem(filename)}{suffix}"
     try:
         text = await asyncio.to_thread(
-            extract_text_isolated, content, suffix, settings.document_parse_timeout_seconds)
+            extract_text_isolated, content, suffix, settings.document_parse_timeout_seconds,
+            settings.max_concurrent_document_parsers)
+    except ParserCapacityError as error:
+        busy = DocumentValidationError(DocumentErrorCode.DOCUMENT_PROCESSING_BUSY,
+                                       'Document processing is busy. Retry shortly.')
+        raise HTTPException(status_code=503, detail=str(busy),
+                            headers={**document_error_headers(busy), 'Retry-After': '2'}) from error
     except (TimeoutError, DocumentProcessingLimit) as error:
         validation = DocumentValidationError(
             DocumentErrorCode.DOCUMENT_PROCESSING_LIMIT,
@@ -184,38 +191,40 @@ def apply_parser_memory_limit() -> None:
         pass
 
 
-def extract_text_isolated(content: bytes, suffix: str, timeout_seconds: int) -> str:
+def extract_text_isolated(content: bytes, suffix: str, timeout_seconds: int,
+                          max_concurrent_parsers: int = 2) -> str:
     """Parse untrusted content out of process and return only bounded text."""
     if suffix not in ALLOWED_SUFFIXES or not 1 <= timeout_seconds <= 120:
         raise ValueError('Invalid isolated document parsing request')
-    context = multiprocessing.get_context('spawn')
-    parent, child = context.Pipe(duplex=False)
-    process = context.Process(target=_bounded_extract_worker, args=(child, content, suffix), daemon=True)
-    process.start()
-    child.close()
-    deadline = time.monotonic() + timeout_seconds
-    try:
-        remaining = max(0.0, deadline - time.monotonic())
-        if not parent.poll(remaining):
-            raise TimeoutError('Document parsing exceeded its time limit')
-        status, text = parent.recv()
-        if status == 'limit':
-            raise DocumentProcessingLimit('Extracted text exceeds its safe limit')
-        if status != 'ok' or not isinstance(text, str):
-            raise ValueError('Document parsing failed its safety checks')
-        return text
-    except TimeoutError:
-        raise
-    except (EOFError, OSError) as error:
-        raise ValueError('Document parser stopped unexpectedly') from error
-    finally:
-        parent.close()
-        if process.is_alive():
-            process.terminate()
-        process.join(timeout=2)
-        if process.is_alive():
-            process.kill()
+    with parser_slot(max_concurrent_parsers):
+        context = multiprocessing.get_context('spawn')
+        parent, child = context.Pipe(duplex=False)
+        process = context.Process(target=_bounded_extract_worker, args=(child, content, suffix), daemon=True)
+        process.start()
+        child.close()
+        deadline = time.monotonic() + timeout_seconds
+        try:
+            remaining = max(0.0, deadline - time.monotonic())
+            if not parent.poll(remaining):
+                raise TimeoutError('Document parsing exceeded its time limit')
+            status, text = parent.recv()
+            if status == 'limit':
+                raise DocumentProcessingLimit('Extracted text exceeds its safe limit')
+            if status != 'ok' or not isinstance(text, str):
+                raise ValueError('Document parsing failed its safety checks')
+            return text
+        except TimeoutError:
+            raise
+        except (EOFError, OSError) as error:
+            raise ValueError('Document parser stopped unexpectedly') from error
+        finally:
+            parent.close()
+            if process.is_alive():
+                process.terminate()
             process.join(timeout=2)
+            if process.is_alive():
+                process.kill()
+                process.join(timeout=2)
 
 
 def detect_chapters(text: str) -> list[Chapter]:

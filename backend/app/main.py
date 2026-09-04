@@ -19,6 +19,7 @@ from .auth_throttle import limit_authentication
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
 from .document_errors import DocumentErrorCode, DocumentValidationError, document_error_headers
+from .parser_capacity import ParserCapacityError
 from .quiz_service import generate_grounded_questions, question_id
 from .quiz_creation import creation_fingerprint
 from .document_selection import repair_chapter_coverage, resolve_quiz_selection
@@ -372,7 +373,13 @@ def owned_pdf_pages(document_id: str, user_id: str, settings: Settings):
     try:
         pages = read_pdf_pages_isolated(Path(row['stored_path']), settings.uploads_dir,
                                         row['extracted_text'], settings.max_upload_bytes,
-                                        settings.document_parse_timeout_seconds)
+                                        settings.document_parse_timeout_seconds,
+                                        settings.max_concurrent_document_parsers)
+    except ParserCapacityError as error:
+        busy = DocumentValidationError(DocumentErrorCode.DOCUMENT_PROCESSING_BUSY,
+                                       'Document processing is busy. Retry shortly.')
+        raise HTTPException(status_code=503, detail=str(busy),
+                            headers={**document_error_headers(busy), 'Retry-After': '2'}) from error
     except TimeoutError as error:
         limit = DocumentValidationError(DocumentErrorCode.DOCUMENT_PROCESSING_LIMIT,
                                         'The PDF exceeded safe page-processing limits.')

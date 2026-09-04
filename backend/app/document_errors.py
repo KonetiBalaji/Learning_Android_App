@@ -10,6 +10,7 @@ class DocumentErrorCode(str, Enum):
     DOCUMENT_COUNT_LIMIT = 'document_count_limit'
     DOCUMENT_BYTES_LIMIT = 'document_bytes_limit'
     DOCUMENT_PROCESSING_LIMIT = 'document_processing_limit'
+    DOCUMENT_PROCESSING_BUSY = 'document_processing_busy'
 
 
 class DocumentValidationError(ValueError):

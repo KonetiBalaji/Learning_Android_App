@@ -40,6 +40,12 @@ memory limit, set kill-on-job-close, and assign the parser process. Failure to
 create, configure or join that job fails parsing closed. Child exceptions and parser details never cross
 the boundary. Time/output violations return stable
 `document_processing_limit` recovery guidance and save no document or upload.
+Each API process also admits at most
+`LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS` parser children (2 by default). When
+all slots are occupied, uploads and PDF page indexing fail immediately with 503,
+`X-Learning-Error: document_processing_busy`, and `Retry-After: 2`; no new upload
+or selection is saved. Operators must include the number of API processes when
+calculating the host-wide parser and memory budget.
 Original-PDF page indexing uses the same spawned-process timeout and memory helper
 when it re-extracts a stored source. A timeout returns the same fixed recovery code
 without changing the document or any saved selection.
@@ -59,6 +65,13 @@ allocation. Six isolation tests and sixteen combined isolation/PDF-page tests pa
 The complete backend regression passes **533 tests with one existing Windows
 symlink-privilege skip** and the known Starlette/httpx deprecation warning.
 
+On 2026-09-04, the per-process admission gate was verified at its capacity and
+configuration boundaries, through upload cleanup and isolated PDF page parsing.
+Android verified the retryable 503 recovery code without exposing a response
+body. The complete backend regression passes **540 tests with one existing
+Windows symlink-privilege skip**; Android unit tests, lint, and debug APK assembly
+pass.
+
 Remaining production controls: deeper PDF object-expansion adversarial coverage,
-reverse-proxy ingress limits, concurrent hostile-parser load tests and retained-data policy. Preflight is not
+reverse-proxy ingress limits, multi-process hostile-parser load tests and retained-data policy. Preflight is not
 a complete hostile-document sandbox or proof of production readiness.

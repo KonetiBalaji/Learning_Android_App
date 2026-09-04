@@ -1,4 +1,5 @@
 from io import BytesIO
+import asyncio
 import os
 import subprocess
 import sys
@@ -8,6 +9,9 @@ import fitz
 import pytest
 
 from app import document_service
+from app.config import Settings
+from app.parser_capacity import ParserCapacityError, parser_slot
+from fastapi import HTTPException, UploadFile
 
 
 def pdf_bytes(text: str) -> bytes:
@@ -49,6 +53,37 @@ def test_timeout_terminates_child(monkeypatch):
     with pytest.raises(TimeoutError, match='time limit'):
         document_service.extract_text_isolated(b'data', '.txt', 1)
     assert time.monotonic() - started < 4
+
+
+def test_parser_capacity_is_fail_fast_and_recovers_after_release():
+    with parser_slot(2):
+        with parser_slot(2):
+            with pytest.raises(ParserCapacityError, match='capacity'):
+                with parser_slot(2):
+                    pass
+    with parser_slot(2):
+        pass
+
+
+@pytest.mark.parametrize('limit', [0, 17])
+def test_parser_capacity_rejects_unsafe_limits(limit):
+    with pytest.raises(ValueError, match='Concurrent parser limit'):
+        with parser_slot(limit):
+            pass
+
+
+def test_busy_upload_returns_retryable_error_without_saving(tmp_path):
+    settings = Settings(runtime_dir=tmp_path, jwt_secret='test-secret',
+                        max_concurrent_document_parsers=1)
+    settings.uploads_dir.mkdir(parents=True)
+    upload = UploadFile(filename='lesson.txt', file=BytesIO(b'x' * 100))
+    with parser_slot(1):
+        with pytest.raises(HTTPException) as raised:
+            asyncio.run(document_service.validate_and_store(upload, settings))
+    assert raised.value.status_code == 503
+    assert raised.value.headers == {
+        'X-Learning-Error': 'document_processing_busy', 'Retry-After': '2'}
+    assert list(settings.uploads_dir.iterdir()) == []
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Windows Job Object enforcement')

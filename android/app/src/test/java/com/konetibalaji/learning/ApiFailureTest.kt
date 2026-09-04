@@ -91,6 +91,15 @@ class ApiFailureTest {
         }
     }
 
+    @Test fun busyDocumentParserIsRetryableWithoutEchoingResponseBody() {
+        val response = Response(503, "private-parser-details", recovery = "document_processing_busy")
+        val failure = assertThrows(ApiFailure::class.java) { readApiResponse(response) }
+        assertTrue(failure.message!!.contains("busy"))
+        assertTrue(failure.message!!.contains("unchanged"))
+        assertFalse(failure.message!!.contains("private-parser-details"))
+        assertTrue(response.closed && response.disconnected)
+    }
+
     @Test fun canonicalSupportIdIsShownOnlyForFailedRequestsAndUntrustedValuesAreDropped() {
         val id = "123e4567-e89b-12d3-a456-426614174000"
         val failure = assertThrows(ApiFailure::class.java) { readApiResponse(Response(503, requestId = id)) }

@@ -9,6 +9,7 @@ from .document_selection import resolve_chapters
 from .document_errors import DocumentErrorCode, DocumentValidationError
 from .schemas import Chapter, PdfPage, PdfPageSelection, SourceRange
 from .document_service import apply_parser_memory_limit
+from .parser_capacity import parser_slot
 
 
 def read_pdf_pages(stored: Path, uploads: Path, text: str, max_bytes: int) -> list[PdfPage]:
@@ -57,7 +58,13 @@ def _pdf_pages_worker(pipe, content: bytes, text: str) -> None:
 
 
 def read_pdf_pages_isolated(stored: Path, uploads: Path, text: str, max_bytes: int,
-                            timeout_seconds: int) -> list[PdfPage]:
+                            timeout_seconds: int, max_concurrent_parsers: int = 2) -> list[PdfPage]:
+    with parser_slot(max_concurrent_parsers):
+        return _read_pdf_pages_isolated(stored, uploads, text, max_bytes, timeout_seconds)
+
+
+def _read_pdf_pages_isolated(stored: Path, uploads: Path, text: str, max_bytes: int,
+                             timeout_seconds: int) -> list[PdfPage]:
     if stored.suffix.lower() != '.pdf':
         raise ValueError('Original page selection is available only for PDF documents')
     if stored.is_symlink() or stored.resolve().parent != uploads.resolve():

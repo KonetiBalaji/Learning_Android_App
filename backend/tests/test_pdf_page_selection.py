@@ -8,6 +8,7 @@ from app.config import get_settings
 from app.database import connection
 from app.document_service import detect_chapters, extract_text
 from app.pdf_page_selection import read_pdf_pages, read_pdf_pages_isolated, select_pdf_pages
+from app.parser_capacity import ParserCapacityError, parser_slot
 from app.schemas import Chapter, PdfPage
 from test_mastery_loop import registered_client
 
@@ -66,6 +67,13 @@ def test_isolated_page_parser_matches_direct_index(tmp_path):
     stored, uploads, text = fixture(tmp_path)
     assert read_pdf_pages_isolated(stored, uploads, text, 1_000_000, 10) == read_pdf_pages(
         stored, uploads, text, 1_000_000)
+
+
+def test_isolated_page_parser_fails_fast_when_capacity_is_busy(tmp_path):
+    stored, uploads, text = fixture(tmp_path)
+    with parser_slot(1):
+        with pytest.raises(ParserCapacityError, match='capacity'):
+            read_pdf_pages_isolated(stored, uploads, text, 1_000_000, 10, 1)
 
 
 def slow_page_worker(pipe, content, text):

@@ -39,6 +39,7 @@ fun apiFailure(
             ?: "Please check your input or selected document and try again."
         status == 429 && recoveryCode == "daily_ai_limit" -> "You reached today's AI learning limit. Try again tomorrow. Your saved progress is unchanged."
         status == 429 -> "Too many requests. Please wait a moment before trying again."
+        status == 503 && recoveryCode == "document_processing_busy" -> "Document processing is busy. Wait a moment, then try again. Your selected file and saved learning are unchanged."
         status >= 500 -> "The learning service is temporarily unavailable. Please try again."
         else -> "The request could not be completed. Please try again."
     }
@@ -62,7 +63,7 @@ fun readApiResponse(connection: HttpURLConnection, authenticationRequest: Boolea
     try {
         val status = connection.responseCode
         if (status !in 200..299) {
-            val recoveryCode = if (status in setOf(422, 429) && !authenticationRequest)
+            val recoveryCode = if (status in setOf(422, 429, 503) && !authenticationRequest)
                 runCatching { connection.getHeaderField("X-Learning-Error") }.getOrNull() else null
             // Android's HTTP stack may expose lowercase wire headers in title case and
             // does not consistently normalize lookup casing across API levels.
