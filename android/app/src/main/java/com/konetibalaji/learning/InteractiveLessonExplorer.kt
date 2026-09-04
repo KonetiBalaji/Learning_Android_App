@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
-enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, PERCENT_GRID, ALGEBRA_BALANCE, TRIANGLE_AREA, CELL_ORGANELLES, MATTER_PARTICLES, CONSTANT_SPEED, ECOSYSTEM_ENERGY, SENTENCE_PARTS, MAP_COORDINATES }
+enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, PERCENT_GRID, ALGEBRA_BALANCE, TRIANGLE_AREA, CELL_ORGANELLES, MATTER_PARTICLES, CONSTANT_SPEED, ECOSYSTEM_ENERGY, SENTENCE_PARTS, READING_EVIDENCE, WORD_PARTS, PARAGRAPH_STRUCTURE, MAP_COORDINATES }
 enum class LessonStage(val label: String) { CONCEPT("1. Understand"), EXAMPLE("2. Worked example"), HINT("3. Try the hint") }
 
 data class LessonStageContent(val heading: String, val body: String, val guidance: String)
@@ -55,6 +55,9 @@ fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "science" && chapterId == "force-and-motion" -> ExplorerKind.CONSTANT_SPEED
     subjectId == "science" && chapterId == "ecosystems" -> ExplorerKind.ECOSYSTEM_ENERGY
     subjectId == "english" && chapterId == "grammar" -> ExplorerKind.SENTENCE_PARTS
+    subjectId == "english" && chapterId == "reading-comprehension" -> ExplorerKind.READING_EVIDENCE
+    subjectId == "english" && chapterId == "vocabulary" -> ExplorerKind.WORD_PARTS
+    subjectId == "english" && chapterId == "writing" -> ExplorerKind.PARAGRAPH_STRUCTURE
     subjectId == "social" && chapterId == "geography" -> ExplorerKind.MAP_COORDINATES
     else -> null
 }
@@ -145,6 +148,9 @@ fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {
         ExplorerKind.CONSTANT_SPEED -> ConstantSpeedExplorer()
         ExplorerKind.ECOSYSTEM_ENERGY -> EcosystemEnergyExplorer()
         ExplorerKind.SENTENCE_PARTS -> SentencePartExplorer()
+        ExplorerKind.READING_EVIDENCE -> ReadingEvidenceExplorer()
+        ExplorerKind.WORD_PARTS -> WordPartsExplorer()
+        ExplorerKind.PARAGRAPH_STRUCTURE -> ParagraphStructureExplorer()
         ExplorerKind.MAP_COORDINATES -> MapCoordinateExplorer()
         null -> Unit
     }
