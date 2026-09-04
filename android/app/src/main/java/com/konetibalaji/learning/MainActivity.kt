@@ -768,6 +768,24 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
     Page {
         TextButton(onClick = onBack, enabled = !state.loading) { Text("‹ Back to study space") }
         Header("Study material", "Choose chapters", "Select one or more chapters from ${document.name} and configure your quiz.")
+        state.documentProgress?.let { progress ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Progress for this document", fontWeight = FontWeight.Bold)
+                    Text("${progress.quizzesCompleted} completed quizzes • ${progress.questionsAnswered} answers • ${(progress.accuracy * 100).toInt()}% accuracy")
+                    val trendText = when (progress.trend) {
+                        "improving" -> "Improving by ${progress.improvementPercentagePoints?.toInt()} percentage points since your previous completed quiz"
+                        "declining" -> "Down ${kotlin.math.abs(progress.improvementPercentagePoints?.toInt() ?: 0)} percentage points since your previous completed quiz"
+                        "steady" -> "Accuracy is steady since your previous completed quiz"
+                        else -> "Complete two quizzes to see your improvement trend"
+                    }
+                    Text(trendText, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    progress.weakSourceAreas.firstOrNull()?.let { Text("Review next: $it") }
+                    progress.strongSourceAreas.firstOrNull()?.let { Text("Strong source area: $it") }
+                }
+            }
+        }
         Text("Missing introductory text or a short section? Check for omitted text ranges. Existing chapters and quizzes will not change.")
         TextButton(onClick = onRepair, enabled = !state.loading) { Text("Check for omitted text") }
         state.documentRepairNotice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }

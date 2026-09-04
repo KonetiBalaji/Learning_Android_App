@@ -69,6 +69,8 @@ from .schemas import (
     MasterySessionState,
     TutorIntervention,
     DocumentQuizState,
+    DocumentLearningProgress,
+    DocumentQuizAttempt,
     CurriculumCatalog,
     WeakAreaEvidence,
 )
@@ -375,6 +377,59 @@ def document_summary(document_id: str, user_id: str = Depends(current_user_id), 
                            chapters=[Chapter.model_validate(item) for item in parse_json(row["chapters_json"])])
 
 
+@app.get('/v1/documents/{document_id}/progress', response_model=DocumentLearningProgress)
+def document_learning_progress(document_id: str, user_id: str = Depends(current_user_id),
+                               settings: Settings = Depends(get_settings)) -> DocumentLearningProgress:
+    with connection(settings.database_path) as db:
+        if db.execute('SELECT 1 FROM documents WHERE id = ? AND owner_id = ?',
+                      (document_id, user_id)).fetchone() is None:
+            raise HTTPException(status_code=404, detail='Document not found')
+        rows = db.execute('''SELECT quizzes.id, quizzes.created_at, quizzes.completed_at,
+                COUNT(questions.id) AS total,
+                SUM(CASE WHEN questions.answered_option IS NOT NULL THEN 1 ELSE 0 END) AS answered,
+                SUM(CASE WHEN questions.answered_option = questions.correct_option THEN 1 ELSE 0 END) AS correct,
+                MAX(questions.answered_at) AS last_answered_at
+            FROM quizzes LEFT JOIN questions ON questions.quiz_id = quizzes.id
+            WHERE quizzes.document_id = ? AND quizzes.owner_id = ?
+            GROUP BY quizzes.id ORDER BY quizzes.created_at, quizzes.id''',
+            (document_id, user_id)).fetchall()
+        retry_rows = db.execute('SELECT retry_quiz_id, source_quiz_id FROM quiz_retry_requests WHERE owner_id = ?',
+                                (user_id,)).fetchall()
+        source_rows = db.execute('''SELECT questions.source_reference,
+                SUM(CASE WHEN questions.answered_option = questions.correct_option THEN 1 ELSE 0 END) AS correct,
+                SUM(CASE WHEN questions.answered_option IS NOT NULL AND questions.answered_option <> questions.correct_option THEN 1 ELSE 0 END) AS incorrect
+            FROM questions JOIN quizzes ON quizzes.id = questions.quiz_id
+            WHERE quizzes.document_id = ? AND quizzes.owner_id = ? AND questions.answered_option IS NOT NULL
+            GROUP BY questions.source_reference''', (document_id, user_id)).fetchall()
+    retry_of = {row['retry_quiz_id']: row['source_quiz_id'] for row in retry_rows}
+    attempts = []
+    for row in rows:
+        total, answered, correct = row['total'] or 0, row['answered'] or 0, row['correct'] or 0
+        complete = total > 0 and answered == total
+        attempts.append(DocumentQuizAttempt(quiz_id=row['id'], created_at=row['created_at'],
+            completed_at=(row['completed_at'] or row['last_answered_at']) if complete else None,
+            answered=answered, total=total, correct=correct,
+            accuracy=(correct / answered if answered else 0.0), complete=complete,
+            retry_of=retry_of.get(row['id'])))
+    completed = [attempt for attempt in attempts if attempt.complete]
+    answered_total = sum(attempt.answered for attempt in attempts)
+    correct_total = sum(attempt.correct for attempt in attempts)
+    improvement = None if len(completed) < 2 else round(
+        (completed[-1].accuracy - completed[-2].accuracy) * 100, 1)
+    trend = ('insufficient_data' if improvement is None else 'improving' if improvement > 0.05
+             else 'declining' if improvement < -0.05 else 'steady')
+    strongest = sorted(source_rows, key=lambda row: (-row['correct'], row['incorrect'], row['source_reference']))
+    weakest = sorted(source_rows, key=lambda row: (-row['incorrect'], row['correct'], row['source_reference']))
+    return DocumentLearningProgress(document_id=document_id, quizzes_created=len(attempts),
+        quizzes_completed=len(completed), questions_answered=answered_total,
+        correct_answers=correct_total,
+        accuracy=(correct_total / answered_total if answered_total else 0.0), trend=trend,
+        improvement_percentage_points=improvement,
+        strong_source_areas=[row['source_reference'] for row in strongest if row['correct'] > 0][:3],
+        weak_source_areas=[row['source_reference'] for row in weakest if row['incorrect'] > 0][:3],
+        attempts=attempts)
+
+
 @app.get('/v1/documents/{document_id}/chapters/{chapter_id}/preview', response_model=ChapterPreview)
 def document_chapter_preview(document_id: str, chapter_id: str, page: int = Query(0, ge=0),
                              user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)):
@@ -569,6 +624,10 @@ def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user
             if earlier_pending:
                 raise HTTPException(status_code=409, detail="Answer the earlier question first")
             db.execute("UPDATE questions SET answered_option = ?, answered_at = ? WHERE id = ?", (request.selected_option, now(), question_id))
+            if db.execute('SELECT 1 FROM questions WHERE quiz_id = ? AND answered_option IS NULL LIMIT 1',
+                          (quiz_id,)).fetchone() is None:
+                db.execute('UPDATE quizzes SET completed_at = COALESCE(completed_at, ?) WHERE id = ?',
+                           (now(), quiz_id))
         # Identical retries replay feedback without changing the saved timestamp.
         next_row = db.execute("SELECT * FROM questions WHERE quiz_id = ? AND ordinal > ? ORDER BY ordinal LIMIT 1", (quiz_id, question["ordinal"])).fetchone()
     return Feedback(

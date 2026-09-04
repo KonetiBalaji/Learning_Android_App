@@ -1,5 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from .quiz_difficulty import Difficulty
@@ -154,6 +155,32 @@ class QuizResults(BaseModel):
     correct: int
     accuracy: float
     mistakes: list[QuizMistake]
+
+
+class DocumentQuizAttempt(BaseModel):
+    quiz_id: str
+    created_at: str
+    completed_at: str | None
+    answered: int
+    total: int
+    correct: int
+    accuracy: float
+    complete: bool
+    retry_of: str | None = None
+
+
+class DocumentLearningProgress(BaseModel):
+    document_id: str
+    quizzes_created: int
+    quizzes_completed: int
+    questions_answered: int
+    correct_answers: int
+    accuracy: float
+    trend: Literal['insufficient_data', 'improving', 'steady', 'declining']
+    improvement_percentage_points: float | None
+    strong_source_areas: list[str]
+    weak_source_areas: list[str]
+    attempts: list[DocumentQuizAttempt]
 
 
 class RetryMistakesRequest(BaseModel):

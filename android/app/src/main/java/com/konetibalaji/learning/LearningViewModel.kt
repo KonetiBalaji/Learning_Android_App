@@ -26,6 +26,11 @@ data class StudyDocument(val id: String, val name: String, val chapters: List<Ch
 data class QuizQuestion(val id: String, val ordinal: Int, val prompt: String, val options: List<String>, val sourceReference: String)
 data class Feedback(val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
 data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizMistake>)
+data class DocumentLearningProgress(
+    val quizzesCreated: Int, val quizzesCompleted: Int, val questionsAnswered: Int,
+    val correctAnswers: Int, val accuracy: Float, val trend: String,
+    val improvementPercentagePoints: Float?, val strongSourceAreas: List<String>,
+    val weakSourceAreas: List<String>)
 data class GuardianAccount(val id: String, val email: String, val linkedAt: String)
 data class CurriculumCatalogClient(val version: String, val grade: Int, val board: String,
                                    val subjects: List<LearningSubject>, val chapters: Map<String, List<MasteryChapter>>)
@@ -91,6 +96,7 @@ data class AppUiState(
     val unlockedChapterIds: Set<String> = emptySet(), val darkMode: Boolean = false, val accountEmail: String = "",
     val document: StudyDocument? = null, val selectedChapterIds: Set<String> = emptySet(), val quizId: String? = null, val question: QuizQuestion? = null,
     val documentLibrary: List<StudyDocument>? = null,
+    val documentProgress: DocumentLearningProgress? = null,
     val uploadProgress: DocumentUploadProgress? = null,
     val documentRepairNotice: String? = null,
     val documentPreview: DocumentPreview? = null,
@@ -536,6 +542,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun openSavedDocument(id: String) = perform(Screen.Chapters) {
         // Revalidate ownership/existence instead of trusting a potentially stale list.
         rememberUploadedDocument(api.getDocument(id))
+        mutableState.value = mutableState.value.copy(documentProgress = api.documentProgress(id))
     }
     fun deleteDocument(id: String) = perform(null) {
         try { api.deleteDocument(id) } catch (failure: ApiFailure) {
@@ -572,7 +579,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         val chapter = document.chapters.firstOrNull()?.id
         check(preferences.edit().putString(documentKey(), document.id).putString(documentChapterKey(), chapter)
             .remove(documentQuizKey()).remove(documentExcerptKey(document.id)).putString(activeFlowKey(), "document").commit())
-        mutableState.value = mutableState.value.copy(document = document, documentRepairNotice = null, documentPreview = null, documentExcerpts = emptyList(), sourceQuery = "", documentSearch = null, pdfPageDraft = null, selectedChapterIds = setOfNotNull(chapter),
+        mutableState.value = mutableState.value.copy(document = document, documentProgress = null, documentRepairNotice = null, documentPreview = null, documentExcerpts = emptyList(), sourceQuery = "", documentSearch = null, pdfPageDraft = null, selectedChapterIds = setOfNotNull(chapter),
             documentQuestionCountInput = preferences.getString(documentCountKey(), "10") ?: "10",
             documentDifficulty = restoredDocumentDifficulty(preferences.getString(documentDifficultyKey(), null)), savedQuizDifficulty = null,
             documentQuestionType = restoredDocumentQuestionType(preferences.getString(documentQuestionTypeKey(), null)), savedQuizQuestionType = null,
@@ -754,8 +761,9 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         // Revalidate the document and require explicit scope review. The source
         // quiz remains in history, while only the active-quiz pointer is replaced.
         rememberUploadedDocument(api.getDocument(documentId))
+        mutableState.value = mutableState.value.copy(documentProgress = api.documentProgress(documentId))
     }
-    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, sourceQuery = "", documentSearch = null, pdfPageDraft = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
+    fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, documentProgress = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, sourceQuery = "", documentSearch = null, pdfPageDraft = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
     private var operationInFlight = false
@@ -919,6 +927,22 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         } finally { connection.disconnect() }
     }
     fun getDocument(id: String): StudyDocument = document(request("GET", "/v1/documents/$id", null))
+    fun documentProgress(id: String): DocumentLearningProgress {
+        val response = request("GET", "/v1/documents/$id/progress", null)
+        fun nonNegative(key: String): Int = response.getInt(key).also { require(it >= 0) }
+        val accuracy = response.getDouble("accuracy").toFloat().also { require(it in 0f..1f) }
+        val trend = response.getString("trend").also {
+            require(it in setOf("insufficient_data", "improving", "steady", "declining"))
+        }
+        val improvement = if (response.isNull("improvement_percentage_points")) null
+            else response.getDouble("improvement_percentage_points").toFloat().also { require(it in -100f..100f) }
+        return DocumentLearningProgress(nonNegative("quizzes_created"), nonNegative("quizzes_completed"),
+            nonNegative("questions_answered"), nonNegative("correct_answers"), accuracy, trend, improvement,
+            response.getJSONArray("strong_source_areas").strings(),
+            response.getJSONArray("weak_source_areas").strings()).also {
+                require(it.quizzesCompleted <= it.quizzesCreated && it.correctAnswers <= it.questionsAnswered)
+            }
+    }
     fun reportStudyPresence(sessionId: String, reset: Boolean) {
         val value = request("POST", "/v1/mastery/sessions/$sessionId/presence?reset=$reset", null)
         require(value.getString("session_id") == sessionId && value.getLong("observed_study_seconds") >= 0)
