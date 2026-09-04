@@ -4,6 +4,9 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SpeechPolicyTest {
+    @Test fun learning_voice_uses_a_clearer_than_default_pace() {
+        assertTrue(LEARNING_SPEECH_RATE in 0.7f..0.9f)
+    }
     @Test fun cancelledOrMissingSpeechDoesNotReplaceTypedText() {
         assertNull(acceptedSpeech(false, listOf("unexpected result")))
         assertNull(acceptedSpeech(true, null))

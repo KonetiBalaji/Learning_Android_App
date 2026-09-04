@@ -1,5 +1,26 @@
 # Voice failure handling
 
+## Accessible animated teacher QA
+
+On 2026-09-04 the tutor lesson and conversation screens gained a native vector
+teacher presence. Its visible and accessibility states are derived from actual
+request and TTS lifecycle state: ready, thinking and speaking. The lesson avatar
+is adjacent to the read-aloud controls so the learner can see its mouth movement
+while listening; it does not claim phoneme-level lip synchronization. The TTS
+pace is set to 0.8 for a clearer teaching cadence and readiness now also requires
+the device engine to accept that rate.
+
+`scripts/qa-mastery-resume.ps1 -ResetTestAppData -ExpectRubricFeedback
+-VerifyReadAloud` passed on the dedicated API 36 AVD. It verified ready/speaking
+rendering, real TTS callbacks, background cancellation, no automatic resume,
+explicit restart/stop and completion. Speaking and ready frames were visually
+inspected. Android unit tests, lint and debug assembly passed; 124 JVM tests
+include ready/speaking/thinking state precedence and the bounded speech rate.
+
+This is a state-driven animation and device callback check, not acoustic quality,
+TalkBack-navigation, phoneme lip-sync, microphone recognition, UAT or production
+evidence. TUT-05 and TUT-06 remain partial across broader lessons and devices.
+
 ## API 36 playback lifecycle QA
 
 Command: `scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyReadAloud`.

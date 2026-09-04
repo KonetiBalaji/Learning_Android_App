@@ -19,8 +19,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.util.Locale
 
+const val LEARNING_SPEECH_RATE = 0.8f
+
 @Composable
-fun ReadAloudControls(text: String) {
+fun ReadAloudControls(text: String, onReadingChanged: (Boolean) -> Unit = {}) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val playback = remember { SpeechPlayback() }
@@ -28,6 +30,7 @@ fun ReadAloudControls(text: String) {
     var speaker by remember { mutableStateOf<TextToSpeech?>(null) }
     var ready by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("Preparing read-aloud…") }
+    LaunchedEffect(reading) { onReadingChanged(reading) }
     DisposableEffect(context) {
         val main = Handler(Looper.getMainLooper())
         var disposed = false
@@ -35,7 +38,8 @@ fun ReadAloudControls(text: String) {
             main.post {
                 if (!disposed) {
                     val language = if (status == TextToSpeech.SUCCESS) speaker?.setLanguage(Locale.ENGLISH) else null
-                    ready = language != null && language >= TextToSpeech.LANG_AVAILABLE
+                    val rate = if (language != null && language >= TextToSpeech.LANG_AVAILABLE) speaker?.setSpeechRate(LEARNING_SPEECH_RATE) else null
+                    ready = rate == TextToSpeech.SUCCESS
                     message = if (ready) "Read-aloud uses your device's speech service." else "English read-aloud is unavailable. You can still read the lesson below."
                 }
             }

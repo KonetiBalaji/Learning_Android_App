@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.LocalActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,11 +62,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -265,6 +275,7 @@ private fun AnswerChoice(option: String, selected: Boolean, onClick: () -> Unit)
 @Composable
 private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -> Unit) {
     val lesson = state.tutorLesson
+    var reading by remember(lesson) { mutableStateOf(false) }
     Page {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -284,7 +295,8 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -
         }
     }
     TipCard("Your tutor is paying attention", if (state.coachingRound > 0) "Let’s try a different explanation and practise it once more." else "A short practice question will check that the idea clicked.")
-    ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". "))
+    TutorAvatar(tutorPresence(state.loading, reading))
+    ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". ")) { reading = it }
     OutlinedButton(onClick = onAsk, modifier = Modifier.fillMaxWidth()) { Text("Ask the tutor a question") }
     if (state.subject?.id == "math" && state.masteryChapter?.id == "fractions") FractionExplorer()
     PrimaryButton("I understand — practise now", onClick = onUnderstand)
@@ -292,8 +304,11 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -
 }
 
 @Composable
-private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Unit, onSend: () -> Unit, onBack: () -> Unit) = Page {
+private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Unit, onSend: () -> Unit, onBack: () -> Unit) {
+    var reading by remember(state.masterySessionId) { mutableStateOf(false) }
+    Page {
     BackHandler(enabled = !state.loading, onBack = onBack)
+    TutorAvatar(tutorPresence(state.loading, reading))
     Header("Ask about this lesson", "Talk with your tutor", "Questions and replies are saved with this learning session. They do not change your score.")
     Text("Your question and recent lesson conversation are sent to the AI service. Do not include private information. AI replies can be wrong.", style = MaterialTheme.typography.bodySmall)
     if (state.tutorTurns.isEmpty()) Text("No questions in this lesson conversation yet.")
@@ -315,7 +330,9 @@ private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Uni
             }
         } }
     }
-    state.tutorTurns.lastOrNull { it.status == "complete" }?.answer?.let { ReadAloudControls(it) }
+    state.tutorTurns.lastOrNull { it.status == "complete" }?.answer?.let { answer ->
+        ReadAloudControls(answer) { reading = it }
+    }
     if (state.pendingTutorQuestion == null) {
         OutlinedTextField(state.tutorQuestion, onChange, modifier = Modifier.fillMaxWidth(), label = { Text("My question (up to 1000 characters)") })
         VoiceInputButton("Speak my tutor question") { onChange(listOf(state.tutorQuestion, it).filter(String::isNotBlank).joinToString(" ")) }
@@ -326,6 +343,66 @@ private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Uni
         PrimaryButton("Check reply", !state.loading, onSend)
     }
     OutlinedButton(onClick = onBack, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) { Text("Back to lesson") }
+    }
+}
+
+@Composable
+private fun TutorAvatar(presence: TutorPresence) {
+    val transition = rememberInfiniteTransition(label = "AI teacher activity")
+    val activity by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = if (presence == TutorPresence.READY) 0f else 1f,
+        animationSpec = infiniteRepeatable(tween(420), RepeatMode.Reverse),
+        label = "AI teacher speaking or thinking",
+    )
+    val primary = MaterialTheme.colorScheme.primary
+    val container = MaterialTheme.colorScheme.primaryContainer
+    val ink = MaterialTheme.colorScheme.onPrimaryContainer
+    val description = when (presence) {
+        TutorPresence.READY -> "AI teacher ready"
+        TutorPresence.THINKING -> "AI teacher is thinking"
+        TutorPresence.SPEAKING -> "AI teacher is speaking"
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = description },
+        colors = CardDefaults.cardColors(containerColor = container),
+        shape = RoundedCornerShape(22.dp),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Canvas(
+                Modifier.size(68.dp).graphicsLayer {
+                    val animatedScale = if (presence == TutorPresence.THINKING) 1f + activity * 0.05f else 1f
+                    scaleX = animatedScale
+                    scaleY = animatedScale
+                }
+            ) {
+                drawCircle(primary)
+                drawCircle(container, radius = size.minDimension * 0.39f)
+                val eyeY = size.height * 0.42f
+                drawCircle(ink, radius = size.minDimension * 0.045f, center = androidx.compose.ui.geometry.Offset(size.width * 0.38f, eyeY))
+                drawCircle(ink, radius = size.minDimension * 0.045f, center = androidx.compose.ui.geometry.Offset(size.width * 0.62f, eyeY))
+                val mouthHalfHeight = size.height * if (presence == TutorPresence.SPEAKING) (0.025f + activity * 0.06f) else 0.015f
+                drawLine(
+                    color = ink,
+                    start = androidx.compose.ui.geometry.Offset(size.width * 0.38f, size.height * 0.64f - mouthHalfHeight),
+                    end = androidx.compose.ui.geometry.Offset(size.width * 0.62f, size.height * 0.64f + mouthHalfHeight),
+                    strokeWidth = size.minDimension * 0.055f,
+                    cap = StrokeCap.Round,
+                )
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("AI Teacher", fontWeight = FontWeight.Bold, color = ink)
+                Text(
+                    when (presence) {
+                        TutorPresence.READY -> "Ready when you are"
+                        TutorPresence.THINKING -> "Thinking about your lesson"
+                        TutorPresence.SPEAKING -> "Speaking the explanation"
+                    },
+                    color = ink,
+                )
+            }
+        }
+    }
 }
 
 @Composable

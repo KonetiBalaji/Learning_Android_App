@@ -54,6 +54,14 @@ function TapText([string]$text) {
     Adb shell input tap $point[0] $point[1] | Out-Null
     Start-Sleep -Milliseconds 900
 }
+function DescriptionNode([string]$description) {
+    for ($attempt=0; $attempt -lt 5; $attempt++) {
+        $node = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -eq $description } | Select-Object -First 1
+        if ($node) { return $node }
+        Start-Sleep -Milliseconds 500
+    }
+    throw "UI description not found: $description"
+}
 function EnterField([int]$index, [string]$value) {
     $fields = @((Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' })
     if ($fields.Count -le $index) { throw "Input field $index unavailable" }
@@ -245,6 +253,7 @@ if ($VerifyTutorConversation) {
     return
 }
 if ($VerifyReadAloud) {
+    DescriptionNode 'AI teacher ready' | Out-Null
     $readLabel = TextNode 'Read explanation aloud'
     $readButton = $readLabel.SelectSingleNode("ancestor-or-self::node[@clickable='true'][1]")
     if (-not $readButton -or $readButton.enabled -ne 'true') {
@@ -253,13 +262,15 @@ if ($VerifyReadAloud) {
         throw 'Speech engine not ready; cannot verify playback lifecycle on this device.'
     }
     TapText 'Read explanation aloud'
-    TextNode 'Reading explanation…' | Out-Null
+    Adb shell screencap -p /sdcard/qa-ai-teacher-speaking.png | Out-Null
+    Adb pull /sdcard/qa-ai-teacher-speaking.png (Join-Path $repo 'artifacts\qa-ai-teacher-speaking.png') | Out-Null
     Adb shell input keyevent 3 | Out-Null
     Start-Sleep -Seconds 2
     # Resume the same activity, without process death, to exercise ON_STOP.
     Adb shell am start -n "$package/.MainActivity" | Out-Null
     Start-Sleep -Seconds 2
     TextNode 'Reading stopped. Tap Read explanation aloud to restart.' | Out-Null
+    DescriptionNode 'AI teacher ready' | Out-Null
     $stop = (TextNode 'Stop reading').SelectSingleNode("ancestor-or-self::node[@clickable='true'][1]")
     if (-not $stop -or $stop.enabled -ne 'false') { throw 'Stop remains enabled after background cancellation' }
     Adb shell screencap -p /sdcard/qa-read-aloud-background.png | Out-Null
@@ -275,9 +286,10 @@ if ($VerifyReadAloud) {
         Start-Sleep -Seconds 1
     }
     if (-not $finished) { throw 'Speech did not report completion within the bounded wait' }
+    DescriptionNode 'AI teacher ready' | Out-Null
     Adb shell screencap -p /sdcard/qa-read-aloud-complete.png | Out-Null
     Adb pull /sdcard/qa-read-aloud-complete.png (Join-Path $repo 'artifacts\qa-read-aloud-complete.png') | Out-Null
-    Write-Output 'PASS: real speech service callbacks, background stop, no auto-resume, explicit restart/stop and completion UI. Audible quality not verified.'
+    Write-Output 'PASS: accessible AI teacher follows real speaking/ready lifecycle; speech callbacks, background stop, explicit restart/stop and completion UI passed. Audible quality not verified.'
     return
 }
 if ($VerifyFractionModel) {

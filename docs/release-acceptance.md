@@ -40,9 +40,12 @@ existing Windows skip.
 
 Read-aloud lifecycle repair stops queued speech when backgrounded or lesson text
 changes, ignores stale callbacks, and provides completion/stop/error status with
-an accessibility live region. Android build/lint and 115 JVM tests pass. Real
-audio, background/restart and TalkBack verification remain open; TUT-06 is partial.
-See `docs/voice-recovery.md`.
+an accessibility live region. A visible vector AI teacher now reports ready,
+thinking and speaking from actual request/TTS state and animates while active;
+API 36 speaking/ready frames were inspected beside the playback controls. Android
+build/lint and 124 JVM tests pass. Acoustic quality, TalkBack navigation,
+phoneme-level lip-sync and broader-device verification remain open; TUT-05 and
+TUT-06 are partial. See `docs/voice-recovery.md`.
 
 API 36 follow-up verified read-aloud readiness, background/return stopped state,
 no automatic resume, explicit restart/stop and speech-service completion callback.
@@ -758,3 +761,10 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
   inspected. Deterministic addition QA only, not live grading-quality or UAT proof.
   Broader concepts/subjects and response-loss checks remain open. See the
   fresh-practice contract for the exact command and evidence.
+- Added a native vector AI teacher whose ready, thinking and speaking states are
+  driven by actual request and TTS lifecycle state. The lesson avatar sits beside
+  playback controls and animates while speaking; accessibility exposes the same
+  state. API 36 verified speaking/ready frames plus background stop, restart,
+  explicit stop and completion. Android build/lint and 124 JVM tests passed.
+  This is not phoneme lip-sync, acoustic-quality, TalkBack, UAT or production
+  evidence; TUT-05 and TUT-06 remain partial. See `voice-recovery.md`.
