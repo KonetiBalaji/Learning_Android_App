@@ -1,7 +1,8 @@
 # Backend production configuration gate
 
-Status: startup validation implemented and automated locally. No production host,
-TLS proxy, persistent volume, secret manager or deployed instance is configured.
+Status: startup validation and a locked non-root container are implemented and
+automated. No production host, TLS proxy, persistent volume, secret manager or
+deployed instance is configured.
 
 Set the following through the chosen host's secret/configuration facility:
 
@@ -68,6 +69,22 @@ probe file can be created and removed on the configured upload volume. Its succe
 payload contains only environment, revision, and the fixed check names `database`
 and `upload_storage`. It does not expose paths, errors, record counts, or content.
 Use health for process liveness and readiness for deployment admission.
+
+## Reproducible backend image
+
+Build `backend/Dockerfile` from the repository root. It installs the locked
+runtime dependency set, runs as the unprivileged `learning` user, writes learner
+state only below the `/runtime` volume, disables raw Uvicorn access logs, and uses
+`/ready` for its container health check. The image deliberately contains no
+configuration or secrets. Mount a durable volume at `/runtime` and inject all
+settings through the host's protected configuration facility.
+
+The hosted `backend-container` quality job builds the image, starts it with a
+read-only root filesystem and a dedicated runtime volume, then verifies the exact
+production revision and database/upload readiness response. This is repeatable
+packaging evidence only. It does not prove volume durability, encryption, TLS,
+trusted-proxy behavior, provider access, capacity, monitoring, or deployment on a
+user-owned host.
 
 `uv run python -m app.release_candidate <manifest> --expected-environment
 production` performs that comparison and independently rehashes the APK. It also

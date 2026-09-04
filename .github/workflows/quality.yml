@@ -47,6 +47,50 @@ jobs:
       - name: Run backend regression
         run: uv run pytest -q
 
+  backend-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build locked production image
+        run: docker build --pull --tag learning-api:${{ github.sha }} backend
+      - name: Smoke test production readiness as non-root
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="learning-api:${GITHUB_SHA}"
+          container="learning-api-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          volume="learning-runtime-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup() {
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            docker volume rm "$volume" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker volume create "$volume" >/dev/null
+          docker run --detach --name "$container" \
+            --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --mount "type=volume,source=$volume,target=/runtime" \
+            --publish 127.0.0.1::8000 \
+            --env LEARNING_ENVIRONMENT=production \
+            --env LEARNING_RELEASE_REVISION="$GITHUB_SHA" \
+            --env LEARNING_JWT_SECRET=ci-only-random-secret-over-32-characters \
+            --env LEARNING_AI_MODE=openai \
+            --env OPENAI_API_KEY=ci-placeholder-never-used \
+            "$image" >/dev/null
+          port="$(docker port "$container" 8000/tcp | sed 's/.*://')"
+          for attempt in {1..30}; do
+            if payload="$(curl --fail --silent --show-error "http://127.0.0.1:${port}/ready")"; then
+              break
+            fi
+            if ! docker inspect --format '{{.State.Running}}' "$container" | grep -qx true; then
+              docker logs "$container"
+              exit 1
+            fi
+            sleep 1
+          done
+          test -n "${payload:-}"
+          python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$payload" "$GITHUB_SHA"
+          test "$(docker inspect --format '{{.Config.User}}' "$container")" = learning
+
   android:
     runs-on: ubuntu-latest
     defaults:

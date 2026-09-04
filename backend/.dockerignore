@@ -1,0 +1,12 @@
+.env*
+.runtime/
+.venv/
+__pycache__/
+.pytest_cache/
+tests/
+scripts/
+*.pyc
+*.pyo
+*.pem
+*.key
+*.p12
