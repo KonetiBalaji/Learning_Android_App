@@ -5,6 +5,11 @@ from time import monotonic
 from uuid import UUID, uuid4
 
 
+# Uvicorn's default access message contains the raw path. This app replaces it
+# with the bounded route-template event below in every launch mode.
+logging.getLogger('uvicorn.access').disabled = True
+
+
 def request_id(headers) -> str:
     supplied = next((value.decode('ascii', 'ignore') for name, value in headers
                      if name.lower() == b'x-request-id'), '')

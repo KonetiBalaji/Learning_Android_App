@@ -12,6 +12,10 @@ def event(caplog):
     return json.loads(record.message)
 
 
+def test_raw_uvicorn_access_logger_is_disabled():
+    assert logging.getLogger('uvicorn.access').disabled is True
+
+
 def test_completion_log_uses_route_template_and_omits_sensitive_request_data(caplog):
     app = FastAPI()
 

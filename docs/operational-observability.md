@@ -5,6 +5,8 @@ Every backend HTTP completion now emits one structured JSON log event through th
 matched route template, response status and elapsed milliseconds. Responses expose
 the same ID in `X-Request-ID`. A canonical client-supplied UUID is retained; missing,
 malformed or non-canonical values are replaced so untrusted text cannot forge logs.
+The application disables Uvicorn's raw-path access logger in every launch mode;
+operators must not re-enable it or add proxy request logging that records raw URLs.
 
 The logger never records raw paths, query strings, headers, bodies, client IPs,
 emails, account IDs, document names/content, answers, provider prompts/responses,
