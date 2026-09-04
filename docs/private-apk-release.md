@@ -38,6 +38,20 @@ sets `uat_accepted` and `production_verified` false; those states require separa
 human acceptance and deployed-service checks. Passwords, private-key bytes and the
 OpenAI key are never written to the manifest.
 
+Independently verify the exact artifact and deployed service before installing it:
+
+```powershell
+cd backend
+uv run python -m app.release_candidate ..\artifacts\private-release\candidate-manifest.json --expected-environment staging
+```
+
+Use `production` only for the final production deployment. The verifier rejects a
+modified or missing APK, malformed manifest, local or placeholder backend,
+non-HTTPS origin, unhealthy service, wrong environment or revision, and a
+production service that does not report the reviewed OpenAI provider and model.
+Its successful JSON output contains hashes and deployment identity but no secrets.
+It does not install the APK or grant UAT or production acceptance.
+
 The final signing keystore must be owned and durably backed up by the user. Losing
 it prevents trusted upgrades; replacing it creates a different Android signing
 identity. The disposable QA certificate used to verify this pipeline must never be

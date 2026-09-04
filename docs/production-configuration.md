@@ -54,6 +54,13 @@ private APK candidate manifest and expected Git commit before testing. A healthy
 response proves process readiness only; it does not prove migrations, model quality,
 storage durability, backup/restore, TLS routing or capacity.
 
+`uv run python -m app.release_candidate <manifest> --expected-environment
+production` performs that comparison and independently rehashes the APK. It also
+rejects placeholder/local endpoints and a production health response that does not
+identify the reviewed OpenAI provider and model. Run it from `backend`; see
+`private-apk-release.md`. A pass binds an artifact to one reachable deployment but
+does not replace the remaining operational or human gates.
+
 Configuration and quota tests cover the valid production profile, each required
 input, invalid limits, UTC rollover, owner isolation, pre-provider rejection and
 deterministic bypass. Real production acceptance still
