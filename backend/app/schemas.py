@@ -389,6 +389,15 @@ class UserProfile(BaseModel):
     interests: list[str] = Field(default_factory=list)
 
 
+class RetentionPolicy(BaseModel):
+    active_learning_data: Literal['until_account_deletion'] = 'until_account_deletion'
+    uploaded_documents: Literal['until_document_or_account_deletion'] = 'until_document_or_account_deletion'
+    deleted_files: Literal['queued_for_immediate_cleanup'] = 'queued_for_immediate_cleanup'
+    guardian_invitation_days: int = Field(ge=1, le=365)
+    crash_orphan_hours: int = Field(ge=1, le=720)
+    backup_days: int = Field(ge=1, le=365)
+
+
 class WeeklyReport(BaseModel):
     observed_study_seconds: int = Field(default=0, ge=0)
     period_days: int

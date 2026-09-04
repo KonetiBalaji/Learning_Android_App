@@ -76,6 +76,7 @@ from .schemas import (
     DocumentChapterProgress,
     CurriculumCatalog,
     WeakAreaEvidence,
+    RetentionPolicy,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
@@ -138,6 +139,17 @@ app.add_middleware(OperationalLoggingMiddleware)
 
 def now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+@app.get('/v1/privacy/retention', response_model=RetentionPolicy)
+def retention_policy(user_id: str = Depends(current_user_id),
+                     settings: Settings = Depends(get_settings)) -> RetentionPolicy:
+    # Authentication confirms the disclosure belongs to the same service that
+    # stores this learner's data; the response contains no account data.
+    del user_id
+    return RetentionPolicy(guardian_invitation_days=settings.guardian_invitation_retention_days,
+        crash_orphan_hours=settings.orphan_upload_grace_hours,
+        backup_days=settings.backup_retention_days)
 
 
 def owned_document(document_id: str, user_id: str, settings: Settings) -> sqlite3.Row:

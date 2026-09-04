@@ -23,6 +23,14 @@ function FindText([string]$text) {
     }
     throw "Missing text: $text"
 }
+function WaitText([string]$text) {
+    for ($i=0; $i -lt 12; $i++) {
+        $node = (Ui).SelectNodes('//node') | Where-Object { $_.text -like "$text*" } | Select-Object -First 1
+        if ($node) { return $node }
+        Start-Sleep -Milliseconds 500
+    }
+    throw "Missing text: $text"
+}
 function TapNode($node) {
     $b = [regex]::Matches($node.bounds, '\d+') | ForEach-Object { [int]$_.Value }
     Adb shell input tap ([int](($b[0]+$b[2])/2)) ([int](($b[1]+$b[3])/2)) | Out-Null
@@ -61,14 +69,21 @@ Tap 'Sign out'
 EnterField 0 $email
 EnterField 1 'wrong-password-long-enough'
 Tap 'Sign in'
-FindText 'Email or password is incorrect. Please try again.' | Out-Null
-Tap 'Try again'
+WaitText 'Email or password is incorrect. Please try again.' | Out-Null
+TapNode (WaitText 'Try again')
 EnterField 1 'qa-password-long-enough'
 Tap 'Sign in'
 Tap "Grade`n8"
 Restart
 Tap 'Settings and account'
 FindText $email.ToLowerInvariant() | Out-Null
+foreach ($policyText in @(
+    'Your data retention',
+    'Learning history stays until you delete your account.',
+    'Uploaded documents stay until you delete the document or your account.',
+    'Deleted files are queued for immediate cleanup. Untracked crash files are removed after 24 hours.',
+    'Expired guardian invitations are removed after 30 days. Service backups expire after 30 days.'
+)) { FindText $policyText | Out-Null }
 Adb shell screencap -p /sdcard/qa-auth-profile.png | Out-Null
 Adb pull /sdcard/qa-auth-profile.png (Join-Path $repo 'artifacts\qa-auth-profile.png') | Out-Null
-Write-Output 'PASS: registration and password login use normalized server identity; wrong-password recovery and persisted-session restart pass. No live AI call.'
+Write-Output 'PASS: registration/password recovery, persisted-session restart and server-configured retention disclosure pass. No live AI call.'

@@ -7,8 +7,9 @@ import pytest
 
 from app.database import initialize
 from app.runtime_backup import (
-    DATABASE, RecoveryError, create_backup, restore_backup, verify_backup,
+    DATABASE, RecoveryError, create_backup, prune_backups, restore_backup, verify_backup,
 )
+from datetime import UTC, datetime
 
 
 @pytest.fixture
@@ -52,6 +53,8 @@ def backup(runtime, tmp_path):
 
 def test_round_trip_preserves_learning_ownership_and_remaps_only_paths(runtime, tmp_path):
     bundle = backup(runtime, tmp_path)
+    manifest = json.loads((bundle / 'manifest.json').read_text())
+    assert manifest['format'] == 2 and datetime.fromisoformat(manifest['created_at']).tzinfo is not None
     assert verify_backup(bundle) == {"documents": 1, "upload_files": 1, "pending_deletions": 1}
     assert {p.name for p in (bundle / "uploads").iterdir()} == {"live-document.txt"}
     assert not (bundle / ".env.local").exists()
@@ -69,6 +72,27 @@ def test_round_trip_preserves_learning_ownership_and_remaps_only_paths(runtime, 
         assert target.execute("SELECT stored_path, attempts, last_error FROM pending_file_deletions").fetchone() == (str(restored / "uploads/deleted-document.txt"), 2, 'filesystem_error')
         assert source.execute("SELECT stored_path FROM documents").fetchone()[0] == str(runtime / "uploads/live-document.txt")
     assert (runtime / "uploads/deleted-document.txt").exists()
+
+
+def test_backup_retention_preview_then_explicitly_deletes_only_expired_bundle(runtime, tmp_path):
+    root = tmp_path / 'backups'
+    root.mkdir()
+    old = root / 'old'
+    current = root / 'current'
+    create_backup(runtime, old, offline_confirmed=True)
+    create_backup(runtime, current, offline_confirmed=True)
+    old_manifest = json.loads((old / 'manifest.json').read_text())
+    old_manifest['created_at'] = '2026-01-01T00:00:00+00:00'
+    (old / 'manifest.json').write_text(json.dumps(old_manifest))
+    current_manifest = json.loads((current / 'manifest.json').read_text())
+    current_manifest['created_at'] = '2026-02-20T00:00:00+00:00'
+    (current / 'manifest.json').write_text(json.dumps(current_manifest))
+    as_of = datetime(2026, 3, 1, tzinfo=UTC)
+    assert prune_backups(root, 30, as_of=as_of) == {'scanned': 2, 'expired': 1, 'deleted': 0}
+    assert old.is_dir() and current.is_dir()
+    assert prune_backups(root, 30, as_of=as_of, delete_confirmed=True) == {
+        'scanned': 2, 'expired': 1, 'deleted': 1}
+    assert not old.exists() and current.is_dir()
 
 
 def test_wal_commits_are_included(runtime, tmp_path):

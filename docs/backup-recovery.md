@@ -58,8 +58,10 @@ operator marker, not a startup guard or production acceptance certificate.
   bring their deleted files back. This does not erase historical database pages.
 - Stored upload paths are rewritten to `uploads/<filename>` in the snapshot and
   to absolute destination paths during restore. Source data is not rewritten.
-- A versioned manifest is written last, with SHA-256 and byte counts for the
-  database and each upload. Verification rejects changed/missing/unlisted files,
+- A versioned format-2 manifest is written last, with a timezone-aware creation
+  time, SHA-256 and byte counts for the database and each upload. Restore remains
+  compatible with format 1, but retention pruning rejects those legacy bundles
+  because they have no enforceable creation timestamp. Verification rejects changed/missing/unlisted files,
   unsafe paths and inventory mismatches against the database. Checksums detect
   accidental corruption, **not malicious modification of the bundle/manifest**.
 
@@ -74,8 +76,10 @@ retention/deletion propagation require a production runbook and user-confirmed
 host. Rotating the JWT secret invalidates existing bearer tokens, not passwords.
 
 Restoring an older backup can reintroduce accounts/data deleted after its snapshot.
-Before any production cutover, reconcile post-snapshot deletion requests and
-define backup expiration/erasure policy. Automated encrypted/offsite storage,
+Before any production cutover, reconcile post-snapshot deletion requests. New
+bundles can be previewed and explicitly pruned with `runtime_backup prune` and the
+configured 1–365 day retention; see `docs/data-retention.md`. Automated scheduling,
+encrypted/offsite storage,
 restore timings/data-loss targets, disk-full/crash drills, alerts and operator
 UAT are still open. This tool does not satisfy the full SEC-02 or PROD-01 gate.
 

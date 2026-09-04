@@ -700,6 +700,18 @@ private fun SettingsScreen(state: AppUiState, onBack: () -> Unit, onDarkMode: (B
         }
         OutlinedButton(onClick = onGrade, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), shape = RoundedCornerShape(16.dp)) { Text("Change grade · ${state.grade ?: "Not selected"}") }
         OutlinedButton(onClick = onInterests, modifier = Modifier.fillMaxWidth()) { Text("Learning interests") }
+        state.retentionPolicy?.let { policy ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("Your data retention", fontWeight = FontWeight.Bold)
+                    Text("Learning history stays until you delete your account.")
+                    Text("Uploaded documents stay until you delete the document or your account.")
+                    Text("Deleted files are queued for immediate cleanup. Untracked crash files are removed after ${policy.crashOrphanHours} hours.")
+                    Text("Expired guardian invitations are removed after ${policy.guardianInvitationDays} days. Service backups expire after ${policy.backupDays} days.")
+                }
+            }
+        }
         OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), shape = RoundedCornerShape(16.dp)) { Text("Sign out") }
         TextButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) { Text("Delete my account and learning data", color = MaterialTheme.colorScheme.error) }
     }

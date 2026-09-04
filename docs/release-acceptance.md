@@ -149,7 +149,7 @@ accessibility and UAT remain open, so DOC-01 stays partial.
 | DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling, server-evidenced owner/grade-scoped learning badges, and real TalkBack exposure for dynamic topic status/source/action nodes; loading/empty/offline/retry states have targeted flows. Motivation/usability review, full-screen spoken traversal, switch access, non-text contrast, physical devices and UAT remain |
 | DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |
-| SEC-01 | Deletion and retention | Partial | Database cascade, recoverable file removal, other-owner preservation and conservative crash-orphan reconciliation are automated; valid learner-data and backup retention durations still require an explicit policy and production verification |
+| SEC-01 | Deletion and retention | QA verified | Active learning/document lifetimes, immediate deletion queue, crash-orphan grace, guardian-invitation cleanup and 30-day backup expiry are explicit, bounded and displayed from authenticated server configuration. Format-2 backup timestamp/preview/prune and active-data deletion are automated; production scheduling/storage-provider deletion, legal review and UAT remain |
 | SEC-02 | Production hardening | Partial | HTTPS release guard, locked non-root/read-only-root container smoke, independent APK/hash/deployment-identity plus database/upload readiness verifier, offline backup checks, persistent authentication peer throttle, atomic per-account daily AI-operation caps, enforced per-call provider output-token ceilings, privacy-safe correlated request events, spawned parser timeout/output isolation, Windows Job Object memory caps, fail-fast atomic cross-worker parser admission with crash recovery and API 36-verified support IDs implemented; production proxy/sustained load, provider project currency budget, deployed log sink/alerts and deployment recovery still need verification |
 | UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading, OA-02 owner-material quotas and OA-03 bounded native action/highlight patterns are pinned, licensed and tested; this is selective adaptation, not a port |
 | QA-01 | Automated regression suite | QA verified | GitHub run 33870965878 exposed executable-mode/action-version defects and run 33871176022 exposed SDK discovery; both were repaired. Run 33871289020 at commit 64f12b1b43d7fd9e279ddb214bfdb278e8a29f52 passed repository hygiene, the complete backend suite and Android JVM/lint/debug assembly from a clean hosted runner, then uploaded android-debug-verification. Existing API 36 emulator journeys supplement the gate; physical-device coverage and UAT remain separate |
@@ -1045,3 +1045,13 @@ curriculum review, physical-device QA and UAT remain open.
   remediation; the frame was visually inspected. See
   `shared/contracts/personalized-next-step.md`. This is QA evidence, not educator or
   user acceptance of the recommendation policy.
+- Defined and exposed the learner-data retention policy from authenticated server
+  configuration. Android validates and displays active-data, document, deletion,
+  crash-orphan, guardian-invitation and backup periods. New format-2 backups carry
+  timezone-aware creation evidence; pruning previews by default, verifies every
+  direct-child bundle, and requires an explicit deletion flag. API 36 registration,
+  wrong-password recovery, persisted-session restart and policy disclosure passed
+  and the Settings capture was visually inspected. Backend 570 passed with one
+  existing Windows skip; Android JVM tests, lint and debug assembly passed. This is
+  implementation and emulator QA, not proof of a production schedule, storage-
+  provider erasure, legal review or UAT; see `data-retention.md`.

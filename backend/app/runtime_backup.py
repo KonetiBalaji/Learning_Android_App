@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import shutil
 import sqlite3
+from datetime import UTC, datetime, timedelta
 
 from .database import SCHEMA
 
@@ -126,7 +127,7 @@ def create_backup(runtime: Path, destination: Path, *, offline_confirmed: bool =
     files.update({mapped[stored]: _digest(destination / mapped[stored]) for stored in live})
     # Written last: an interrupted/incomplete copy cannot pass verification.
     with (destination / "manifest.json").open("x", encoding="utf-8") as stream:
-        json.dump({"format": 1, "files": files}, stream, indent=2, sort_keys=True)
+        json.dump({"format": 2, "created_at": datetime.now(UTC).isoformat(), "files": files}, stream, indent=2, sort_keys=True)
     verify_backup(destination)
 
 
@@ -136,8 +137,15 @@ def verify_backup(bundle: Path) -> dict:
     if not manifest_path.is_file() or manifest_path.stat().st_size > 10 * 1024 * 1024:
         raise RecoveryError("Backup manifest is missing or too large")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if not isinstance(manifest, dict) or manifest.get("format") != 1 or not isinstance(manifest.get("files"), dict):
+    if not isinstance(manifest, dict) or manifest.get("format") not in {1, 2} or not isinstance(manifest.get("files"), dict):
         raise RecoveryError("Unsupported backup manifest")
+    if manifest['format'] == 2:
+        try:
+            created_at = datetime.fromisoformat(manifest['created_at'])
+        except (KeyError, TypeError, ValueError) as error:
+            raise RecoveryError("Backup creation time is invalid") from error
+        if created_at.tzinfo is None:
+            raise RecoveryError("Backup creation time is invalid")
     files = manifest["files"]
     if DATABASE not in files:
         raise RecoveryError("Backup database is missing")
@@ -167,6 +175,37 @@ def verify_backup(bundle: Path) -> dict:
     return {"documents": len(documents), "upload_files": len(live), "pending_deletions": len(pending)}
 
 
+def prune_backups(root: Path, retention_days: int, *, as_of: datetime | None = None,
+                  delete_confirmed: bool = False) -> dict[str, int]:
+    if not 1 <= retention_days <= 365:
+        raise RecoveryError("Backup retention must be between 1 and 365 days")
+    root = _plain_path(root)
+    if not root.is_dir():
+        raise RecoveryError("Backup root is missing")
+    cutoff = (as_of or datetime.now(UTC)) - timedelta(days=retention_days)
+    expired: list[Path] = []
+    scanned = 0
+    for bundle in sorted(root.iterdir()):
+        if not bundle.is_dir():
+            continue
+        bundle = _plain_path(bundle)
+        if bundle.parent != root:
+            raise RecoveryError("Backup bundle is outside the configured root")
+        verify_backup(bundle)
+        manifest = json.loads((bundle / 'manifest.json').read_text(encoding='utf-8'))
+        if manifest['format'] != 2:
+            raise RecoveryError("Legacy backup has no enforceable creation time")
+        created_at = datetime.fromisoformat(manifest['created_at'])
+        scanned += 1
+        if created_at <= cutoff:
+            expired.append(bundle)
+    if delete_confirmed:
+        for bundle in expired:
+            shutil.rmtree(bundle)
+    return {'scanned': scanned, 'expired': len(expired),
+            'deleted': len(expired) if delete_confirmed else 0}
+
+
 def restore_backup(bundle: Path, destination: Path, *, offline_confirmed: bool = False) -> None:
     if not offline_confirmed:
         raise RecoveryError("Stop all API workers and cleanup jobs, then confirm offline operation")
@@ -194,15 +233,23 @@ def restore_backup(bundle: Path, destination: Path, *, offline_confirmed: bool =
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("backup", "verify", "restore"))
+    parser.add_argument("operation", choices=("backup", "verify", "restore", "prune"))
     parser.add_argument("source", type=Path)
     parser.add_argument("--destination", type=Path)
     parser.add_argument("--offline-confirmed", action="store_true")
+    parser.add_argument("--retention-days", type=int)
+    parser.add_argument("--delete-confirmed", action="store_true")
     args = parser.parse_args()
     try:
         if args.operation == "verify":
             result = verify_backup(args.source)
             print("Verified local backup:", json.dumps(result, sort_keys=True))
+        elif args.operation == 'prune':
+            if args.retention_days is None:
+                raise RecoveryError("Backup retention days are required")
+            result = prune_backups(args.source, args.retention_days,
+                                   delete_confirmed=args.delete_confirmed)
+            print("Checked local backup retention:", json.dumps(result, sort_keys=True))
         else:
             if args.destination is None:
                 raise RecoveryError("A new destination is required")

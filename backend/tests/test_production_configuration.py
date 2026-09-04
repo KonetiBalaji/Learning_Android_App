@@ -83,6 +83,13 @@ def test_unsafe_guardian_invitation_retention_is_rejected(monkeypatch, days):
         get_settings()
 
 
+@pytest.mark.parametrize('days', ['0', '366'])
+def test_unsafe_backup_retention_is_rejected(monkeypatch, days):
+    monkeypatch.setenv('LEARNING_BACKUP_RETENTION_DAYS', days)
+    with pytest.raises(ValueError, match='Backup retention'):
+        get_settings()
+
+
 @pytest.mark.parametrize('hours', ['0', '721'])
 def test_unsafe_orphan_upload_grace_is_rejected(monkeypatch, hours):
     monkeypatch.setenv('LEARNING_ORPHAN_UPLOAD_GRACE_HOURS', hours)

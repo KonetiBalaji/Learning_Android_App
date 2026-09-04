@@ -23,6 +23,7 @@ class Settings:
     max_documents_per_owner: int = 100
     max_document_bytes_per_owner: int = 2 * 1024 * 1024 * 1024
     guardian_invitation_retention_days: int = 30
+    backup_retention_days: int = 30
     orphan_upload_grace_hours: int = 24
     document_parse_timeout_seconds: int = 15
     max_concurrent_document_parsers: int = 2
@@ -54,6 +55,8 @@ class Settings:
             raise ValueError('Per-owner document bytes must cover one upload and not exceed 1 TiB')
         if not 1 <= self.guardian_invitation_retention_days <= 365:
             raise ValueError('Guardian invitation retention must be between 1 and 365 days')
+        if not 1 <= self.backup_retention_days <= 365:
+            raise ValueError('Backup retention must be between 1 and 365 days')
         if not 1 <= self.orphan_upload_grace_hours <= 720:
             raise ValueError('Orphan upload grace period must be between 1 and 720 hours')
         if not 1 <= self.document_parse_timeout_seconds <= 120:
@@ -98,6 +101,7 @@ def get_settings() -> Settings:
         max_documents_per_owner=int(os.getenv('LEARNING_MAX_DOCUMENTS_PER_OWNER', '100')),
         max_document_bytes_per_owner=int(os.getenv('LEARNING_MAX_DOCUMENT_BYTES_PER_OWNER', str(2 * 1024 * 1024 * 1024))),
         guardian_invitation_retention_days=int(os.getenv('LEARNING_GUARDIAN_INVITATION_RETENTION_DAYS', '30')),
+        backup_retention_days=int(os.getenv('LEARNING_BACKUP_RETENTION_DAYS', '30')),
         orphan_upload_grace_hours=int(os.getenv('LEARNING_ORPHAN_UPLOAD_GRACE_HOURS', '24')),
         document_parse_timeout_seconds=int(os.getenv('LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS', '15')),
         max_concurrent_document_parsers=int(os.getenv('LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS', '2')),

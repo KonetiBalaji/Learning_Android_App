@@ -122,6 +122,7 @@ data class AppUiState(
     val savedInterests: List<String>? = null, val interestDraft: List<String> = emptyList(), val interestSaveMessage: String? = null,
     val feedback: Feedback? = null, val results: Results? = null,
     val questionSourceEvidence: QuestionSourceEvidence? = null,
+    val retentionPolicy: RetentionPolicy? = null,
     val canResumeMastery: Boolean = false,
     val canResumeDocumentQuiz: Boolean = false,
     val documentQuestionTotal: Int = 10,
@@ -509,7 +510,9 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         mutableState.value = mutableState.value.copy(screen = if (mutableState.value.reportAccountEmail == null) Screen.Subjects else Screen.GuardianAccess,
             reportAccountEmail = null)
     }
-    fun openSettings() { mutableState.value = mutableState.value.copy(screen = Screen.Settings) }
+    fun openSettings() = perform(Screen.Settings) {
+        mutableState.value = mutableState.value.copy(retentionPolicy = api.retentionPolicy())
+    }
     fun openInterests() {
         mutableState.value = mutableState.value.copy(screen = Screen.Interests, savedInterests = null, interestDraft = emptyList(), interestSaveMessage = null)
         reloadInterests()
@@ -877,6 +880,13 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun persistSession() { saveToken(requireNotNull(token)) }
     fun signOut() { token = null; masterySubmissionState.clear() }
     fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); signOut() }
+    fun retentionPolicy(): RetentionPolicy {
+        val value = request("GET", "/v1/privacy/retention", null)
+        return validateRetentionPolicy(RetentionPolicy(value.getString("active_learning_data"),
+            value.getString("uploaded_documents"), value.getString("deleted_files"),
+            value.getInt("guardian_invitation_days"), value.getInt("crash_orphan_hours"),
+            value.getInt("backup_days")))
+    }
     fun getInterests(): List<String> = request("GET", "/v1/account", null).getJSONArray("interests").strings()
     fun catalog(grade: Int): CurriculumCatalogClient {
         val response = request("GET", "/v1/catalog?grade=$grade", null)

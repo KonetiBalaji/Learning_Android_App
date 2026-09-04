@@ -19,6 +19,8 @@ Set the following through the chosen host's secret/configuration facility:
 - `OPENAI_MODEL`: reviewed supported model, currently `gpt-5-mini`
 - `LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY`: 1 through 100000; default 200
 - `LEARNING_ORPHAN_UPLOAD_GRACE_HOURS`: 1 through 720; default 24
+- `LEARNING_GUARDIAN_INVITATION_RETENTION_DAYS`: 1 through 365; default 30
+- `LEARNING_BACKUP_RETENTION_DAYS`: 1 through 365; default 30; must match the scheduled verified backup-prune job
 - `LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS`: 1 through 120; default 15
 - `LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS`: 1 through 16; default 2 across API workers sharing the runtime database
 
