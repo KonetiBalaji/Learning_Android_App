@@ -103,7 +103,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, source-grounding checks, deletion, interrupted-flow recovery |
 | DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Backend chapter-set validation; Android multi-selection and persistence; page/section/topic retrieval boundaries and device QA |
-| DOC-03 | Question count, difficulty and question-type configuration | Partial | Preset/custom count device QA; easy/medium/hard/mixed difficulty; multiple-choice, true/false and yes/no generation, grading and recovery |
+| DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
@@ -402,6 +402,11 @@ curriculum review, physical-device QA and UAT remain open.
   legacy four-option quizzes. Build/lint/54 JVM tests passed. No live requests.
   Malformed-response device QA and server creation-idempotency remain open; see
   `document-question-types.md`.
+- 2026-09-04: reran both binary fixtures on API 36 and submitted a known wrong
+  answer followed by a known correct answer through Android for True/False and
+  Yes/No. Both runs verified feedback, process-restart restoration and next-question
+  continuation. DOC-03 is QA verified for the supported single-format contract;
+  live-provider Android recovery, broader materials, educator review and UAT remain.
 - 2026-09-03: both binary formats passed API 36 scripted answering/recovery:
   two choices, saved type, conflict handling, committed wrong answer, feedback
   restart, next question and completed results. Both screenshots inspected;

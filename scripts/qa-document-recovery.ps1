@@ -475,6 +475,17 @@ if ($BinaryFixtureType) {
     Adb shell screencap -p /sdcard/qa-binary-question.png | Out-Null
     Adb pull /sdcard/qa-binary-question.png (Join-Path $repo "artifacts\qa-binary-$BinaryFixtureType.png") | Out-Null
     Write-Output "PASS: Android $formatLabel answer commits; wrong-answer feedback and next question survive restart"
+    $third = $state.question
+    TapText $third.options[0]
+    TapText 'Check answer'
+    TextNode 'Study feedback' | Out-Null
+    $state = Invoke-RestMethod $quizPath -Headers $headers
+    if ($state.answered -ne 3 -or $state.last_feedback.correct -ne $true -or $state.last_feedback.selected_option -ne $third.options[0]) { throw 'Correct binary Android answer or feedback was not committed' }
+    RestartApp
+    TextNode 'Study feedback' | Out-Null
+    TapText 'Next question'
+    TextNode "QUESTION 4 OF $expectedCount" | Out-Null
+    Write-Output "PASS: Android $formatLabel correct answer commits; correct feedback and next question survive restart"
 }
 # Complete only this disposable quiz through the public API, then verify app restoration.
 while ($state.question) {

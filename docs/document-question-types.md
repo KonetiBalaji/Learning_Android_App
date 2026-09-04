@@ -1,4 +1,4 @@
-# Document question types: implemented, device QA pending
+# Document question types and Android QA
 
 2026-09-03: added one selected type per quiz: multiple choice, True/False or
 Yes/No. The API defaults omitted type to multiple choice and rejects unknown/null
@@ -84,17 +84,17 @@ or rollback. Cross-response consistency and creation-retry recovery remain open.
 Both API 36 fixture runs passed with `-ResetTestAppData -BinaryFixtureType
 true_false` and `-ResetTestAppData -BinaryFixtureType yes_no`. Android renders two
 choices and the saved format, handles a first-question conflict without overwrite,
-successfully submits a wrong answer to question 2, restores that feedback after
-restart and continues to question 3. Results and saved-format labels restore after
-completion. Remaining answers were submitted by the API fixture, not Android;
-a successful correct-answer submission through Android is not proven by these
-runs. Both question-3 screenshots were visually inspected:
+submits a wrong answer to question 2, restores that feedback after restart and
+continues to question 3. The 2026-09-04 reruns also submit the known correct answer
+for question 3 through Android, verify correct feedback, restart and continue to
+question 4. Results and saved-format labels restore after completion. Later answers
+are submitted by the API fixture. Both question-3 screenshots were visually inspected:
 `artifacts/qa-binary-true_false.png` and `artifacts/qa-binary-yes_no.png`.
 No metered calls were made. The service was returned to normal isolated QA mode
 after these runs; saved disposable fixtures remain explicitly labeled QA.
 
 Account switching and live-provider binary answering/recovery on Android remain
-unverified. Mixed-format quizzes are not
-implemented. Broader materials/counts/difficulties, educator review, actual user
-UAT and production acceptance remain open. The shared configuration contract
-defines the API; this backend slice does not complete DOC-03.
+unverified. Mixed-format quizzes are not implemented; one configured format per
+quiz is the supported contract. Broader source-material validation, educator review,
+actual user UAT and production acceptance remain open. The supported single-format
+document quiz contract is QA verified.
