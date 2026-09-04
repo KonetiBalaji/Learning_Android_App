@@ -110,6 +110,7 @@ data class AppUiState(
     val catalogSubjects: List<LearningSubject> = emptyList(),
     val catalogChapters: Map<String, List<MasteryChapter>> = emptyMap(),
     val linkedLearners: List<GuardianAccount>? = null, val linkedGuardians: List<GuardianAccount>? = null,
+    val guardianAccessHistory: List<GuardianAccessEvent>? = null,
     val guardianInvitationCode: String? = null, val guardianInvitationExpiresAt: String? = null,
     val guardianCodeDraft: String = "", val reportAccountEmail: String? = null,
 )
@@ -439,11 +440,13 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     }
     fun openGuardianAccess() {
         mutableState.value = mutableState.value.copy(screen = Screen.GuardianAccess, linkedLearners = null, linkedGuardians = null,
+            guardianAccessHistory = null,
             guardianInvitationCode = null, guardianInvitationExpiresAt = null, guardianCodeDraft = "")
         refreshGuardianAccess()
     }
     fun refreshGuardianAccess() = perform(null) {
-        mutableState.value = mutableState.value.copy(linkedLearners = api.linkedLearners(), linkedGuardians = api.linkedGuardians())
+        mutableState.value = mutableState.value.copy(linkedLearners = api.linkedLearners(), linkedGuardians = api.linkedGuardians(),
+            guardianAccessHistory = api.guardianAccessHistory())
     }
     fun createGuardianInvitation() = perform(null) {
         val invitation = api.createGuardianInvitation()
@@ -459,7 +462,9 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     }
     fun revokeGuardian(guardianId: String) = perform(null) {
         api.revokeGuardian(guardianId)
-        mutableState.value = mutableState.value.copy(linkedGuardians = api.linkedGuardians(), guardianInvitationCode = null, guardianInvitationExpiresAt = null)
+        mutableState.value = mutableState.value.copy(linkedGuardians = api.linkedGuardians(),
+            guardianAccessHistory = api.guardianAccessHistory(), guardianInvitationCode = null,
+            guardianInvitationExpiresAt = null)
     }
     fun unlinkLearner(learnerId: String) = perform(null) {
         api.unlinkLearner(learnerId)
@@ -830,6 +835,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun redeemGuardianInvitation(code: String): GuardianAccount = guardianAccount(request("POST", "/v1/guardian/links", JSONObject().put("code", code).toString()))
     fun linkedLearners(): List<GuardianAccount> = guardianAccounts(requestArray("GET", "/v1/guardian/learners"))
     fun linkedGuardians(): List<GuardianAccount> = guardianAccounts(requestArray("GET", "/v1/guardian/access"))
+    fun guardianAccessHistory(): List<GuardianAccessEvent> = guardianAccessEvents(requestArray("GET", "/v1/guardian/access-history"))
     fun unlinkLearner(id: String) = requestNoContent("DELETE", "/v1/guardian/learners/$id")
     fun revokeGuardian(id: String) = requestNoContent("DELETE", "/v1/guardian/access/$id")
     fun saveInterests(values: List<String>): List<String> = request("PUT", "/v1/account/interests",
@@ -1059,6 +1065,17 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     private fun adaptiveQuestion(value: JSONObject) = DiagnosticQuestion(value.getString("prompt"), value.getJSONArray("options").strings(), "")
     private fun guardianAccount(value: JSONObject) = GuardianAccount(value.getString("id"), value.getString("email"), value.getString("linked_at"))
     private fun guardianAccounts(values: JSONArray) = (0 until values.length()).map { guardianAccount(values.getJSONObject(it)) }
+    private fun guardianAccessEvents(values: JSONArray) = (0 until values.length()).map { index ->
+        values.getJSONObject(index).let { value ->
+            GuardianAccessEvent(
+                id = value.getString("id"),
+                guardianId = value.optString("guardian_id").takeIf { !value.isNull("guardian_id") && it.isNotBlank() },
+                guardianEmail = value.optString("guardian_email").takeIf { !value.isNull("guardian_email") && it.isNotBlank() },
+                eventType = value.getString("event_type"),
+                occurredAt = value.getString("occurred_at"),
+            )
+        }
+    }
     private fun JSONArray.toQuestionList(): List<QuizQuestion> = (0 until length()).map { question(getJSONObject(it)) }
     private fun JSONArray.strings(): List<String> = (0 until length()).map(::getString)
 }

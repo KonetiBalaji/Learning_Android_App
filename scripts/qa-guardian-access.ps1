@@ -46,7 +46,20 @@ try{
     $linked=Invoke-RestMethod 'http://127.0.0.1:8000/v1/guardian/learners' -Headers @{Authorization="Bearer $($guardian.access_token)"}
     $access=Invoke-RestMethod 'http://127.0.0.1:8000/v1/guardian/access' -Headers @{Authorization="Bearer $($learner.access_token)"}
     if(@($linked).Count-ne0-or@($access).Count-ne0){throw 'Unlink did not remove both sides of access.'}
-    Write-Output 'PASS: separate guardian account redeemed consent, viewed only the linked aggregate report, and removed access.'
+    $history=Invoke-RestMethod 'http://127.0.0.1:8000/v1/guardian/access-history' -Headers @{Authorization="Bearer $($learner.access_token)"}
+    if(@($history).Count-ne2-or$history[0].event_type-ne'granted'-or$history[1].event_type-ne'revoked_by_guardian'){throw 'Learner consent history did not record grant and guardian revocation.'}
+    Adb shell pm clear $package|Out-Null
+    Adb shell am start -n "$package/.MainActivity"|Out-Null;Start-Sleep -Seconds 3
+    EnterField 0 $learnerEmail
+    EnterField 1 'qa-password-long-enough'
+    TapText 'Sign in'
+    TapText "Grade`n8"
+    TapText 'Parent & teacher access' 30 -Scroll
+    FindText 'Parent or teacher removed access' 30 -Scroll|Out-Null
+    FindText $guardianEmail 30 -Scroll|Out-Null
+    Adb shell screencap -p /sdcard/qa-guardian-history.png|Out-Null
+    Adb pull /sdcard/qa-guardian-history.png (Join-Path $repo 'artifacts\qa-guardian-history.png')|Out-Null
+    Write-Output 'PASS: separate guardian account viewed only the linked aggregate report, removed access, and learner saw the durable consent history.'
 }finally{
     DeleteAccount $guardian
     DeleteAccount $learner

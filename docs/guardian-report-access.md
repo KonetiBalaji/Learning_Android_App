@@ -69,7 +69,17 @@ disclosure; it is untracked QA evidence, not APK content.
 Android verification passed 128 JVM tests with zero failures/skips, lint, and debug
 assembly; the PowerShell harness parsed without errors.
 
+A follow-up API 36 run extended that same isolated journey through guardian-side
+unlink, learner sign-in and consent-history recovery. The harness verified the
+API contained exactly the grant followed by `revoked_by_guardian`, then found both
+events through Android. The inspected `artifacts/qa-guardian-history.png` shows no
+active report access, newest-first plain-language history, readable dates and a
+bounded long test email. Android verification now passes **141 JVM tests** with
+zero failures/skips, lint and debug APK assembly. The emulator occasionally
+reported a null accessibility root while dumping UI state, but the bounded retry
+recovered and the journey completed; no application request failed.
+
 This is development and emulator QA evidence. Parent/teacher identity policy,
-physical-device accessibility, real-user UAT, notification/consent records, audit
+physical-device accessibility, real-user UAT, external notification policy, audit
 export, broader student-data retention, and production deployment remain open. PARENT-01 is
 therefore partial, not UAT accepted or production verified.

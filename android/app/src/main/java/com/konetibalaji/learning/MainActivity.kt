@@ -81,6 +81,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -634,6 +635,24 @@ private fun GuardianAccessScreen(state: AppUiState, onCode: (String) -> Unit, on
                 Column(Modifier.padding(16.dp)) {
                     Text(guardian.email, fontWeight = FontWeight.Bold)
                     TextButton(onClick = { onRevoke(guardian.id) }, modifier = Modifier.fillMaxWidth()) { Text("Revoke report access", color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        }
+    }
+    Text("My report access history", fontWeight = FontWeight.Bold)
+    Text("This record shows grants and revocations for your report. Deleted accounts are not identified.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    when {
+        state.guardianAccessHistory == null -> Text("Loading access history…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        state.guardianAccessHistory.isEmpty() -> Text("No report access changes recorded.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> state.guardianAccessHistory.asReversed().forEach { event ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(guardianAccessEventDescription(event.eventType), fontWeight = FontWeight.Bold)
+                    Text(guardianAccessAccountLabel(event), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(guardianAccessOccurredLabel(event.occurredAt), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
