@@ -18,6 +18,13 @@ def install_response_fault(app):
         armed['/v1/catalog'] = '503'
         return {'armed': True}
 
+    @app.post('/__qa/interests/fail-next-response')
+    def arm_interest_failure(_: str = Depends(current_user_id)):
+        if len(armed) >= 100:
+            raise HTTPException(status_code=429, detail='QA fault limit reached')
+        armed['/v1/account/interests'] = '503'
+        return {'armed': True}
+
     @app.post('/__qa/learning-path/algebra')
     def seed_algebra(state: Literal['mastered', 'diagnostic'], user_id=Depends(current_user_id), settings=Depends(get_settings)):
         from app.database import connection
@@ -115,7 +122,7 @@ def install_response_fault(app):
     async def replace_success(request, call_next):
         response = await call_next(request)
         path = request.url.path
-        if request.method in {'GET', 'POST'} and response.status_code in {200, 201} and path in armed:
+        if request.method in {'GET', 'POST', 'PUT'} and response.status_code in {200, 201} and path in armed:
             mode = armed.pop(path)
             if mode == 'malformed':
                 payload = json.loads(b''.join([chunk async for chunk in response.body_iterator]))

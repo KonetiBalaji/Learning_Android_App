@@ -58,10 +58,17 @@ TextNode '0 of 3 selected' | Out-Null
 TapText 'Select Sports'
 TapText 'Select Music'
 TapText 'Select Art'
-TapText 'Save interests'
-TextNode 'Interests saved' | Out-Null
 $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$email;password='qa-password-long-enough'} | ConvertTo-Json)
 $headers = @{Authorization="Bearer $($login.access_token)"}
+Invoke-RestMethod 'http://127.0.0.1:8000/__qa/interests/fail-next-response' -Method Post -Headers $headers | Out-Null
+TapText 'Save interests'
+TextNode 'The learning service is temporarily unavailable. Please try again.' | Out-Null
+$uncertain = Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Headers $headers
+if (($uncertain.interests -join ',') -ne 'sports,music,art') { throw 'Post-commit failure did not retain saved interests' }
+TapText 'Try again'
+TextNode '3 of 3 selected' | Out-Null
+TapText 'Save interests'
+TextNode 'Interests saved' | Out-Null
 $profile = Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Headers $headers
 if (($profile.interests -join ',') -ne 'sports,music,art') { throw 'Saved server interests differ from selection' }
 RestartApp
@@ -79,4 +86,6 @@ RestartApp
 TapText 'Settings and account'
 TapText 'Learning interests'
 TextNode '0 of 3 selected' | Out-Null
-Write-Output 'PASS: three interests save to the server, survive restart, and clear durably without AI calls'
+Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers $headers | Out-Null
+Adb shell pm clear $package | Out-Null
+Write-Output 'PASS: interests survive a post-commit 503 and idempotent retry, persist across restart, and clear durably without AI calls'

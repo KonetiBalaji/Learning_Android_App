@@ -92,7 +92,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
-| TUT-03 | Interest-personalized examples | Partial | Profile/prompt path and Android save/clear/restart verified; live example quality, failure/account-switch checks remain |
+| TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
 | TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
 | TUT-05 | Interactive examples and visible AI teacher | Partial | Math Fractions plus Grade 8 Science Cells, English Grammar and Social Geography have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
@@ -690,8 +690,11 @@ curriculum review, physical-device QA and UAT remain open.
 - Added Android interest selection with provider-use disclosure, three-choice
   limit, explicit save and clearing. Build/lint/38 JVM tests passed. API 36 QA
   verified save-to-server, restart restoration and durable clearing with a
-  disposable account; screenshot inspected. Live example quality and device
-  failure/account-switch coverage remain open; see `learner-interests.md`.
+  disposable account; screenshot inspected. Follow-up API 36 QA injected a
+  post-commit 503, verified the server-side choices, preserved the draft and retried
+  idempotently before restart/clear checks. Separate two-account QA verified
+  interest isolation across sign-out/sign-in and restart. Broader live example
+  quality and educator/UAT review remain open; see `learner-interests.md`.
 - Evaluated nine synthetic interest-framed fraction explanations across three
   prompt revisions using the existing approved key. Initial tone, unit and
   whole/part errors were rejected; final three cases passed development-agent

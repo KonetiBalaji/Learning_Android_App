@@ -19,7 +19,8 @@ provider retains response storage disabled. The user's existing-key reuse approv
 remains in effect; no secret was changed or displayed. Initial implementation used
 mocked checks; the subsequent live evaluation is documented below.
 
-Verification: **88 backend tests passed** on 2026-09-03. New tests cover defaults,
+The current full backend regression passes **456 tests with one existing Windows
+skip**. Tests cover defaults,
 save/read/clear, invalid inputs, owner isolation, account-deletion cascade, routing
 saved interests to explanation generation, prompt constraints and preserving the
 practice question. Mock prompt checks are not evidence of analogy accuracy.
@@ -30,11 +31,15 @@ the editor reads server preferences; leaving and reopening discards unsaved edit
 Load failure cannot be mistaken for an empty saved preference, and saving is
 disabled until a successful load. Failed saves retain the draft for retry.
 
-Android build/lint/**38 JVM tests passed** on 2026-09-03, including selection-limit,
+Android build/lint/**133 JVM tests passed**, including selection-limit,
 removal and unknown-choice tests. `scripts/qa-interests.ps1 -ResetTestAppData` passed
 on LearnSmart_API36 with a disposable account and scripted backend. It verifies
 initial empty state, three choices persisted to the API, restoration after force
-stop/restart, and clearing followed by another restart. The selector screenshot
+stop/restart, and clearing followed by another restart. Follow-up QA injected a
+post-commit 503 on the first save, directly verified the server had committed all
+three choices, retained the Android draft, retried the idempotent PUT successfully,
+then repeated restart and clearing checks. The disposable account was deleted and
+app data cleared. The selector screenshot
 at `artifacts/qa-interests.png` was visually inspected. No live AI calls were made.
 
 Nine synthetic live calls across three prompt revisions exposed tone, unit and
@@ -42,7 +47,8 @@ whole/part errors. The final three cases passed development-agent review after
 guidance refinements; see `learner-interest-evaluation.md` for failures, evidence
 and limits. This is not an independent holdout or educator validation.
 
-TUT-03 remains partial: broader example evaluation, offline/failing
-save injection and device account-switch tests remain required. Existing saved
-examples do not change when interests are edited. No full personalization or UAT
-completion is claimed.
+Separate API 36 two-account QA verified distinct interests survive sign-out,
+sign-in and restart without cross-account bleed. TUT-03 remains partial because
+broader live example evaluation and educator/user acceptance remain required.
+Existing saved examples do not change when interests are edited. No full
+personalization or UAT completion is claimed.
