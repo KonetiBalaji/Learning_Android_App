@@ -1,6 +1,10 @@
 """Google ID token exchange. No email-based account linking or password fallback."""
 from datetime import UTC, datetime
+import hashlib
+import hmac
+import secrets
 import sqlite3
+import time
 import uuid
 
 from fastapi import Depends, HTTPException
@@ -19,9 +23,41 @@ from .security import create_token
 class GoogleCredentials(BaseModel):
     model_config = ConfigDict(extra='forbid')
     id_token: str = Field(min_length=1, max_length=16384, repr=False)
+    nonce: str = Field(min_length=43, max_length=128, pattern=r'^[A-Za-z0-9_-]+$', repr=False)
 
 
-def verified_google_identity(token: str, audience: str) -> tuple[str, str]:
+class GoogleChallenge(BaseModel):
+    nonce: str = Field(min_length=43, max_length=128)
+    expires_in_seconds: int = 300
+
+
+MAX_GOOGLE_CHALLENGES = 10_000
+GOOGLE_CHALLENGE_SECONDS = 300
+
+
+def nonce_digest(nonce: str) -> str:
+    return hashlib.sha256(nonce.encode('ascii')).hexdigest()
+
+
+def google_challenge(settings: Settings = Depends(get_settings)) -> GoogleChallenge:
+    if not settings.google_client_id:
+        raise HTTPException(503, 'Google sign-in is not configured')
+    nonce = secrets.token_urlsafe(32)
+    timestamp = time.time()
+    try:
+        with connection(settings.database_path) as db:
+            db.execute('BEGIN IMMEDIATE')
+            db.execute('DELETE FROM google_login_challenges WHERE expires_at <= ?', (timestamp,))
+            if db.execute('SELECT COUNT(*) FROM google_login_challenges').fetchone()[0] >= MAX_GOOGLE_CHALLENGES:
+                raise HTTPException(503, 'Google sign-in is temporarily unavailable')
+            db.execute('INSERT INTO google_login_challenges VALUES (?, ?)',
+                       (nonce_digest(nonce), timestamp + GOOGLE_CHALLENGE_SECONDS))
+    except sqlite3.Error as error:
+        raise HTTPException(503, 'Google sign-in is temporarily unavailable') from error
+    return GoogleChallenge(nonce=nonce)
+
+
+def verified_google_identity(token: str, audience: str, expected_nonce: str) -> tuple[str, str]:
     # Per-call session is closed; bound certificate fetch rather than default 120s.
     with requests.Session() as session:
         transport = Request(session=session)
@@ -32,6 +68,9 @@ def verified_google_identity(token: str, audience: str) -> tuple[str, str]:
     # Defense in depth for required claims, including mocked/provider regressions.
     if claims.get('iss') not in {'accounts.google.com', 'https://accounts.google.com'} or claims.get('aud') != audience:
         raise ValueError('Invalid issuer or audience')
+    claimed_nonce = claims.get('nonce')
+    if not isinstance(claimed_nonce, str) or not hmac.compare_digest(claimed_nonce, expected_nonce):
+        raise ValueError('Invalid nonce')
     subject = claims.get('sub')
     if not isinstance(subject, str) or not 1 <= len(subject) <= 255 or any(ord(c) < 33 for c in subject):
         raise ValueError('Invalid subject')
@@ -45,12 +84,23 @@ def google_login(credentials: GoogleCredentials, settings: Settings = Depends(ge
     if not settings.google_client_id:
         raise HTTPException(503, 'Google sign-in is not configured')
     try:
-        subject, email = verified_google_identity(credentials.id_token, settings.google_client_id)
+        subject, email = verified_google_identity(
+            credentials.id_token, settings.google_client_id, credentials.nonce)
     except exceptions.TransportError as error:
         raise HTTPException(503, 'Google sign-in is temporarily unavailable') from error
     except (ValueError, TypeError, KeyError, exceptions.GoogleAuthError) as error:
         raise HTTPException(401, 'Invalid Google sign-in token') from error
     try:
+        with connection(settings.database_path) as db:
+            db.execute('BEGIN IMMEDIATE')
+            digest = nonce_digest(credentials.nonce)
+            challenge = db.execute(
+                'SELECT expires_at FROM google_login_challenges WHERE nonce_hash = ?',
+                (digest,),
+            ).fetchone()
+            db.execute('DELETE FROM google_login_challenges WHERE nonce_hash = ?', (digest,))
+        if challenge is None or challenge['expires_at'] <= time.time():
+            raise HTTPException(401, 'Invalid Google sign-in token')
         with connection(settings.database_path) as db:
             db.execute('BEGIN IMMEDIATE')
             account = db.execute('SELECT user_id FROM google_accounts WHERE subject = ?', (subject,)).fetchone()

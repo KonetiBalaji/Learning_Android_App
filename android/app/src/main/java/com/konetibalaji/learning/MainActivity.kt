@@ -145,7 +145,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     when (state.screen) {
                         Screen.SignIn -> SignInScreen(state.loading, viewModel::authenticate) {
-                            activity?.let { viewModel.authenticateGoogle { requestGoogleIdToken(it) } }
+                            activity?.let { viewModel.authenticateGoogle { nonce -> requestGoogleIdToken(it, nonce) } }
                         }
                         Screen.Grade -> GradeScreen(viewModel::selectGrade)
                         Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::openGuardianAccess, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz, viewModel::refreshProgress)

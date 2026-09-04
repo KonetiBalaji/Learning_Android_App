@@ -102,7 +102,7 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
-| AUTH-02 | Google login | Partial | Backend exchange and Android Credential Manager wiring implemented; disabled-build device QA passes. OAuth configuration, real sign-in, lifecycle recovery and user acceptance remain missing |
+| AUTH-02 | Google login | Partial | Backend exchange, five-minute one-use nonce binding and Android Credential Manager wiring are implemented; disabled-build device QA passes. OAuth configuration, real sign-in, configured-device lifecycle recovery and user acceptance remain missing |
 | CUR-01 | Grade 1–12, subject and chapter selection | Partial | Versioned server catalog and pre-provider allowlisting are API 36 verified; user-confirmed board, authoritative grade-specific coverage and UAT remain open |
 | ASM-01 | Diagnostic and correct-answer progression | QA verified | Transactional response replay, conflicting/stale rejection, owner scope, restart recovery, undisclosed-answer protection and correct/wrong/remediation/all-question transitions are backend tested and API 36 verified; live curriculum/UAT remain |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | QA verified | Independent fail-closed lesson and diagnostic-teaching review, safe checked fallback, strict rejection tests and bounded Grade 8 live checks across four subjects; broader ages, educator calibration and UAT remain |

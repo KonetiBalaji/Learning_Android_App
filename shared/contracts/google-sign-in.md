@@ -4,15 +4,23 @@ Status: backend and Android integration implemented. Google OAuth client setup,
 a real sign-in, configured-device recovery and UAT remain open.
 AUTH-02 is partial, not delivered Google login.
 
-`POST /v1/auth/google` accepts JSON containing only `id_token` (1–16,384 characters)
-and returns the existing local bearer-token contract. `LEARNING_GOOGLE_CLIENT_ID`
+`POST /v1/auth/google/challenge` first issues a cryptographically random 256-bit
+base64url nonce valid for five minutes. Only its SHA-256 digest is stored. Issuance
+atomically removes expired rows, caps outstanding challenges at 10,000 and shares
+the existing peer authentication throttle. `POST /v1/auth/google` then accepts only
+`id_token` (1–16,384 characters) plus that 43–128 character nonce and returns the
+existing local bearer-token contract. `LEARNING_GOOGLE_CLIENT_ID`
 must name the approved web/server OAuth client audience; absence disables the
 exchange with 503. No client ID or credentials have been configured by this work.
 
 The Google-auth library verifies signature, expiration/issued-at and audience,
 and validates Google's issuer. Additional checks require exact audience/issuer,
-a bounded nonempty subject, a valid email and boolean `email_verified=true`.
-Certificate fetches use a five-second timeout and a per-call closed session.
+a constant-time exact nonce match, a bounded nonempty subject, a valid email and
+boolean `email_verified=true`. Certificate fetches use a five-second timeout and a
+per-call closed session. After token verification, the challenge is atomically
+removed before identity lookup; replay, missing, mismatched and expired challenges
+fail generically without creating an account. A cancelled Android chooser leaves
+only a hashed row until expiry.
 Invalid credentials return generic 401; certificate transport failures return
 generic 503. Exceptions, ID tokens and Google profile fields are not logged by
 the exchange. Standard request-schema validation behavior remains unchanged.
@@ -38,7 +46,9 @@ contact verification needs its own proof and policy before implementation.
 ## Verification and release work
 
 Android uses Credential Manager 1.6.0 and Google ID 1.2.0 with the explicit
-`GetSignInWithGoogleOption` account chooser. Set the public web/server audience
+`GetSignInWithGoogleOption` account chooser. Android obtains and validates the
+short-lived challenge before opening the chooser, passes it to `setNonce`, and sends
+the same nonce only with the resulting ID token. Set the public web/server audience
 using `-PgoogleServerClientId=<approved-web-client-id>` and configure the same
 audience in the backend. This is separate from the OpenAI API key and is not an
 OAuth secret. Invalid nonempty client ID syntax fails Gradle configuration;
@@ -56,7 +66,8 @@ learner to the existing sign-in method without merging accounts. Raw provider
 exceptions and backend response bodies are never shown. Cancellation is recoverable.
 Local sign-out/deletion attempts provider credential-state cleanup when configured;
 a cleanup failure does not undo local logout and is reported. This does not revoke
-Google permissions or delete the Google account. No nonce protocol is claimed.
+Google permissions or delete the Google account. Challenge or chooser failure never
+establishes or persists a provisional session.
 
 On 2026-09-03 Android assembleDebug, lintDebug and **103 JVM tests** passed,
 including six new server-identity/persistence rollback and safe-error tests.
@@ -85,12 +96,21 @@ first full run exposed a nested-router compatibility issue in existing route che
 both were corrected before the successful rerun. No existing security assertion
 was removed and no live Google or OpenAI token exchange was performed.
 
+On 2026-09-04, nonce binding added backend coverage for issuance, real signed-token
+claim matching, missing/mismatched/expired challenges, atomic single use and replay
+denial. The full backend suite passed **597 tests with one existing Windows
+symlink-privilege skip**. Android passed **156 JVM tests**, lint and debug APK
+assembly; challenge validation covers base64url shape and the server-advertised
+five-minute maximum. These tests mock only Google's certificate-fetch boundary and
+do not count as a configured Google account/device sign-in.
+
 Production still requires approved OAuth audiences/package/signing configuration,
 HTTPS, certificate-cache/rotation and outage verification, authentication rate
 limits, audit policy, client nonce/flow review, actual Android exchange and user
 acceptance. No browser cookie login route or access to Google APIs is introduced;
-Google refresh/access tokens are not stored. Incoming ID tokens remain bearer
-credentials until their expiry; this is not a one-use authorization-code protocol.
+Google refresh/access tokens are not stored. The one-use application challenge
+binds an ID token to one initiated exchange, but the incoming token is still a bearer
+credential until expiry and this is not an authorization-code/PKCE protocol.
 
 Design reference: [Google's backend authentication guidance](https://developers.google.com/identity/sign-in/web/backend-auth)
 recommends verifying ID tokens server-side and using `sub` as identity rather than

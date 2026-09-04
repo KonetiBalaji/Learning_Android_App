@@ -69,4 +69,14 @@ class GoogleSessionTest {
         assertTrue(googleExchangeFailure(409).message!!.contains("not linked automatically"))
         assertEquals(apiFailure(503, true).message, googleExchangeFailure(503).message)
     }
+
+    @Test fun googleChallengeRequiresBoundedBase64UrlNonceAndLifetime() {
+        val nonce = "a".repeat(42) + "-"
+        assertEquals(nonce, validateGoogleChallenge(nonce, 300))
+        for (invalid in listOf("a".repeat(42), "a".repeat(129), "a".repeat(42) + "+")) {
+            assertThrows(IllegalArgumentException::class.java) { validateGoogleChallenge(invalid, 300) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { validateGoogleChallenge(nonce, 0) }
+        assertThrows(IllegalArgumentException::class.java) { validateGoogleChallenge(nonce, 301) }
+    }
 }

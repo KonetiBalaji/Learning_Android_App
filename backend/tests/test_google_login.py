@@ -28,15 +28,20 @@ def google(monkeypatch, tmp_path):
                       iat=now, exp=now + 600)
         claims.update(changes)
         return jwt.encode(claims, key, algorithm='RS256', headers={'kid': 'fixture-key'})
-    yield client, owner, token
+    def credentials(**changes):
+        challenge = client.post('/v1/auth/google/challenge')
+        assert challenge.status_code == 200, challenge.text
+        nonce = challenge.json()['nonce']
+        return {'id_token': token(nonce=nonce, **changes), 'nonce': nonce}
+    yield client, owner, token, credentials
     client.__exit__(None, None, None)
 
 
 def test_google_creates_one_account_and_subject_survives_email_change(google):
-    client, _, token = google
-    first = client.post('/v1/auth/google', json={'id_token': token()})
+    client, _, _, credentials = google
+    first = client.post('/v1/auth/google', json=credentials())
     assert first.status_code == 200, first.text
-    second = client.post('/v1/auth/google', json={'id_token': token(email='changed@gmail.com')})
+    second = client.post('/v1/auth/google', json=credentials(email='changed@gmail.com'))
     assert second.status_code == 200
     first_id = jwt.decode(first.json()['access_token'], options={'verify_signature': False})['sub']
     assert jwt.decode(second.json()['access_token'], options={'verify_signature': False})['sub'] == first_id
@@ -58,8 +63,8 @@ def test_google_creates_one_account_and_subject_survives_email_change(google):
     {'email_verified': 'true'}, {'email': 'invalid'},
 ])
 def test_bad_claims_never_create_an_identity(google, changes):
-    client, _, token = google
-    response = client.post('/v1/auth/google', json={'id_token': token(**changes)})
+    client, _, _, credentials = google
+    response = client.post('/v1/auth/google', json=credentials(**changes))
     assert response.status_code == 401
     assert response.json() == {'detail': 'Invalid Google sign-in token'}
     with connection(get_settings().database_path) as db:
@@ -67,25 +72,48 @@ def test_bad_claims_never_create_an_identity(google, changes):
 
 
 def test_bad_signature_disabled_config_and_provider_failure(google, monkeypatch):
-    client, _, token = google
-    good = token()
+    client, _, token, credentials = google
+    request = credentials()
+    good = request['id_token']
     header, payload, signature = good.split('.')
     changed = ('A' if signature[0] != 'A' else 'B') + signature[1:]
-    assert client.post('/v1/auth/google', json={'id_token': '.'.join([header, payload, changed])}).status_code == 401
+    assert client.post('/v1/auth/google', json={**request, 'id_token': '.'.join([header, payload, changed])}).status_code == 401
     monkeypatch.delenv('LEARNING_GOOGLE_CLIENT_ID')
-    assert client.post('/v1/auth/google', json={'id_token': good}).status_code == 503
+    assert client.post('/v1/auth/google', json=request).status_code == 503
     monkeypatch.setenv('LEARNING_GOOGLE_CLIENT_ID', 'fixture.apps.googleusercontent.com')
     def unavailable(*args, **kwargs):
         raise TransportError('synthetic-private-provider-message')
     monkeypatch.setattr(id_token, '_fetch_certs', unavailable)
-    response = client.post('/v1/auth/google', json={'id_token': good})
+    unavailable_request = credentials()
+    response = client.post('/v1/auth/google', json=unavailable_request)
     assert response.status_code == 503 and 'synthetic-private' not in response.text
 
 
 def test_email_collision_cannot_link_existing_password_account(google):
-    client, _, token = google
+    client, _, _, credentials = google
     email = 'collision@example.com'
     assert client.post('/v1/auth/register', json={'email': email, 'password': 'long-enough-password'}).status_code == 201
-    assert client.post('/v1/auth/google', json={'id_token': token(email=email)}).status_code == 409
+    assert client.post('/v1/auth/google', json=credentials(email=email)).status_code == 409
     with connection(get_settings().database_path) as db:
+        assert db.execute('SELECT COUNT(*) FROM google_accounts').fetchone()[0] == 0
+
+
+def test_nonce_is_required_matched_and_single_use(google):
+    client, _, token, credentials = google
+    request = credentials()
+    assert client.post('/v1/auth/google', json={**request, 'nonce': 'x' * 43}).status_code == 401
+    assert client.post('/v1/auth/google', json=request).status_code == 200
+    assert client.post('/v1/auth/google', json=request).status_code == 401
+    assert client.post('/v1/auth/google', json={'id_token': token(nonce=request['nonce'])}).status_code == 422
+
+
+def test_expired_nonce_is_consumed_without_creating_account(google):
+    client, _, token, _ = google
+    challenge = client.post('/v1/auth/google/challenge').json()['nonce']
+    with connection(get_settings().database_path) as db:
+        db.execute('UPDATE google_login_challenges SET expires_at = 1')
+    request = {'id_token': token(nonce=challenge), 'nonce': challenge}
+    assert client.post('/v1/auth/google', json=request).status_code == 401
+    with connection(get_settings().database_path) as db:
+        assert db.execute('SELECT COUNT(*) FROM google_login_challenges').fetchone()[0] == 0
         assert db.execute('SELECT COUNT(*) FROM google_accounts').fetchone()[0] == 0

@@ -15,10 +15,12 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.CancellationException
 
 /** Only the ID token crosses to the backend; profile claims are never local identity. */
-suspend fun requestGoogleIdToken(activity: Activity): String {
+suspend fun requestGoogleIdToken(activity: Activity, nonce: String): String {
     check(BuildConfig.GOOGLE_SERVER_CLIENT_ID.isNotEmpty())
+    validateGoogleChallenge(nonce, 300)
     try {
-        val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_SERVER_CLIENT_ID).build()
+        val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
+            .setNonce(nonce).build()
         val result = CredentialManager.create(activity).getCredential(
             context = MutableContextWrapper(activity),
             request = GetCredentialRequest.Builder().addCredentialOption(option).build(),

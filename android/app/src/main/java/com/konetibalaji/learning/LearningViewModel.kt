@@ -324,10 +324,11 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         check(mutableState.value.screen == Screen.SignIn && !api.hasToken)
         finishAuthentication { api.passwordProfile(email, password, createAccount) }
     }
-    fun authenticateGoogle(requestToken: suspend () -> String) = perform(Screen.Grade) {
+    fun authenticateGoogle(requestToken: suspend (String) -> String) = perform(Screen.Grade) {
         check(mutableState.value.screen == Screen.SignIn && !api.hasToken)
-        val idToken = withContext(Dispatchers.Main) { requestToken() }
-        finishAuthentication { api.googleProfile(idToken) }
+        val nonce = api.googleChallenge()
+        val idToken = withContext(Dispatchers.Main) { requestToken(nonce) }
+        finishAuthentication { api.googleProfile(idToken, nonce) }
     }
     private fun finishAuthentication(verifyProfile: () -> String) {
         val email = establishVerifiedSession(
@@ -879,8 +880,14 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val path = if (createAccount) "/v1/auth/register" else "/v1/auth/login"
         return verifiedProfile(request("POST", path, JSONObject().put("email", email).put("password", password).toString()))
     }
-    fun googleProfile(idToken: String): String {
-        val response = try { request("POST", "/v1/auth/google", JSONObject().put("id_token", idToken).toString()) }
+    fun googleChallenge(): String {
+        val response = try { request("POST", "/v1/auth/google/challenge", "{}") }
+            catch (failure: ApiFailure) { throw googleExchangeFailure(failure.status) }
+        return validateGoogleChallenge(response.getString("nonce"), response.getInt("expires_in_seconds"))
+    }
+    fun googleProfile(idToken: String, nonce: String): String {
+        val response = try { request("POST", "/v1/auth/google", JSONObject()
+            .put("id_token", idToken).put("nonce", nonce).toString()) }
             catch (failure: ApiFailure) { throw googleExchangeFailure(failure.status) }
         return verifiedProfile(response)
     }

@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS google_accounts (
   subject TEXT PRIMARY KEY,
   user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS google_login_challenges (
+  nonce_hash TEXT PRIMARY KEY CHECK(length(nonce_hash) = 64),
+  expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS google_login_challenge_expiry
+  ON google_login_challenges(expires_at);
 CREATE TABLE IF NOT EXISTS learner_preferences (
   owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   interests_json TEXT NOT NULL
