@@ -23,6 +23,10 @@ exit 126 because the Gradle wrapper lacked its executable Git mode. It also expo
 Node 20 deprecation warnings in older action tags. The wrapper mode and official
 checkout/setup/upload action generations were updated; this failed run is retained
 as diagnostic evidence, not counted as a green quality gate.
+The next run confirmed those updates but showed that the hosted runner does not
+place `sdkmanager` on `PATH`; the workflow now invokes the executable explicitly
+under the runner-provided `ANDROID_HOME` instead of adding another deprecated
+setup action. That run is likewise failure evidence, not acceptance.
 
 Local YAML parsing and the same backend/Android commands verify the workflow's
 structure and commands before commit. A local pass cannot prove GitHub runner SDK
