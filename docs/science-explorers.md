@@ -9,10 +9,11 @@ trusted app content, exposes concise accessibility text and cannot submit an ans
 or change mastery.
 
 JVM tests verify every route, distinct matter descriptions, exact speed/time/distance
-products, invalid-motion rejection and every 10% energy transition. Android JVM tests,
-lint and debug assembly pass. The three new explorers do not yet have rendered-device,
-TalkBack, physical-device or UAT evidence, and these examples do not establish broad
-Science curriculum coverage or board alignment.
+products, invalid-motion rejection and every 10% energy transition. API 36 component
+and full tutor-journey tests render and operate all three newer explorers, including
+the locked Ecosystems path, and verify unchanged mastery. Representative captures
+were visually inspected. Manual TalkBack, physical-device and UAT evidence remain
+open, and these examples do not establish broad Science curriculum or board alignment.
 
 The fixed action/content design follows OA-03 in `openmaic-provenance.md`. No generated
 action, HTML, script or OpenMAIC source code is executed or copied.

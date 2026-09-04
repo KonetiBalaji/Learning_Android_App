@@ -8,9 +8,10 @@ selected digit and selected place. Exploration cannot submit an assessment respo
 or change mastery.
 
 JVM tests verify the catalog route, all five digit indexes, place names, values and
-instructional checks. Android JVM tests, lint and debug assembly pass. This evidence
-does not establish rendered-device interaction, TalkBack traversal, broader decimal
-concept coverage, curriculum alignment, physical-device QA or UAT.
+instructional checks. API 36 component and full tutor-journey tests render the
+explorer, select Ones and verify unchanged mastery; the post-action capture was
+visually inspected. Manual TalkBack traversal, broader decimal concept coverage,
+curriculum alignment, physical-device QA and UAT remain open.
 
 This follows the bounded native action/highlight pattern recorded as OA-03 in
 `openmaic-provenance.md`: a fixed local action vocabulary selects trusted app-owned

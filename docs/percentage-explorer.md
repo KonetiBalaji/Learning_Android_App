@@ -7,8 +7,9 @@ accessibility description reports both the highlighted count and percentage.
 Exploration cannot submit an assessment response or change mastery.
 
 JVM tests verify the route and the exact percentage, decimal and fraction mappings.
-Android JVM tests, lint and debug assembly pass. This is not rendered-device,
-TalkBack, broader percentage curriculum, physical-device or UAT evidence.
+API 36 component and full tutor-journey tests render the explorer, select 50% and
+verify unchanged mastery. Manual TalkBack, broader percentage curriculum,
+physical-device and UAT evidence remain open.
 
 Like the other bounded native explorers, this follows OA-03 in
 `openmaic-provenance.md`: fixed app-owned actions select trusted app-owned content.

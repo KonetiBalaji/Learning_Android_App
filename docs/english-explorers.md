@@ -9,10 +9,11 @@ selects fixed app-owned content, has concise accessibility text and cannot submi
 answer or change mastery.
 
 JVM tests verify every route, passage/evidence linkage, exact word reconstruction and
-meaning, and one distinct complete sentence per ordered paragraph role. Android JVM
-tests, lint and debug assembly pass. The three new explorers do not yet have rendered-
-device, TalkBack, physical-device or UAT evidence and do not establish broad English
-curriculum coverage or board alignment.
+meaning, and one distinct complete sentence per ordered paragraph role. API 36
+component and full tutor-journey tests render and operate all three newer explorers,
+including the locked Writing path, and verify unchanged mastery. The Writing capture
+was visually inspected. Manual TalkBack, physical-device and UAT evidence remain open,
+and these examples do not establish broad English curriculum or board alignment.
 
 The fixed action/content design follows OA-03 in `openmaic-provenance.md`. No generated
 action, HTML, script or OpenMAIC source code is executed or copied.

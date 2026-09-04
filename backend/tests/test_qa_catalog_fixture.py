@@ -5,12 +5,14 @@ from scripts.serve_qa import catalog_fixture_bank
 
 def test_catalog_fixture_is_deterministic_and_routes_every_current_chapter():
     from app.learning_path import CATALOG
+    from app.mastery_service import parse_diagnostic_bank, serialize_diagnostic_bank
     for subject in CATALOG:
         for chapter in subject.chapters:
             first = catalog_fixture_bank(8, subject.id, chapter.id)
             second = catalog_fixture_bank(8, subject.id, chapter.id)
             assert first == second
-            assert len(first) == 1
+            assert parse_diagnostic_bank(serialize_diagnostic_bank(first)) == first
+            assert len(first) == 3
             assert first[0].options[0] != first[0].correct_option
             assert chapter.title in first[0].prompt
 

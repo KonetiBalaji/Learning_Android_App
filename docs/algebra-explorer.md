@@ -8,9 +8,9 @@ preserved. The equation has a concise accessibility description. Exploration can
 submit an assessment response or change mastery.
 
 JVM tests verify the ordered operations, both displayed sides and final substitution
-evidence. Android JVM tests, lint and debug assembly pass. This does not establish
-rendered-device interaction, TalkBack traversal, broader algebra coverage,
-curriculum alignment, physical-device QA or UAT.
+evidence. API 36 component and full tutor-journey tests render the explorer, apply
+the first balance operation and verify unchanged mastery. Manual TalkBack traversal,
+broader algebra coverage, curriculum alignment, physical-device QA and UAT remain open.
 
 This follows the fixed native action/content pattern recorded as OA-03 in
 `openmaic-provenance.md`. The operations and equations are trusted app-owned values;

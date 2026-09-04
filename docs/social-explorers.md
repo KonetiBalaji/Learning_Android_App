@@ -10,10 +10,12 @@ selects fixed app-owned content, exposes accessibility text and cannot submit an
 answer or change mastery.
 
 JVM tests verify every route, source classifications and limitations, ordered civic
-stages, derived market states/differences and invalid-market rejection. Android JVM
-tests, lint and debug assembly pass. The three new explorers do not yet have rendered-
-device, TalkBack, physical-device or UAT evidence, and they do not establish national
-curriculum, legal-system or board alignment.
+stages, derived market states/differences and invalid-market rejection. API 36
+component and full tutor-journey tests render and operate all three newer explorers,
+including the locked Economics path, and verify unchanged mastery. The Economics
+capture was visually inspected. Manual TalkBack, physical-device and UAT evidence
+remain open, and these examples do not establish national curriculum, legal-system
+or board alignment.
 
 The fixed action/content design follows OA-03 in `openmaic-provenance.md`. No generated
 action, HTML, script or OpenMAIC source code is executed or copied.

@@ -20,17 +20,17 @@ def catalog_fixture_bank(grade, subject_id, chapter_id):
     chapter = catalog_chapter(subject_id, chapter_id)
     if grade != 8 or chapter is None:
         raise ValueError('The catalog QA fixture supports current Grade 8 chapters only')
-    return (DiagnosticItem(
-        prompt=f'Which option should open the reviewed {chapter.title} teaching example?',
-        options=('Needs another look', 'Ready for the example'),
+    return tuple(DiagnosticItem(
+        prompt=f'Catalog QA question {ordinal}: which option should open the reviewed {chapter.title} teaching example?',
+        options=('Needs another look', 'Ready for the example', 'Skip the lesson', 'Change the grade'),
         correct_option='Ready for the example',
-        concept=f'{chapter.title} reviewed example',
+        concept=f'{chapter.title} reviewed example {ordinal}',
         explanation=f'Use the interactive {chapter.title} explorer to examine this concept.',
         worked_example=f'Select each control in the {chapter.title} explorer and observe what changes.',
         hint='The explorer is for investigation and does not submit an assessment answer.',
-        practice_prompt=f'Explain one observation from the {chapter.title} explorer.',
+        practice_prompt=f'Explain observation {ordinal} from the {chapter.title} explorer.',
         practice_answers=('observation',),
-    ),)
+    ) for ordinal in range(1, 4))
 
 
 def scripted_tutor_answer(question):
