@@ -105,7 +105,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Backend chapter-set validation; Android multi-selection and persistence; page/section/topic retrieval boundaries and device QA |
 | DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
-| DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
+| DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
 | SEC-02 | Production hardening | Partial | HTTPS release guard, offline backup checks, persistent authentication peer throttle, atomic per-account daily AI-operation caps, privacy-safe correlated request events and API 36-verified support IDs implemented; production proxy/capacity, provider budgets, deployed log sink/alerts and deployment recovery still need verification |
 | UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading, OA-02 owner-material quotas and OA-03 bounded native action/highlight patterns are pinned, licensed and tested; this is selective adaptation, not a port |
@@ -134,6 +134,13 @@ cross-account bleed. A one-minute server token then expired naturally; the real
 401 cleared encrypted credentials, survived restart signed out, and allowed password
 reauthentication before disposable-account deletion. This advances AUTH-01 to QA
 verified, not physical-device UAT. See `authentication-recovery.md`.
+
+The two-account API 36 journey now also gives only Account A an uploaded document.
+Account B's library remains empty; after switching back, Account A restores its
+document and first-chapter selection across process restart. Combined with distinct
+server progress, distinct interests and encrypted session restoration, this advances
+DATA-01 to QA verified for the tested account-scoped state. Multi-device races,
+physical-device behavior and user UAT remain open; see `authentication-recovery.md`.
 
 API 36 authenticated-decryption QA altered a real encrypted session only inside the
 dedicated app sandbox. Startup failed closed, displayed safe recovery, cleared both

@@ -104,8 +104,16 @@ $firstLogin = ApiLogin $firstEmail
 $firstHeaders = @{Authorization = "Bearer $($firstLogin.access_token)"}
 $seed = Invoke-RestMethod 'http://127.0.0.1:8000/__qa/learning-path/algebra?state=mastered' -Method Post -Headers $firstHeaders
 if ($seed.fixture_state -ne 'mastered') { throw 'QA server did not seed first-account progress.' }
+$documentFixture = Get-Item (Join-Path $PSScriptRoot 'fixtures\qa-biology.txt')
+$uploaded = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Method Post -Headers $firstHeaders -Form @{file = $documentFixture}
+if ($uploaded.original_name -ne 'qa-biology.txt') { throw 'QA server did not seed the first-account document.' }
 
 Login $secondEmail
+TapText 'Study from my own document' 30 -Scroll
+TapText 'My uploaded documents' 30 -Scroll
+FindText 'No uploaded documents yet. Return to your study space to upload one.' 30 | Out-Null
+TapText '‹ Back to study space' 30
+TapText '‹ Back to learning path' 30
 FindText 'No assessment yet' 30 -Scroll | Out-Null
 if ((Ui).SelectNodes('//node') | Where-Object text -eq '100% assessed progress') {
     throw 'Second account displayed progress belonging to the first account.'
@@ -132,6 +140,17 @@ FindText 'Remove Sports' 30 -Scroll | Out-Null
 FindText 'Select Music' 30 -Scroll | Out-Null
 Adb shell screencap -p /sdcard/qa-account-switch.png | Out-Null
 Adb pull /sdcard/qa-account-switch.png (Join-Path $repo 'artifacts\qa-account-switch.png') | Out-Null
+TapText '‹ Back to settings' 30 -Scroll
+TapText '‹ Back to subjects' 30 -Scroll
+TapText 'Study from my own document' 30 -Scroll
+TapText 'My uploaded documents' 30
+FindText 'Open qa-biology.txt' 30 -Scroll | Out-Null
+TapText 'Open qa-biology.txt' 30 -Scroll
+FindText '1 of 2 chapters selected' 30 | Out-Null
+RestartApp
+FindText '1 of 2 chapters selected' 30 | Out-Null
+Adb shell screencap -p /sdcard/qa-account-document.png | Out-Null
+Adb pull /sdcard/qa-account-document.png (Join-Path $repo 'artifacts\qa-account-document.png') | Out-Null
 
 $profiles = @{}
 foreach ($email in @($firstEmail, $secondEmail)) {
@@ -143,4 +162,4 @@ foreach ($email in @($firstEmail, $secondEmail)) {
 if (($profiles[$firstEmail].interests -join ',') -ne 'sports') { throw 'First account preference isolation failed.' }
 if (($profiles[$secondEmail].interests -join ',') -ne 'music') { throw 'Second account preference isolation failed.' }
 Adb shell pm clear $package | Out-Null
-Write-Output 'PASS: two Android accounts kept distinct progress and preferences across sign-out/sign-in; first-account progress survived restart; both disposable accounts were deleted.'
+Write-Output 'PASS: two Android accounts kept distinct progress, preferences and document libraries across sign-out/sign-in; first-account progress and document selection survived restart; both disposable accounts were deleted.'

@@ -62,3 +62,12 @@ verified authenticated-decryption failure, visible recovery, credential clearing
 restart and reauthentication. OEM/provider key invalidation and physical-device/user
 UAT remain. Network-loss mutation reconciliation belongs to ASM-01,
 not basic authentication acceptance. This is QA, not UAT or production proof.
+
+The account-switch scenario was extended on 2026-09-04 to cover document state.
+Only Account A received a seeded upload. Account B's Android library remained empty
+after sign-in, while Account A later restored the document, its first-chapter
+selection and the chapter screen across process restart. Progress and interests
+continued to remain distinct, and both disposable accounts were deleted. The
+inspected screenshot contains the synthetic document title but no account email,
+token or password. This verifies the tested server-backed/account-scoped state on
+one emulator; physical-device, multi-device race and user acceptance remain open.
