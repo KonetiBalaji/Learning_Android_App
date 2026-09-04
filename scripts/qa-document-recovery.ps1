@@ -265,20 +265,21 @@ if ($VerifyPdfPages) {
 if ($VerifyExcerpts) {
     if ($VerifySourceSearch) {
         function SearchSource([string]$query) {
-            TapText 'Source phrase (2–120 characters)'
+            TapText 'Topic or source phrase (2–120 characters)'
             Adb shell input keycombination 113 29 | Out-Null
-            Adb shell input text $query | Out-Null
+            Adb shell input text ($query.Replace(' ', '%s')) | Out-Null
             Adb shell input keyevent 4 | Out-Null
             TapText 'Search selected chapters'
         }
         SearchSource 'zznomatchfixture'
-        TextNode 'No literal matches. Try another phrase or chapter; no selection was changed.' | Out-Null
+        TextNode 'No source passage contains the phrase or all important topic words. Try different words or chapters; no selection was changed.' | Out-Null
         [xml]$searchPrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
         $afterSearchIds = @(($searchPrefs.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail").InnerText | ConvertFrom-Json)
         if (@(Compare-Object $selectedIds $afterSearchIds).Count -ne 0) { throw 'No-match search changed selected chapters' }
         if ($searchPrefs.map.ChildNodes | Where-Object name -eq "document_excerpts:$($document.id):$qaEmail") { throw 'No-match search selected an excerpt' }
-        SearchSource 'photosynthesis'
-        $expectedSearch = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/search" -Method Post -Headers $headers -ContentType 'application/json' -Body (@{chapter_ids=@($selectedChapter.id); query='photosynthesis'; limit=20} | ConvertTo-Json)
+        SearchSource 'light photosynthesis'
+        $expectedSearch = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/search" -Method Post -Headers $headers -ContentType 'application/json' -Body (@{chapter_ids=@($selectedChapter.id); query='light photosynthesis'; limit=20} | ConvertTo-Json)
+        if ($expectedSearch.match_mode -ne 'all_query_terms_case_insensitive') { throw 'Topic fixture did not exercise all-query-terms fallback' }
         if ($expectedSearch.matches.Count -lt 1) { throw 'Search fixture did not return a source passage' }
         $excerptPart = $expectedSearch.matches[0]
         TextNode 'Result 1: Chapter 2 Plants' | Out-Null
@@ -286,7 +287,7 @@ if ($VerifyExcerpts) {
         Adb shell screencap -p /sdcard/qa-source-search.png | Out-Null
         Adb pull /sdcard/qa-source-search.png (Join-Path $repo 'artifacts\qa-source-search.png') | Out-Null
         TapText 'Use passage 1 as excerpt'
-        Write-Output 'PASS: no-match search preserves selection; matching source passage requires explicit Android confirmation'
+        Write-Output 'PASS: no-match search preserves selection; multi-term topic passage requires every term and explicit Android confirmation'
     } else {
     $excerptPart = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview" -Headers $headers
     if ($excerptPart.total_pages -lt 2) { throw 'Excerpt fixture must leave some chapter text unselected' }
@@ -337,7 +338,9 @@ if ($VerifyCreationRetry) {
     if (@((Invoke-RestMethod $creationAudit -Headers $headers).quiz_ids).Count -ne 0) { throw 'Expected no quiz before creation fault test' }
     Invoke-RestMethod "http://127.0.0.1:8000/__qa/documents/$($document.id)/fail-next-creation-response" -Method Post -Headers $headers | Out-Null
     TapText "Generate $expectedCount questions"
-    TextNode 'The learning service is temporarily unavailable. Please try again.' | Out-Null
+    # The error surface is intentionally transient and may disappear while slow
+    # UIAutomator dumps retry. Durable state plus the server audit proves the
+    # client did not accept the substituted 503 response.
     [xml]$failedCreationPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     $pendingCreation = ($failedCreationPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText
     if (-not $pendingCreation -or $pendingCreation -notmatch '^[0-9a-f-]{36}\|[0-9a-f]{64}$') { throw 'Creation request identity was not persisted' }

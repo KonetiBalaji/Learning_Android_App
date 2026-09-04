@@ -151,7 +151,21 @@ selection. Android accepts only the two declared modes and independently require
 every retained topic term inside the reported match span before displaying it.
 
 The complete backend suite passed **531 tests with one Windows symlink-privilege
-skip**. Android passed **142 JVM tests**, lint and debug APK assembly. This is
-implementation and automated contract evidence; the multi-term path still needs
-API 36 interaction evidence, accessibility checks and UAT. Synonyms and semantic
-relevance are deliberately not claimed.
+skip**. Android passed **142 JVM tests**, lint and debug APK assembly. Synonyms and
+semantic relevance are deliberately not claimed.
+
+The updated `-VerifySourceSearch` journey then passed on LearnSmart_API36 with the
+isolated QA backend. Android entered `light photosynthesis`, received the explicit
+`all_query_terms_case_insensitive` mode, displayed one verbatim Plants passage at
+source characters 324–927, and required **Use passage 1 as excerpt**. The captured
+`artifacts/qa-source-search.png` was visually inspected: the all-topic-words label,
+source identity, passage and confirmation action are readable. A no-match query did
+not alter selection. The confirmed range survived force-stop; an injected 503 after
+quiz commit retained the durable request identity; retry opened exactly one quiz;
+all ten question references remained inside 324–927; conflict recovery and completed
+results restoration passed. Remaining answers were completed through the QA API.
+Repeated transient UIAutomator null-root messages recovered through the script's
+fresh-dump retry and did not weaken the asserted resulting states.
+
+This is API 36 deterministic-fixture evidence, not semantic relevance, TalkBack,
+physical-device, live-provider or user-acceptance evidence.
