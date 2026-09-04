@@ -4,6 +4,7 @@ import sqlite3
 import asyncio
 import hashlib
 import logging
+import re
 import uuid
 from uuid import UUID
 from pathlib import Path
@@ -49,6 +50,7 @@ from .schemas import (
     PdfPageSelection,
     StudyPresence,
     Feedback,
+    QuestionSourceEvidence,
     QuizQuestion,
     QuizRequest,
     QuizResults,
@@ -671,10 +673,40 @@ def answer_question(quiz_id: str, question_id: str, request: AnswerRequest, user
         # Identical retries replay feedback without changing the saved timestamp.
         next_row = db.execute("SELECT * FROM questions WHERE quiz_id = ? AND ordinal > ? ORDER BY ordinal LIMIT 1", (quiz_id, question["ordinal"])).fetchone()
     return Feedback(
+        question_id=question_id,
         correct=request.selected_option == question["correct_option"], selected_option=request.selected_option,
         correct_option=question["correct_option"], explanation=question["explanation"], source_reference=question["source_reference"],
         next_question=question_payload(next_row) if next_row else None,
     )
+
+
+@app.get("/v1/quizzes/{quiz_id}/questions/{question_id}/source", response_model=QuestionSourceEvidence)
+def question_source(quiz_id: str, question_id: str, user_id: str = Depends(current_user_id),
+                    settings: Settings = Depends(get_settings)) -> QuestionSourceEvidence:
+    """Return exact source evidence only after the learner has answered the question."""
+    with connection(settings.database_path) as db:
+        row = db.execute(
+            """SELECT questions.source_reference, questions.answered_option, documents.extracted_text
+               FROM questions JOIN quizzes ON quizzes.id = questions.quiz_id
+               JOIN documents ON documents.id = quizzes.document_id
+               WHERE questions.id = ? AND questions.quiz_id = ?
+                 AND quizzes.owner_id = ? AND documents.owner_id = ?""",
+            (question_id, quiz_id, user_id, user_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Question not found")
+    if row['answered_option'] is None:
+        raise HTTPException(status_code=409, detail="Answer this question before viewing its source")
+    match = re.fullmatch(r".+ \(source characters (\d+)-(\d+)\)", row['source_reference'])
+    if match is None:
+        raise HTTPException(status_code=409, detail="Exact source evidence is unavailable for this question")
+    start, end = map(int, match.groups())
+    text = row['extracted_text']
+    if not 0 <= start < end <= len(text):
+        raise HTTPException(status_code=409, detail="Exact source evidence is unavailable for this question")
+    return QuestionSourceEvidence(quiz_id=quiz_id, question_id=question_id,
+        source_reference=row['source_reference'], start_character=start, end_character=end,
+        text=text[start:end])
 
 
 @app.get("/v1/quizzes/{quiz_id}", response_model=DocumentQuizState)
@@ -690,7 +722,7 @@ def document_quiz_state(quiz_id: str, user_id: str = Depends(current_user_id), s
     pending = next((row for row in rows if row['answered_option'] is None), None)
     last = answered[-1] if answered else None
     next_question = question_payload(pending) if pending else None
-    feedback = Feedback(correct=last['answered_option'] == last['correct_option'], selected_option=last['answered_option'],
+    feedback = Feedback(question_id=last['id'], correct=last['answered_option'] == last['correct_option'], selected_option=last['answered_option'],
                         correct_option=last['correct_option'], explanation=last['explanation'],
                         source_reference=last['source_reference'], next_question=next_question) if last else None
     return DocumentQuizState(id=quiz_id, difficulty=document['quiz_difficulty'], question_type=document['quiz_question_type'], document=DocumentSummary(id=document['id'], original_name=document['original_name'],

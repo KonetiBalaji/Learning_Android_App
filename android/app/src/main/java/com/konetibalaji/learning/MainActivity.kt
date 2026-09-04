@@ -158,8 +158,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) }, viewModel::setSourceQuery, viewModel::searchDocumentSource, viewModel::useSourceSearchResult, viewModel::loadPdfPages, viewModel::setPdfPageInput, viewModel::reviewPdfPages, viewModel::confirmPdfPages)
                         Screen.DocumentPreview -> DocumentPreviewScreen(state, viewModel::closeDocumentPreview, viewModel::changePreviewPage, viewModel::addDocumentExcerpt)
                         Screen.Question -> DocumentQuestionScreen(state, viewModel::submitAnswer)
-                        Screen.Feedback -> DocumentFeedbackScreen(state.feedback, viewModel::continueAfterFeedback)
-                        Screen.Results -> DocumentResultsScreen(state.results, viewModel::retryDocumentMistakes, { viewModel.configureAnotherDocumentQuiz() }, { viewModel.configureAnotherDocumentQuiz(true) }, viewModel::startAnotherDocument, viewModel::backToSubjects, state.savedQuizDifficulty, state.savedQuizQuestionType, state.loading)
+                        Screen.Feedback -> DocumentFeedbackScreen(state, viewModel::viewQuestionSource, viewModel::continueAfterFeedback)
+                        Screen.Results -> DocumentResultsScreen(state.results, viewModel::viewQuestionSource, viewModel::retryDocumentMistakes, { viewModel.configureAnotherDocumentQuiz() }, { viewModel.configureAnotherDocumentQuiz(true) }, viewModel::startAnotherDocument, viewModel::backToSubjects, state.savedQuizDifficulty, state.savedQuizQuestionType, state.loading)
                         Screen.Settings -> SettingsScreen(state, viewModel::backToSubjects, viewModel::setDarkMode, viewModel::changeGrade, viewModel::signOut, viewModel::deleteAccount, viewModel::openInterests)
                         Screen.Interests -> InterestsScreen(state, viewModel::selectInterest, viewModel::clearInterests, viewModel::saveInterests, viewModel::reloadInterests, viewModel::openSettings)
                     }
@@ -168,6 +168,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
             }
         }
         state.error?.let { ErrorDialog(it, viewModel::clearError) }
+        state.questionSourceEvidence?.let { SourceEvidenceDialog(it, viewModel::closeQuestionSource) }
     }
 }
 
@@ -937,15 +938,26 @@ private fun DocumentQuestionScreen(state: AppUiState, onAnswer: (String) -> Unit
 }
 
 @Composable
-private fun DocumentFeedbackScreen(feedback: Feedback?, onContinue: () -> Unit) {
-    feedback ?: return; val color = if (feedback.correct) Success else Warning
-    Page { Icon(if (feedback.correct) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline, null, tint = color, modifier = Modifier.size(48.dp)); Header("Study feedback", if (feedback.correct) "Correct!" else "Not quite", if (feedback.correct) "Nice work — keep building your streak." else "Your answer: ${feedback.selected}\nCorrect answer: ${feedback.answer}"); Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) { Text("Why", fontWeight = FontWeight.Bold); Text(feedback.explanation) } }; Text("Source: ${feedback.source}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall); PrimaryButton(if (feedback.next == null) "See results" else "Next question", onClick = onContinue) }
+private fun DocumentFeedbackScreen(state: AppUiState, onViewSource: (String) -> Unit, onContinue: () -> Unit) {
+    val feedback = state.feedback ?: return; val color = if (feedback.correct) Success else Warning
+    Page { Icon(if (feedback.correct) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline, null, tint = color, modifier = Modifier.size(48.dp)); Header("Study feedback", if (feedback.correct) "Correct!" else "Not quite", if (feedback.correct) "Nice work — keep building your streak." else "Your answer: ${feedback.selected}\nCorrect answer: ${feedback.answer}"); Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) { Text("Why", fontWeight = FontWeight.Bold); Text(feedback.explanation) } }; TextButton(onClick = { onViewSource(feedback.questionId) }, enabled = !state.loading) { Text("View source: ${feedback.source}") }; PrimaryButton(if (feedback.next == null) "See results" else "Next question", onClick = onContinue) }
 }
 
 @Composable
-private fun DocumentResultsScreen(results: Results?, onRetryMistakes: () -> Unit, onConfigureAgain: () -> Unit, onIncreaseDifficulty: () -> Unit, onAnotherDocument: () -> Unit, onBack: () -> Unit, difficulty: String?, questionType: String?, loading: Boolean) {
+private fun DocumentResultsScreen(results: Results?, onViewSource: (String) -> Unit, onRetryMistakes: () -> Unit, onConfigureAgain: () -> Unit, onIncreaseDifficulty: () -> Unit, onAnotherDocument: () -> Unit, onBack: () -> Unit, difficulty: String?, questionType: String?, loading: Boolean) {
     results ?: return
-    Page { Text(requestedDifficultyLabel(difficulty), style = MaterialTheme.typography.bodySmall); Text(documentQuestionTypeLabel(questionType), style = MaterialTheme.typography.bodySmall); Header("Session complete", "${results.correct} / ${results.total} correct", "Accuracy: ${(results.accuracy * 100).toInt()}%. Review missed concepts before moving on."); results.mistakes.forEach { mistake -> TipCard("Review question ${mistake.question.ordinal}", "${mistake.question.prompt}\nYour answer: ${mistake.selectedOption}\nCorrect answer: ${mistake.correctOption}\nWhy: ${mistake.explanation}\nSource: ${mistake.question.sourceReference}") }; if (results.mistakes.isNotEmpty()) PrimaryButton("Retry ${results.mistakes.size} incorrect ${if (results.mistakes.size == 1) "question" else "questions"}", enabled = !loading, onClick = onRetryMistakes); PrimaryButton("Configure another quiz", enabled = !loading, onClick = onConfigureAgain); nextDocumentDifficulty(difficulty)?.let { next -> PrimaryButton("Increase to ${next.replaceFirstChar(Char::uppercase)}", enabled = !loading, onClick = onIncreaseDifficulty) }; TextButton(onClick = onAnotherDocument, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("Study another document") }; TextButton(onClick = onBack, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("Return to learning path") } }
+    Page { Text(requestedDifficultyLabel(difficulty), style = MaterialTheme.typography.bodySmall); Text(documentQuestionTypeLabel(questionType), style = MaterialTheme.typography.bodySmall); Header("Session complete", "${results.correct} / ${results.total} correct", "Accuracy: ${(results.accuracy * 100).toInt()}%. Review missed concepts before moving on."); results.mistakes.forEach { mistake -> TipCard("Review question ${mistake.question.ordinal}", "${mistake.question.prompt}\nYour answer: ${mistake.selectedOption}\nCorrect answer: ${mistake.correctOption}\nWhy: ${mistake.explanation}\nSource: ${mistake.question.sourceReference}"); TextButton(onClick = { onViewSource(mistake.question.id) }, enabled = !loading) { Text("View source: ${mistake.question.sourceReference}") } }; if (results.mistakes.isNotEmpty()) PrimaryButton("Retry ${results.mistakes.size} incorrect ${if (results.mistakes.size == 1) "question" else "questions"}", enabled = !loading, onClick = onRetryMistakes); PrimaryButton("Configure another quiz", enabled = !loading, onClick = onConfigureAgain); nextDocumentDifficulty(difficulty)?.let { next -> PrimaryButton("Increase to ${next.replaceFirstChar(Char::uppercase)}", enabled = !loading, onClick = onIncreaseDifficulty) }; TextButton(onClick = onAnotherDocument, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("Study another document") }; TextButton(onClick = onBack, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("Return to learning path") } }
+}
+
+@Composable
+private fun SourceEvidenceDialog(evidence: QuestionSourceEvidence, onClose: () -> Unit) {
+    AlertDialog(onDismissRequest = onClose, title = { Text("Source passage") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+            Text(evidence.reference, style = MaterialTheme.typography.bodySmall)
+            Text(evidence.text)
+            Text("Exact extracted source characters ${evidence.start}–${evidence.end}. This is not AI-generated.", style = MaterialTheme.typography.bodySmall)
+        }
+    }, confirmButton = { TextButton(onClick = onClose) { Text("Close") } })
 }
 
 @Composable

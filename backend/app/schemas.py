@@ -134,12 +134,22 @@ class AnswerRequest(BaseModel):
 
 
 class Feedback(BaseModel):
+    question_id: str
     correct: bool
     selected_option: str
     correct_option: str
     explanation: str
     source_reference: str
     next_question: QuizQuestion | None
+
+
+class QuestionSourceEvidence(BaseModel):
+    quiz_id: str
+    question_id: str
+    source_reference: str
+    start_character: int
+    end_character: int
+    text: str
 
 
 class QuizMistake(QuizQuestion):

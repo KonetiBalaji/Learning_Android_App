@@ -24,7 +24,18 @@ import java.util.UUID
 data class Chapter(val id: String, val title: String, val confidence: Float)
 data class StudyDocument(val id: String, val name: String, val chapters: List<Chapter>)
 data class QuizQuestion(val id: String, val ordinal: Int, val prompt: String, val options: List<String>, val sourceReference: String)
-data class Feedback(val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
+data class Feedback(val questionId: String, val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
+data class QuestionSourceEvidence(val quizId: String, val questionId: String, val reference: String,
+                                  val start: Int, val end: Int, val text: String)
+
+fun validateQuestionSourceEvidence(evidence: QuestionSourceEvidence, quizId: String,
+                                   questionId: String): QuestionSourceEvidence {
+    require(evidence.quizId == quizId && evidence.questionId == questionId && evidence.reference.isNotBlank())
+    require(evidence.start >= 0 && evidence.end > evidence.start && evidence.text.isNotBlank())
+    require(evidence.text.length == evidence.end - evidence.start)
+    require(evidence.reference.contains("source characters ${evidence.start}-${evidence.end}"))
+    return evidence
+}
 data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizMistake>)
 data class DocumentChapterProgress(val id: String, val title: String, val questionsAnswered: Int,
                                    val correctAnswers: Int, val accuracy: Float?)
@@ -108,6 +119,7 @@ data class AppUiState(
     val pdfPageDraft: PdfPageDraft? = null,
     val savedInterests: List<String>? = null, val interestDraft: List<String> = emptyList(), val interestSaveMessage: String? = null,
     val feedback: Feedback? = null, val results: Results? = null,
+    val questionSourceEvidence: QuestionSourceEvidence? = null,
     val canResumeMastery: Boolean = false,
     val canResumeDocumentQuiz: Boolean = false,
     val documentQuestionTotal: Int = 10,
@@ -732,6 +744,12 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             canResumeDocumentQuiz = true, screen = if (completed) Screen.Results else if (resumed.feedback != null) Screen.Feedback else Screen.Question)
     }
     fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
+    fun viewQuestionSource(questionId: String) = perform(null) {
+        val current = mutableState.value
+        mutableState.value = current.copy(questionSourceEvidence = null)
+        mutableState.value = current.copy(questionSourceEvidence = api.questionSource(requireNotNull(current.quizId), questionId))
+    }
+    fun closeQuestionSource() { mutableState.value = mutableState.value.copy(questionSourceEvidence = null) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
     fun retryDocumentMistakes() = perform(null) {
@@ -1040,7 +1058,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     }
     fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {
         val response = request("GET", "/v1/quizzes/$id", null)
-        val feedback = response.optJSONObject("last_feedback")?.let { value -> Feedback(value.getBoolean("correct"), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"), value.getString("source_reference"), value.optJSONObject("next_question")?.let(::question)) }
+        val feedback = response.optJSONObject("last_feedback")?.let { value -> Feedback(value.getString("question_id"), value.getBoolean("correct"), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"), value.getString("source_reference"), value.optJSONObject("next_question")?.let(::question)) }
         val returnedType = if (response.isNull("question_type")) null else response.getString("question_type")
         require(returnedType == null || returnedType in documentQuestionTypes) { "Unsupported saved quiz format" }
         val pending = response.optJSONObject("question")?.let(::question)
@@ -1048,7 +1066,14 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         feedback?.next?.let { validateDocumentOptions(returnedType, it.options) }
         return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), pending, feedback, if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType, responseExcerpts(response))
     }
-    fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)) }
+    fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getString("question_id"), response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)).also { require(it.questionId == questionId) } }
+    fun questionSource(quizId: String, questionId: String): QuestionSourceEvidence {
+        val value = request("GET", "/v1/quizzes/$quizId/questions/$questionId/source", null)
+        val evidence = QuestionSourceEvidence(value.getString("quiz_id"), value.getString("question_id"),
+            value.getString("source_reference"), value.getInt("start_character"), value.getInt("end_character"),
+            value.getString("text"))
+        return validateQuestionSourceEvidence(evidence, quizId, questionId)
+    }
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").let { values -> (0 until values.length()).map { index -> values.getJSONObject(index).let { value -> validateQuizMistake(QuizMistake(question(value), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"))) } } }) }
     data class StartedDiagnostic(val id: String, val question: DiagnosticQuestion, val ordinal: Int, val total: Int)
     data class DiagnosticResult(val correct: Boolean, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int, val masteryScore: Int, val tutor: TutorLesson?)

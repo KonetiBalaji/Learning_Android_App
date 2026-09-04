@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from uuid import uuid4
 
 import pytest
@@ -115,7 +116,11 @@ def test_excerpt_generation_resume_retry_and_owner_boundaries(monkeypatch, tmp_p
             rows = db.execute('SELECT prompt, explanation, source_reference FROM questions WHERE quiz_id = ?', (quiz['id'],)).fetchall()
             assert len(rows) == 5
             assert all('OUTSIDE_' not in row['prompt'] + row['explanation'] for row in rows)
-            assert all(f'{start}-{end}' in row['source_reference'] for row in rows)
+            cited = [tuple(map(int, re.search(r'source characters (\d+)-(\d+)',
+                                              row['source_reference']).groups())) for row in rows]
+            assert all(start <= cited_start < cited_end <= end for cited_start, cited_end in cited)
+            assert all(SOURCE[cited_start:cited_end].strip() in row['explanation']
+                       for row, (cited_start, cited_end) in zip(rows, cited))
         other = client.post('/v1/auth/register', json={'email': 'excerpt-other@example.com', 'password': 'long-enough-password'}).json()
         other_headers = {'Authorization': f"Bearer {other['access_token']}"}
         assert client.post(path, headers=other_headers, json=body).status_code == 404

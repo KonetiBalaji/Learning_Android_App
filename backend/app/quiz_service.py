@@ -40,27 +40,30 @@ class GeneratedQuestion:
 
 def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids: list[str], count: int) -> list[GeneratedQuestion]:
     selected = resolve_chapters(text, chapters, selected_ids)
-    candidates: list[tuple[Chapter, str]] = []
+    candidates: list[tuple[Chapter, str, int, int]] = []
     for chapter in selected:
         chapter_text = text[chapter.start_character : chapter.end_character]
-        sentences = re.split(r"(?<=[.!?])\s+", re.sub(r"\s+", " ", chapter_text))
-        candidates.extend((chapter, sentence.strip()) for sentence in sentences if 45 <= len(sentence.strip()) <= 360)
-    unique: list[tuple[Chapter, str]] = []
+        for match in re.finditer(r"[^.!?]+[.!?](?=\s|$)", chapter_text, re.DOTALL):
+            sentence = re.sub(r"\s+", " ", match.group()).strip()
+            if 45 <= len(sentence) <= 360:
+                candidates.append((chapter, sentence, chapter.start_character + match.start(),
+                                   chapter.start_character + match.end()))
+    unique: list[tuple[Chapter, str, int, int]] = []
     seen: set[str] = set()
-    for chapter, sentence in candidates:
+    for chapter, sentence, start, end in candidates:
         fingerprint = hashlib.sha256(sentence.lower().encode()).hexdigest()
         if fingerprint not in seen:
             seen.add(fingerprint)
-            unique.append((chapter, sentence))
+            unique.append((chapter, sentence, start, end))
     if len(unique) < 4:
         raise DocumentValidationError(DocumentErrorCode.INSUFFICIENT_MATERIAL, "The selected material needs at least four clear sentences before a reliable quiz can be generated")
     rng = random.Random(hashlib.sha256((text + ",".join(selected_ids)).encode()).hexdigest())
     rng.shuffle(unique)
     output: list[GeneratedQuestion] = []
-    for position, (chapter, answer) in enumerate(unique[:count]):
+    for position, (chapter, answer, source_start, source_end) in enumerate(unique[:count]):
         # Credential-free QA uses exact-text recall, not a fabricated semantic assessment.
         term = grounded_concept_term(answer)
-        distractors = list(dict.fromkeys(word for _, sentence in unique for word in re.findall(r'[A-Za-z]{4,}', sentence)
+        distractors = list(dict.fromkeys(word for _, sentence, _, _ in unique for word in re.findall(r'[A-Za-z]{4,}', sentence)
                                         if word.casefold() != term.casefold()))
         rng.shuffle(distractors)
         options = [term, *distractors[:3]]
@@ -73,7 +76,7 @@ def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids
                 options=options,
                 correct_option=term,
                 explanation=f'The source sentence is: {answer}',
-                source_reference=f"{chapter.title} (source characters {chapter.start_character}-{chapter.end_character})",
+                source_reference=f"{chapter.title} (source characters {source_start}-{source_end})",
                 chapter_id=chapter.id,
                 concept=term,
             )

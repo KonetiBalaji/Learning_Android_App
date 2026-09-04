@@ -35,11 +35,13 @@ function Center($node) {
     @([int](($bounds[0]+$bounds[2])/2), [int](($bounds[1]+$bounds[3])/2))
 }
 function TextNode([string]$text) {
-    for ($attempt=0; $attempt -lt 10; $attempt++) {
+    # Long result screens can contain one source action per mistake. Sweep to
+    # both ends so lookup does not oscillate around the middle of tall content.
+    for ($attempt=0; $attempt -lt 30; $attempt++) {
         $node = (Ui).SelectNodes('//node') | Where-Object { $_.text -eq $text } | Select-Object -First 1
         if ($node) { return $node }
-        if ($attempt -lt 4) { Adb shell input swipe 540 1850 540 750 400 | Out-Null }
-        else { Adb shell input swipe 540 750 540 1850 400 | Out-Null }
+        if ($attempt -lt 15) { Adb shell input swipe 540 750 540 1850 400 | Out-Null }
+        else { Adb shell input swipe 540 1850 540 750 400 | Out-Null }
         Start-Sleep -Milliseconds 500
     }
     throw "UI text not found: $text"
@@ -104,6 +106,7 @@ function VerifyTalkBackResultActions([string]$retryLabel) {
         if ($accessibility -notmatch 'com\.google\.android\.marvin\.talkback/.+TalkBackService') { throw 'TalkBack service did not become active' }
         $nodes = @((Ui).SelectNodes('//node'))
         if (-not ($nodes | Where-Object { $_.text -match '^Which word completes.+\nYour answer: .+\nCorrect answer: .+\nWhy: .+\nSource: .+' })) { throw 'TalkBack tree omitted the complete mistake teaching record' }
+        if (-not ($nodes | Where-Object { $_.text -match '^View source: .+\(source characters \d+-\d+\)$' })) { throw 'TalkBack tree omitted the source passage action' }
         foreach ($label in @($retryLabel, 'Configure another quiz', 'Increase to Medium', 'Study another document', 'Return to learning path')) {
             try { TextNode $label | Out-Null } catch { throw "TalkBack tree omitted result action after scrolling: $label" }
         }
@@ -525,11 +528,22 @@ $state = Invoke-RestMethod $quizPath -Headers $headers
 if ($state.answered -ne 1 -or $state.last_feedback.selected_option -ne $winningChoice) { throw 'Conflict overwrote the committed answer' }
 RestartApp
 TextNode 'Study feedback' | Out-Null
+$sourceButton = "View source: $($state.last_feedback.source_reference)"
+TapText $sourceButton
+TextNode 'Source passage' | Out-Null
+$sourceEvidence = Invoke-RestMethod "$quizPath/questions/$($state.last_feedback.question_id)/source" -Headers $headers
+$sourceTree = Ui
+if (-not ($sourceTree.SelectNodes('//node') | Where-Object { $_.text -eq $sourceEvidence.text })) { throw 'Source dialog did not show the exact extracted evidence' }
+if (-not ($sourceTree.SelectNodes('//node') | Where-Object { $_.text -eq "Exact extracted source characters $($sourceEvidence.start_character)–$($sourceEvidence.end_character). This is not AI-generated." })) { throw 'Source dialog did not identify the exact evidence range' }
+Adb shell screencap -p /sdcard/qa-question-source.png | Out-Null
+Adb pull /sdcard/qa-question-source.png (Join-Path $repo 'artifacts\qa-question-source.png') | Out-Null
+TapText 'Close'
+TextNode 'Study feedback' | Out-Null
 TapText 'Next question'
 TextNode "QUESTION 2 OF $expectedCount" | Out-Null
 Adb shell screencap -p /sdcard/qa-document-resumed-question.png | Out-Null
 Adb pull /sdcard/qa-document-resumed-question.png (Join-Path $repo 'artifacts\qa-document-resumed-question.png') | Out-Null
-Write-Output 'PASS: quiz resumes after restart; conflicting answer refreshes saved feedback without overwriting it'
+Write-Output 'PASS: quiz resumes after restart; conflicting answer refreshes saved feedback and opens its exact source without overwriting it'
 if ($BinaryFixtureType) {
     $second = $state.question
     TapText $second.options[0]
