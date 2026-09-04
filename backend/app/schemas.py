@@ -272,6 +272,25 @@ class ChapterProgress(BaseModel):
     status: str
 
 
+class CatalogChapterResponse(BaseModel):
+    id: str
+    title: str
+    prerequisite_id: str | None = None
+
+
+class CatalogSubjectResponse(BaseModel):
+    id: str
+    title: str
+    chapters: list[CatalogChapterResponse]
+
+
+class CurriculumCatalog(BaseModel):
+    version: str
+    grade: int = Field(ge=1, le=12)
+    board: str = 'unconfirmed'
+    subjects: list[CatalogSubjectResponse]
+
+
 class StudyPresence(BaseModel):
     session_id: str
     observed_study_seconds: int = Field(ge=0)

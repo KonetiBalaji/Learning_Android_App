@@ -1,13 +1,57 @@
-"""Current app prerequisite policy, not an authoritative curriculum mapping."""
+"""Current product catalog and prerequisite policy, not a board curriculum mapping."""
+
+from dataclasses import dataclass
+
+
+CATALOG_VERSION = 'foundation-2026-09'
+
+
+@dataclass(frozen=True)
+class CatalogChapter:
+    id: str
+    title: str
+    prerequisite_id: str | None = None
+
+
+@dataclass(frozen=True)
+class CatalogSubject:
+    id: str
+    title: str
+    chapters: tuple[CatalogChapter, ...]
+
+
+CATALOG = (
+    CatalogSubject('math', 'Mathematics', (
+        CatalogChapter('fractions', 'Fractions'), CatalogChapter('decimals', 'Decimals'),
+        CatalogChapter('percentages', 'Percentages'), CatalogChapter('algebra', 'Algebra'),
+        CatalogChapter('geometry', 'Geometry', 'algebra'),
+    )),
+    CatalogSubject('science', 'Science', (
+        CatalogChapter('cells', 'Cells and Living Things'), CatalogChapter('matter', 'Matter and Materials'),
+        CatalogChapter('force-and-motion', 'Force and Motion'),
+        CatalogChapter('ecosystems', 'Ecosystems', 'force-and-motion'),
+    )),
+    CatalogSubject('english', 'English', (
+        CatalogChapter('grammar', 'Grammar'), CatalogChapter('reading-comprehension', 'Reading Comprehension'),
+        CatalogChapter('vocabulary', 'Vocabulary'), CatalogChapter('writing', 'Writing', 'vocabulary'),
+    )),
+    CatalogSubject('social', 'Social Studies', (
+        CatalogChapter('geography', 'Geography'), CatalogChapter('history', 'History'),
+        CatalogChapter('civics', 'Civics'), CatalogChapter('economics', 'Economics', 'civics'),
+    )),
+)
+
+
+def catalog_chapter(subject_id: str, chapter_id: str) -> CatalogChapter | None:
+    subject_id, chapter_id = subject_id.strip().lower(), chapter_id.strip().lower()
+    return next((chapter for subject in CATALOG if subject.id == subject_id
+                 for chapter in subject.chapters if chapter.id == chapter_id), None)
 
 # Mirror the four explicitly locked chapters in the existing Android catalog.
 # Other catalog chapters remain open until a curriculum-specific path is agreed.
-PREREQUISITES = {
-    ('math', 'geometry'): 'algebra',
-    ('science', 'ecosystems'): 'force-and-motion',
-    ('english', 'writing'): 'vocabulary',
-    ('social', 'economics'): 'civics',
-}
+PREREQUISITES = {(subject.id, chapter.id): chapter.prerequisite_id
+                 for subject in CATALOG for chapter in subject.chapters
+                 if chapter.prerequisite_id is not None}
 
 
 def missing_prerequisite(db, owner_id: str, grade: int, subject_id: str, chapter_id: str) -> str | None:

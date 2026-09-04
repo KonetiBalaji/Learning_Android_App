@@ -26,7 +26,8 @@ this does not revoke or delete learning history.
 
 These are the current app's four gates, not a complete or authoritative curriculum
 dependency graph. Other existing chapters remain open. The country/board-specific
-path, time-spent reporting, and a server-supplied catalog remain outstanding.
+path remains outstanding. The versioned product catalog is now server-supplied and
+the prerequisite map is derived from it; see `curriculum-catalog.md`.
 Mastery quality is still subject to the separate assessment acceptance gates.
 
 Verification: all 180 backend tests passed. Five new tests cover all four gates,

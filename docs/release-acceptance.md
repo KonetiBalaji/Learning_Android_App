@@ -88,7 +88,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
 | AUTH-02 | Google login | Partial | Backend exchange and Android Credential Manager wiring implemented; disabled-build device QA passes. OAuth configuration, real sign-in, lifecycle recovery and user acceptance remain missing |
-| CUR-01 | Grade 1–12, subject and chapter selection | Partial | User-confirmed curriculum/board; authoritative chapter coverage and grade isolation |
+| CUR-01 | Grade 1–12, subject and chapter selection | Partial | Versioned server catalog and pre-provider allowlisting are API 36 verified; user-confirmed board, authoritative grade-specific coverage and UAT remain open |
 | ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
@@ -882,3 +882,13 @@ curriculum review, physical-device QA and UAT remain open.
   existing Windows skip. This gives one
   bounded native interactive route in each core subject; it is not broad curriculum,
   TalkBack, physical-device or UAT acceptance.
+- Replaced Android's hardcoded subject/chapter graph with authenticated
+  `foundation-2026-09` server catalog loading for grades 1–12. Unknown pairs are
+  rejected before any provider call; prerequisite locks derive from the same graph.
+  Android validates grade, board, subject order/identity and chapter integrity with
+  no static fallback, and clears stale catalog data when the grade changes. API 36
+  opened every Grade 8 subject list and restored the catalog after process restart;
+  the board-unconfirmed disclosure was visually inspected. Backend 454 passed with
+  one existing Windows skip; Android 133 JVM tests, lint and debug assembly passed. See
+  `shared/contracts/curriculum-catalog.md`. This is a synchronized foundation catalog,
+  not authoritative board coverage or curriculum UAT.

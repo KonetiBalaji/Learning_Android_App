@@ -27,6 +27,8 @@ data class QuizQuestion(val id: String, val ordinal: Int, val prompt: String, va
 data class Feedback(val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
 data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizQuestion>)
 data class GuardianAccount(val id: String, val email: String, val linkedAt: String)
+data class CurriculumCatalogClient(val version: String, val grade: Int, val board: String,
+                                   val subjects: List<LearningSubject>, val chapters: Map<String, List<MasteryChapter>>)
 
 data class LearningSubject(val id: String, val title: String, val icon: String, val progress: Int, val accent: Long)
 data class MasteryChapter(val id: String, val title: String, val progress: Int, val locked: Boolean = false)
@@ -57,29 +59,24 @@ val fractionQuestions = listOf(
     DiagnosticQuestion("What is 5/8 - 1/8?", listOf("4/8", "4/16", "5/7", "6/8"), "4/8"),
 )
 
-val learningSubjects = listOf(
-    LearningSubject("math", "Mathematics", "∑", 0, 0xFF4F46E5), LearningSubject("science", "Science", "⚗", 0, 0xFF2563EB),
-    LearningSubject("english", "English", "Aa", 0, 0xFF10B981), LearningSubject("social", "Social Studies", "◎", 0, 0xFFF59E0B),
+private val subjectPresentation = mapOf(
+    "math" to ("∑" to 0xFF4F46E5), "science" to ("⚗" to 0xFF2563EB),
+    "english" to ("Aa" to 0xFF10B981), "social" to ("◎" to 0xFFF59E0B),
 )
-val mathChapters = listOf(
-    MasteryChapter("fractions", "Fractions", 0), MasteryChapter("decimals", "Decimals", 0), MasteryChapter("percentages", "Percentages", 0),
-    MasteryChapter("algebra", "Algebra", 0), MasteryChapter("geometry", "Geometry", 0, locked = true),
-)
-val chaptersBySubject = mapOf(
-    "math" to mathChapters,
-    "science" to listOf(
-        MasteryChapter("cells", "Cells and Living Things", 0), MasteryChapter("matter", "Matter and Materials", 0),
-        MasteryChapter("force-and-motion", "Force and Motion", 0), MasteryChapter("ecosystems", "Ecosystems", 0, locked = true),
-    ),
-    "english" to listOf(
-        MasteryChapter("grammar", "Grammar", 0), MasteryChapter("reading-comprehension", "Reading Comprehension", 0),
-        MasteryChapter("vocabulary", "Vocabulary", 0), MasteryChapter("writing", "Writing", 0, locked = true),
-    ),
-    "social" to listOf(
-        MasteryChapter("geography", "Geography", 0), MasteryChapter("history", "History", 0),
-        MasteryChapter("civics", "Civics", 0), MasteryChapter("economics", "Economics", 0, locked = true),
-    ),
-)
+
+fun validatedCatalog(value: CurriculumCatalogClient, requestedGrade: Int): CurriculumCatalogClient {
+    require(value.version.isNotBlank() && value.version.length <= 100 && value.grade == requestedGrade)
+    require(value.board == "unconfirmed")
+    require(value.subjects.map { it.id } == listOf("math", "science", "english", "social"))
+    require(value.chapters.keys == value.subjects.map { it.id }.toSet())
+    value.subjects.forEach { subject ->
+        require(subject.title.isNotBlank() && subjectPresentation.containsKey(subject.id))
+        val chapters = requireNotNull(value.chapters[subject.id])
+        require(chapters.isNotEmpty() && chapters.map { it.id }.distinct().size == chapters.size)
+        require(chapters.all { it.id.isNotBlank() && it.title.isNotBlank() })
+    }
+    return value
+}
 
 data class AppUiState(
     val tutorTurns: List<TutorChatTurn> = emptyList(), val tutorQuestion: String = "",
@@ -109,6 +106,9 @@ data class AppUiState(
     val documentDifficulty: String = "easy", val savedQuizDifficulty: String? = null,
     val documentQuestionType: String = "multiple_choice", val savedQuizQuestionType: String? = null,
     val assessmentPoints: Int? = null, val assessmentFeedback: String? = null,
+    val catalogVersion: String? = null, val catalogBoard: String? = null,
+    val catalogSubjects: List<LearningSubject> = emptyList(),
+    val catalogChapters: Map<String, List<MasteryChapter>> = emptyMap(),
     val linkedLearners: List<GuardianAccount>? = null, val linkedGuardians: List<GuardianAccount>? = null,
     val guardianInvitationCode: String? = null, val guardianInvitationExpiresAt: String? = null,
     val guardianCodeDraft: String = "", val reportAccountEmail: String? = null,
@@ -176,8 +176,10 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
 
     private suspend fun loadProgress() {
         val grade = mutableState.value.grade ?: return
+        val catalog = api.catalog(grade)
         val snapshot = api.progressDashboard(grade)
-        mutableState.value = mutableState.value.copy(progressSnapshot = snapshot, unlockedChapterIds = snapshot.unlockedChapterIds)
+        mutableState.value = mutableState.value.copy(progressSnapshot = snapshot, unlockedChapterIds = snapshot.unlockedChapterIds,
+            catalogVersion = catalog.version, catalogBoard = catalog.board, catalogSubjects = catalog.subjects, catalogChapters = catalog.chapters)
     }
 
     fun refreshProgress() = perform(null) { loadProgress() }
@@ -249,12 +251,15 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         perform(null) {
             val resumed = api.resumeMastery(sessionId)
             preferences.edit().putString(activeFlowKey(), "mastery").apply()
-            val subject = learningSubjects.firstOrNull { it.id == resumed.subjectId }
+            val catalog = api.catalog(resumed.grade)
+            val subject = catalog.subjects.firstOrNull { it.id == resumed.subjectId }
                 ?: error("The saved subject is not available in this version.")
-            val chapter = chaptersBySubject[subject.id]?.firstOrNull { it.id == resumed.chapterId }
+            val chapter = catalog.chapters[subject.id]?.firstOrNull { it.id == resumed.chapterId }
                 ?: error("The saved chapter is not available in this version.")
             mutableState.value = mutableState.value.copy(
                 grade = resumed.grade, subject = subject, masteryChapter = chapter,
+                catalogVersion = catalog.version, catalogBoard = catalog.board,
+                catalogSubjects = catalog.subjects, catalogChapters = catalog.chapters,
                 masterySessionId = sessionId, adaptiveQuestion = resumed.question,
                 adaptiveOrdinal = resumed.ordinal, adaptiveTotal = resumed.total,
                 tutorLesson = resumed.tutor, selectedDiagnosticAnswer = resumed.selected,
@@ -291,8 +296,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             canResumeMastery = preferences.contains("active_mastery:${email.lowercase()}"),
             canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}") || preferences.contains("active_document:${email.lowercase()}"))
     }
-    fun selectGrade(grade: Int) { preferences.edit().putInt("grade", grade).apply(); mutableState.value = mutableState.value.copy(grade = grade, screen = Screen.Subjects, progressSnapshot = null, unlockedChapterIds = emptySet()); refreshProgress() }
-    fun selectSubject(subject: LearningSubject) { mutableState.value = mutableState.value.copy(subject = subject, screen = Screen.MasteryChapters) }
+    fun selectGrade(grade: Int) {
+        preferences.edit().putInt("grade", grade).apply()
+        mutableState.value = mutableState.value.copy(grade = grade, screen = Screen.Subjects,
+            progressSnapshot = null, unlockedChapterIds = emptySet(), subject = null, masteryChapter = null,
+            catalogVersion = null, catalogBoard = null, catalogSubjects = emptyList(), catalogChapters = emptyMap())
+        refreshProgress()
+    }
+    fun selectSubject(subject: LearningSubject) {
+        if (mutableState.value.catalogSubjects.none { it.id == subject.id }) return
+        mutableState.value = mutableState.value.copy(subject = subject, screen = Screen.MasteryChapters)
+    }
     fun selectMasteryChapter(chapter: MasteryChapter) {
         val current = mutableState.value
         if (current.loading) return
@@ -482,7 +496,10 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         mutableState.value = mutableState.value.copy(error = clearGoogleCredentialState(getApplication()))
     }
     fun changeGrade() { mutableState.value = mutableState.value.copy(screen = Screen.Grade) }
-    fun backToSubjects() { mutableState.value = mutableState.value.copy(screen = Screen.Subjects) }
+    fun backToSubjects() {
+        mutableState.value = mutableState.value.copy(screen = Screen.Subjects)
+        if (mutableState.value.grade != null && mutableState.value.catalogSubjects.isEmpty()) refreshProgress()
+    }
     fun startDocumentStudy() { mutableState.value = mutableState.value.copy(screen = Screen.Home) }
 
     fun openDocumentLibrary() {
@@ -769,6 +786,26 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun signOut() { token = null; masterySubmissionState.clear() }
     fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); signOut() }
     fun getInterests(): List<String> = request("GET", "/v1/account", null).getJSONArray("interests").strings()
+    fun catalog(grade: Int): CurriculumCatalogClient {
+        val response = request("GET", "/v1/catalog?grade=$grade", null)
+        val subjectsJson = response.getJSONArray("subjects")
+        val subjects = mutableListOf<LearningSubject>()
+        val chapters = linkedMapOf<String, List<MasteryChapter>>()
+        for (index in 0 until subjectsJson.length()) {
+            val item = subjectsJson.getJSONObject(index)
+            val id = item.getString("id")
+            val presentation = requireNotNull(subjectPresentation[id]) { "Unsupported catalog subject" }
+            subjects += LearningSubject(id, item.getString("title"), presentation.first, 0, presentation.second)
+            val values = item.getJSONArray("chapters")
+            chapters[id] = (0 until values.length()).map { chapterIndex ->
+                val chapter = values.getJSONObject(chapterIndex)
+                MasteryChapter(chapter.getString("id"), chapter.getString("title"), 0,
+                    locked = !chapter.isNull("prerequisite_id"))
+            }
+        }
+        return validatedCatalog(CurriculumCatalogClient(response.getString("version"), response.getInt("grade"),
+            response.getString("board"), subjects, chapters), grade)
+    }
     fun createGuardianInvitation(): Pair<String, String> = request("POST", "/v1/guardian/invitations", "{}").let {
         it.getString("code") to it.getString("expires_at")
     }

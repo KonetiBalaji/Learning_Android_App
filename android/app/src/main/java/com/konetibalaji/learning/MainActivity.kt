@@ -258,7 +258,7 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
     Header("Grade ${state.grade ?: 6}", "What would you like to learn?", "Pick a subject to continue your personalised path.")
     if (state.canResumeMastery) PrimaryButton("Resume saved learning", !state.loading, onResume)
     if (state.canResumeDocumentQuiz) PrimaryButton("Resume document study", !state.loading, onResumeDocument)
-    AccessibleSelectionGrid(learningSubjects, 160f, 2) { subject ->
+    AccessibleSelectionGrid(state.catalogSubjects, 160f, 2) { subject ->
         val progress = state.progressSnapshot?.subjects?.get(subject.id)
         Card(modifier = Modifier.fillMaxWidth().heightIn(min = 178.dp).clickable { onSelect(subject) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(22.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -269,6 +269,8 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
             }
         }
     }
+    if (!state.loading && state.catalogSubjects.isEmpty()) Text("The curriculum catalog is unavailable. Refresh after reconnecting.", color = MaterialTheme.colorScheme.error)
+    state.catalogVersion?.let { Text("Catalog $it · Board alignment ${state.catalogBoard ?: "unconfirmed"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     OutlinedButton(onClick = onParent, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("View my progress report") }
     OutlinedButton(onClick = onGuardian, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("Parent & teacher access") }
     TextButton(onClick = onDocuments, modifier = Modifier.fillMaxWidth()) { Text("Study from my own document") }
@@ -280,7 +282,7 @@ private fun ChapterScreen(state: AppUiState, onSelect: (MasteryChapter) -> Unit,
     TextButton(onClick = onRefresh, enabled = !state.loading) { Text("Refresh progress") }
     TextButton(onClick = onBack) { Text("‹ All subjects") }
     Header(state.subject?.title ?: "Mathematics", "Choose a chapter", "Master a concept to unlock what comes next.")
-    (chaptersBySubject[state.subject?.id] ?: emptyList()).forEach { chapter ->
+    (state.catalogChapters[state.subject?.id] ?: emptyList()).forEach { chapter ->
         val effectivelyLocked = chapter.locked && "${state.subject?.id}:${chapter.id}" !in state.unlockedChapterIds
         val progress = state.progressSnapshot?.chapterScores?.get("${state.subject?.id}:${chapter.id}") ?: 0
         Card(modifier = Modifier.fillMaxWidth().clickable(enabled = !effectivelyLocked) { onSelect(chapter) }, colors = CardDefaults.cardColors(containerColor = if (effectivelyLocked) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp)) {
@@ -524,7 +526,7 @@ private fun MasteryScreen(state: AppUiState, onContinue: () -> Unit) = Page(modi
             Metric("Mastery score", "${state.masteryScore}%", Success); Metric("Coaching rounds", state.coachingRound.toString(), Indigo); Metric("AI confidence", state.masteryConfidence, Success)
         }
     }
-    val chapters = chaptersBySubject[state.subject?.id].orEmpty()
+    val chapters = state.catalogChapters[state.subject?.id].orEmpty()
     val currentIndex = chapters.indexOfFirst { it.id == state.masteryChapter?.id }
     val nextTitle = chapters.getOrNull(currentIndex + 1)?.title
     TipCard(if (nextTitle != null) "Next chapter unlocked" else "Learning path complete", if (nextTitle != null) "Keep your streak going with $nextTitle." else "You completed the available chapters in this subject.")

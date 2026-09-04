@@ -65,6 +65,7 @@ from .schemas import (
     MasterySessionState,
     TutorIntervention,
     DocumentQuizState,
+    CurriculumCatalog,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
@@ -77,6 +78,7 @@ from .guardian_access import (
     create_invitation, redeem_invitation, linked_learners, linked_guardians,
     require_link, revoke_by_guardian, revoke_by_learner, cleanup_invitations,
 )
+from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -152,6 +154,14 @@ def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
         "ai_provider": tutor_provider(settings).name,
         "model": settings.openai_model if settings.ai_mode == "openai" else "none",
     }
+
+
+@app.get('/v1/catalog', response_model=CurriculumCatalog)
+def curriculum_catalog(grade: int = Query(ge=1, le=12), _: str = Depends(current_user_id)) -> CurriculumCatalog:
+    return CurriculumCatalog(version=CATALOG_VERSION, grade=grade, board='unconfirmed',
+                             subjects=[{'id': subject.id, 'title': subject.title,
+                                        'chapters': [chapter.__dict__ for chapter in subject.chapters]}
+                                       for subject in CATALOG])
 
 
 @app.get("/v1/account", response_model=UserProfile)
@@ -536,6 +546,8 @@ def observe_study_presence(session_id: str, reset: bool = False, user_id: str = 
 
 @app.post("/v1/mastery/diagnostics", response_model=DiagnosticSession, status_code=status.HTTP_201_CREATED)
 def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DiagnosticSession:
+    if catalog_chapter(request.subject_id, request.chapter_id) is None:
+        raise HTTPException(status_code=422, detail='This subject or chapter is not in the current catalog')
     from .learning_path import missing_prerequisite
     with connection(settings.database_path) as db:
         required = missing_prerequisite(db, user_id, request.grade, request.subject_id, request.chapter_id)
