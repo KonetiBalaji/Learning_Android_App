@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
-enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, PERCENT_GRID, ALGEBRA_BALANCE, TRIANGLE_AREA, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
+enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, PERCENT_GRID, ALGEBRA_BALANCE, TRIANGLE_AREA, CELL_ORGANELLES, MATTER_PARTICLES, CONSTANT_SPEED, ECOSYSTEM_ENERGY, SENTENCE_PARTS, MAP_COORDINATES }
 enum class LessonStage(val label: String) { CONCEPT("1. Understand"), EXAMPLE("2. Worked example"), HINT("3. Try the hint") }
 
 data class LessonStageContent(val heading: String, val body: String, val guidance: String)
@@ -51,6 +51,9 @@ fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "math" && chapterId == "algebra" -> ExplorerKind.ALGEBRA_BALANCE
     subjectId == "math" && chapterId == "geometry" -> ExplorerKind.TRIANGLE_AREA
     subjectId == "science" && chapterId == "cells" -> ExplorerKind.CELL_ORGANELLES
+    subjectId == "science" && chapterId == "matter" -> ExplorerKind.MATTER_PARTICLES
+    subjectId == "science" && chapterId == "force-and-motion" -> ExplorerKind.CONSTANT_SPEED
+    subjectId == "science" && chapterId == "ecosystems" -> ExplorerKind.ECOSYSTEM_ENERGY
     subjectId == "english" && chapterId == "grammar" -> ExplorerKind.SENTENCE_PARTS
     subjectId == "social" && chapterId == "geography" -> ExplorerKind.MAP_COORDINATES
     else -> null
@@ -138,6 +141,9 @@ fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {
         ExplorerKind.ALGEBRA_BALANCE -> AlgebraBalanceExplorer()
         ExplorerKind.TRIANGLE_AREA -> TriangleAreaExplorer()
         ExplorerKind.CELL_ORGANELLES -> CellOrganelleExplorer()
+        ExplorerKind.MATTER_PARTICLES -> MatterParticleExplorer()
+        ExplorerKind.CONSTANT_SPEED -> ConstantSpeedExplorer()
+        ExplorerKind.ECOSYSTEM_ENERGY -> EcosystemEnergyExplorer()
         ExplorerKind.SENTENCE_PARTS -> SentencePartExplorer()
         ExplorerKind.MAP_COORDINATES -> MapCoordinateExplorer()
         null -> Unit
