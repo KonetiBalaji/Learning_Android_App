@@ -62,6 +62,33 @@ function RestartApp {
     Adb shell am start -n "$package/.MainActivity" | Out-Null
     Start-Sleep -Seconds 3
 }
+function VerifyTalkBackSourceResult([string]$status) {
+    $oldServices = ((Adb shell settings get secure enabled_accessibility_services) -join '').Trim()
+    $oldEnabled = ((Adb shell settings get secure accessibility_enabled) -join '').Trim()
+    $talkBackPackage = 'com.google.android.marvin.talkback'
+    $notificationWasGranted = ((Adb shell dumpsys package $talkBackPackage) -join "`n") -match 'android\.permission\.POST_NOTIFICATIONS: granted=true'
+    try {
+        if (-not $notificationWasGranted) { Adb shell pm grant $talkBackPackage android.permission.POST_NOTIFICATIONS | Out-Null }
+        Adb shell settings put secure enabled_accessibility_services "$talkBackPackage/$talkBackPackage.TalkBackService" | Out-Null
+        Adb shell settings put secure accessibility_enabled 1 | Out-Null
+        Start-Sleep -Seconds 2
+        $accessibility = (Adb shell dumpsys accessibility) -join "`n"
+        if ($accessibility -notmatch 'com\.google\.android\.marvin\.talkback/.+TalkBackService') { throw 'TalkBack service did not become active' }
+        $tree = Ui
+        if (-not ($tree.SelectNodes('//node') | Where-Object text -eq $status)) { throw 'TalkBack tree omitted the topic-result status' }
+        if (-not ($tree.SelectNodes('//node') | Where-Object text -eq 'Result 1: Chapter 2 Plants')) { throw 'TalkBack tree omitted the source identity' }
+        if (-not ($tree.SelectNodes('//node') | Where-Object text -eq 'Use passage 1 as excerpt')) { throw 'TalkBack tree omitted the explicit confirmation action' }
+    } finally {
+        if ([string]::IsNullOrWhiteSpace($oldServices) -or $oldServices -eq 'null') {
+            Adb shell settings delete secure enabled_accessibility_services | Out-Null
+        } else { Adb shell settings put secure enabled_accessibility_services $oldServices | Out-Null }
+        if ([string]::IsNullOrWhiteSpace($oldEnabled) -or $oldEnabled -eq 'null') {
+            Adb shell settings delete secure accessibility_enabled | Out-Null
+        } else { Adb shell settings put secure accessibility_enabled $oldEnabled | Out-Null }
+        if (-not $notificationWasGranted) { Adb shell pm revoke $talkBackPackage android.permission.POST_NOTIFICATIONS | Out-Null }
+        Start-Sleep -Seconds 1
+    }
+}
 function SelectFixtureForUpload {
     TapText 'Choose document'
     $roots = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -eq 'Show roots' } | Select-Object -First 1
@@ -284,10 +311,11 @@ if ($VerifyExcerpts) {
         $excerptPart = $expectedSearch.matches[0]
         TextNode 'Result 1: Chapter 2 Plants' | Out-Null
         TextNode "Source characters $($excerptPart.start_character)–$($excerptPart.end_character)" | Out-Null
+        VerifyTalkBackSourceResult '1 source passage found by all topic words. Read a passage before using it as an excerpt.'
         Adb shell screencap -p /sdcard/qa-source-search.png | Out-Null
         Adb pull /sdcard/qa-source-search.png (Join-Path $repo 'artifacts\qa-source-search.png') | Out-Null
         TapText 'Use passage 1 as excerpt'
-        Write-Output 'PASS: no-match search preserves selection; multi-term topic passage requires every term and explicit Android confirmation'
+        Write-Output 'PASS: no-match search preserves selection; multi-term topic passage and confirmation are exposed to TalkBack before explicit use'
     } else {
     $excerptPart = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview" -Headers $headers
     if ($excerptPart.total_pages -lt 2) { throw 'Excerpt fixture must leave some chapter text unselected' }

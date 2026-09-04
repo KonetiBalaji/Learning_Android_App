@@ -76,7 +76,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -175,7 +178,7 @@ private fun PersistentTeacherBar(presence: TutorPresence, signedIn: Boolean) {
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 3.dp) {
         Row(
             Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 52.dp).padding(horizontal = 20.dp, vertical = 8.dp)
-                .semantics { contentDescription = description },
+                .semantics { contentDescription = description; liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -759,9 +762,10 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
         Header("Study material", "Choose chapters", "Select one or more chapters from ${document.name} and configure your quiz.")
         Text("Missing introductory text or a short section? Check for omitted text ranges. Existing chapters and quizzes will not change.")
         TextButton(onClick = onRepair, enabled = !state.loading) { Text("Check for omitted text") }
-        state.documentRepairNotice?.let { Text(it) }
+        state.documentRepairNotice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         Row { TextButton(onClick = onAll, enabled = !state.loading) { Text("Entire document") }; TextButton(onClick = onClear, enabled = !state.loading) { Text("Clear selection") } }
-        Text("${state.selectedChapterIds.size} of ${document.chapters.size} chapters selected")
+        Text("${state.selectedChapterIds.size} of ${document.chapters.size} chapters selected",
+            Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         if (state.documentExcerpts.isNotEmpty()) {
             Text("Excerpt mode: ${state.documentExcerpts.size} selected text ranges only", fontWeight = FontWeight.Bold)
             state.documentExcerpts.forEach { excerpt ->
@@ -852,8 +856,7 @@ private fun DocumentSourceSearchControls(state: AppUiState, onQuery: (String) ->
         singleLine = true, enabled = !state.loading, modifier = Modifier.fillMaxWidth())
     TextButton(onClick = onSearch, enabled = !state.loading && state.selectedChapterIds.isNotEmpty() && validSourceQuery(state.sourceQuery)) { Text("Search selected chapters") }
     state.documentSearch?.let { result ->
-        if (result.hits.isEmpty()) Text("No source passage contains the phrase or all important topic words. Try different words or chapters; no selection was changed.")
-        else Text("${result.hits.size} source passages found by ${if (result.matchMode == "literal_case_insensitive") "exact phrase" else "all topic words"}. Read a passage before using it as an excerpt.")
+        Text(documentSearchStatus(result), Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         if (result.hasMore) Text("More passages match. Refine your topic or select fewer chapters.")
         result.hits.forEachIndexed { index, hit ->
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -913,7 +916,11 @@ private fun DocumentResultsScreen(results: Results?, onAgain: () -> Unit, onBack
 }
 
 @Composable
-private fun LoadingOverlay(upload: DocumentUploadProgress? = null) = Box(Modifier.fillMaxSize().background(Color(0x990F172A)).padding(24.dp), contentAlignment = Alignment.Center) {
+private fun LoadingOverlay(upload: DocumentUploadProgress? = null) = Box(
+    Modifier.fillMaxSize().background(Color(0x990F172A)).padding(24.dp).semantics {
+        paneTitle = "Loading learning content"
+        liveRegion = LiveRegionMode.Polite
+    }, contentAlignment = Alignment.Center) {
     Card(shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (upload == null) {

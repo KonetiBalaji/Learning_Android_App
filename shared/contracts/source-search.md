@@ -167,5 +167,28 @@ results restoration passed. Remaining answers were completed through the QA API.
 Repeated transient UIAutomator null-root messages recovered through the script's
 fresh-dump retry and did not weaken the asserted resulting states.
 
-This is API 36 deterministic-fixture evidence, not semantic relevance, TalkBack,
-physical-device, live-provider or user-acceptance evidence.
+That initial API 36 run is deterministic-fixture evidence, not semantic relevance,
+physical-device, live-provider or user-acceptance evidence. TalkBack-specific
+follow-up is recorded below.
+
+## TalkBack result announcement and traversal evidence
+
+Dynamic search-result status, selected-chapter count, structure-repair notices,
+loading panes and AI-teacher state now use polite accessibility live regions. The
+topic status copy is a tested contract and correctly uses singular/plural passage
+wording. Result passages remain separate from their confirmation buttons so adding
+announcements does not merge or hide actions.
+
+The API 36 source-search journey temporarily enabled the emulator's installed
+TalkBack service after the multi-term result appeared. It verified that the active
+TalkBack accessibility tree exposed the all-topic-words status, `Result 1: Chapter
+2 Plants`, and `Use passage 1 as excerpt`. Android's first-run notification prompt
+is prevented by a temporary permission grant; a `finally` block restores the prior
+service, accessibility-enabled and notification-permission states. The verified
+run ended with accessibility disabled, no enabled service, and notification access
+denied, matching its starting state. The journey then completed excerpt restart,
+503 replay, exact-range generation, conflict recovery and results restoration.
+
+This proves the named topic-result nodes are available to real TalkBack on the API
+36 emulator. It does not prove spoken wording/order for every screen, gesture-only
+navigation, switch access, a physical device, or user acceptance.

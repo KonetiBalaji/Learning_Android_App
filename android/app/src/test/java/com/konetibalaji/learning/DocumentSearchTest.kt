@@ -11,6 +11,8 @@ class DocumentSearchTest {
     @Test fun validatesExactUnicodeOffsetsAndCaseInsensitiveMatch() {
         assertEquals(result, validate(result))
         assertEquals(DocumentExcerpt("chapter", 10, 16), selectedSearchExcerpt(result, "doc", setOf("chapter"), 0))
+        assertEquals("1 source passage found by exact phrase. Read a passage before using it as an excerpt.",
+            documentSearchStatus(result))
     }
 
     @Test fun queryLimitsCountCodePointsAndRejectControls() {
@@ -35,6 +37,8 @@ class DocumentSearchTest {
         val topic = DocumentSearch("doc", "How does energy respiration work?", setOf("chapter"),
             listOf(topicHit), false, "all_query_terms_case_insensitive")
         assertEquals(topic, validateSourceSearch(topic, "doc", topic.query, setOf("chapter")))
+        assertEquals("1 source passage found by all topic words. Read a passage before using it as an excerpt.",
+            documentSearchStatus(topic))
         assertThrows(IllegalArgumentException::class.java) {
             validateSourceSearch(topic.copy(hits = listOf(topicHit.copy(matchEnd = 11))), "doc", topic.query, setOf("chapter"))
         }
@@ -49,7 +53,9 @@ class DocumentSearchTest {
     }
 
     @Test fun emptyResultsStayEmptyAndLimitsFailClosed() {
-        assertTrue(validate(result.copy(hits = emptyList())).hits.isEmpty())
+        val empty = validate(result.copy(hits = emptyList()))
+        assertTrue(empty.hits.isEmpty())
+        assertTrue(documentSearchStatus(empty).startsWith("No source passage"))
         assertThrows(IllegalArgumentException::class.java) { validate(result.copy(hits = emptyList(), hasMore = true)) }
         assertThrows(IllegalArgumentException::class.java) { validate(result.copy(hits = List(21) { hit })) }
         assertThrows(IllegalStateException::class.java) { selectedSearchExcerpt(result.copy(hits = emptyList()), "doc", setOf("chapter"), 0) }

@@ -19,6 +19,12 @@ fun validSourceQuery(value: String): Boolean {
     return query.codePointCount(0, query.length) in 2..120 && query.none { it.code < 32 }
 }
 
+fun documentSearchStatus(result: DocumentSearch): String = when {
+    result.hits.isEmpty() -> "No source passage contains the phrase or all important topic words. Try different words or chapters; no selection was changed."
+    result.matchMode == "literal_case_insensitive" -> "${result.hits.size} source ${if (result.hits.size == 1) "passage" else "passages"} found by exact phrase. Read a passage before using it as an excerpt."
+    else -> "${result.hits.size} source ${if (result.hits.size == 1) "passage" else "passages"} found by all topic words. Read a passage before using it as an excerpt."
+}
+
 fun validateSourceSearch(result: DocumentSearch, documentId: String, query: String,
                          chapterIds: Set<String>): DocumentSearch {
     require(result.matchMode in setOf("literal_case_insensitive", "all_query_terms_case_insensitive") &&
