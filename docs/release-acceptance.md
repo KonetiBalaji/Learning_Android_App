@@ -888,7 +888,11 @@ curriculum review, physical-device QA and UAT remain open.
   Android validates grade, board, subject order/identity and chapter integrity with
   no static fallback, and clears stale catalog data when the grade changes. API 36
   opened every Grade 8 subject list and restored the catalog after process restart;
-  the board-unconfirmed disclosure was visually inspected. Backend 454 passed with
-  one existing Windows skip; Android 133 JVM tests, lint and debug assembly passed. See
+  the board-unconfirmed disclosure was visually inspected. Follow-up API 36 QA
+  changed to Grade 9 under an injected one-shot 503, proved no stale Grade 8 catalog
+  remained, displayed an explicit recovery action, recovered all four subjects and
+  retained the recovered catalog after restart. Both success and fail-closed frames
+  were visually inspected. Backend 454 passed with one existing Windows skip;
+  Android 133 JVM tests, lint and debug assembly passed. See
   `shared/contracts/curriculum-catalog.md`. This is a synchronized foundation catalog,
   not authoritative board coverage or curriculum UAT.

@@ -45,10 +45,15 @@ The full backend regression passed 454 tests with one existing Windows skip;
 Android passed 133 JVM tests with zero failures/skips plus lint and debug assembly.
 On API 36, `scripts/qa-curriculum-catalog.ps1 -ResetTestAppData` loaded Grade 8,
 opened all four subject lists and checked their first and last chapters, restarted
-the process, and verified the versioned catalog returned. The disposable account
-was deleted and app data cleared.
+the process, and verified the versioned catalog returned. It then changed to Grade
+9 while injecting a one-shot 503, verified the Grade 8 subject graph was absent,
+displayed a safe unavailable state with an explicit refresh action, recovered all
+four subjects, restarted, and verified the recovered catalog returned. The
+disposable account was deleted and app data cleared.
 
 The inspected `artifacts/qa-curriculum-catalog.png` shows all four subject cards and
-the catalog/board disclosure without clipping; it is untracked QA evidence. Network
-failure/retry injection, version migration with an active session, physical-device
-accessibility, authoritative curriculum data and UAT remain open.
+the catalog/board disclosure without clipping. The inspected
+`artifacts/qa-curriculum-catalog-failure.png` shows the Grade 9 fail-closed state and
+large refresh control without clipping. Both are untracked QA evidence. Version
+migration with an active session, physical-device accessibility, authoritative
+curriculum data and UAT remain open.

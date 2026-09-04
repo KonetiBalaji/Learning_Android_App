@@ -136,7 +136,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                             activity?.let { viewModel.authenticateGoogle { requestGoogleIdToken(it) } }
                         }
                         Screen.Grade -> GradeScreen(viewModel::selectGrade)
-                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::openGuardianAccess, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
+                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::openGuardianAccess, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz, viewModel::refreshProgress)
                         Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects, viewModel::refreshProgress)
                         Screen.Diagnostic -> DiagnosticScreen(state, viewModel::selectDiagnosticAnswer, viewModel::submitDiagnostic)
                         Screen.Tutor -> TutorScreen(state, viewModel::startPractice, viewModel::openTutorConversation) { teacherSpeaking = it }
@@ -254,7 +254,7 @@ private fun GradeScreen(onSelect: (Int) -> Unit) = Page {
 }
 
 @Composable
-private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onGuardian: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit, onResumeDocument: () -> Unit) = Page {
+private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onGuardian: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit, onResumeDocument: () -> Unit, onRefresh: () -> Unit) = Page {
     Header("Grade ${state.grade ?: 6}", "What would you like to learn?", "Pick a subject to continue your personalised path.")
     if (state.canResumeMastery) PrimaryButton("Resume saved learning", !state.loading, onResume)
     if (state.canResumeDocumentQuiz) PrimaryButton("Resume document study", !state.loading, onResumeDocument)
@@ -269,7 +269,10 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
             }
         }
     }
-    if (!state.loading && state.catalogSubjects.isEmpty()) Text("The curriculum catalog is unavailable. Refresh after reconnecting.", color = MaterialTheme.colorScheme.error)
+    if (!state.loading && state.catalogSubjects.isEmpty()) {
+        Text("The curriculum catalog is unavailable. Reconnect, then refresh.", color = MaterialTheme.colorScheme.error)
+        PrimaryButton("Refresh curriculum and progress", onClick = onRefresh)
+    }
     state.catalogVersion?.let { Text("Catalog $it · Board alignment ${state.catalogBoard ?: "unconfirmed"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     OutlinedButton(onClick = onParent, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("View my progress report") }
     OutlinedButton(onClick = onGuardian, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("Parent & teacher access") }

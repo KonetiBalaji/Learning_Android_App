@@ -62,8 +62,15 @@ def test_qa_fault_is_one_shot_after_success_and_not_installed_in_production(monk
         committed.append(document_id)
         return {'id': 'saved-quiz'}
 
+    @app.get('/v1/catalog')
+    def catalog():
+        return {'version': 'fixture'}
+
     install_response_fault(app)
     with TestClient(app) as client:
+        assert client.post('/__qa/catalog/fail-next-response').status_code == 200
+        assert client.get('/v1/catalog').status_code == 503
+        assert client.get('/v1/catalog').json() == {'version': 'fixture'}
         assert client.post('/__qa/mastery/other/fail-next-response').status_code == 404
         assert client.post('/__qa/mastery/owned/fail-next-response').status_code == 200
         path = '/v1/mastery/sessions/owned/diagnostic-answer'
