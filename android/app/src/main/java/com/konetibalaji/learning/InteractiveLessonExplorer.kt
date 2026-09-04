@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
-enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, PERCENT_GRID, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
+enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, PERCENT_GRID, ALGEBRA_BALANCE, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
 enum class LessonStage(val label: String) { CONCEPT("1. Understand"), EXAMPLE("2. Worked example"), HINT("3. Try the hint") }
 
 data class LessonStageContent(val heading: String, val body: String, val guidance: String)
@@ -48,6 +48,7 @@ fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "math" && chapterId == "fractions" -> ExplorerKind.FRACTIONS
     subjectId == "math" && chapterId == "decimals" -> ExplorerKind.DECIMAL_PLACE_VALUE
     subjectId == "math" && chapterId == "percentages" -> ExplorerKind.PERCENT_GRID
+    subjectId == "math" && chapterId == "algebra" -> ExplorerKind.ALGEBRA_BALANCE
     subjectId == "science" && chapterId == "cells" -> ExplorerKind.CELL_ORGANELLES
     subjectId == "english" && chapterId == "grammar" -> ExplorerKind.SENTENCE_PARTS
     subjectId == "social" && chapterId == "geography" -> ExplorerKind.MAP_COORDINATES
@@ -133,6 +134,7 @@ fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {
         ExplorerKind.FRACTIONS -> FractionExplorer()
         ExplorerKind.DECIMAL_PLACE_VALUE -> DecimalPlaceValueExplorer()
         ExplorerKind.PERCENT_GRID -> PercentGridExplorer()
+        ExplorerKind.ALGEBRA_BALANCE -> AlgebraBalanceExplorer()
         ExplorerKind.CELL_ORGANELLES -> CellOrganelleExplorer()
         ExplorerKind.SENTENCE_PARTS -> SentencePartExplorer()
         ExplorerKind.MAP_COORDINATES -> MapCoordinateExplorer()
