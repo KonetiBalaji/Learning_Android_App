@@ -136,7 +136,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                             activity?.let { viewModel.authenticateGoogle { requestGoogleIdToken(it) } }
                         }
                         Screen.Grade -> GradeScreen(viewModel::selectGrade)
-                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
+                        Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::openGuardianAccess, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
                         Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects, viewModel::refreshProgress)
                         Screen.Diagnostic -> DiagnosticScreen(state, viewModel::selectDiagnosticAnswer, viewModel::submitDiagnostic)
                         Screen.Tutor -> TutorScreen(state, viewModel::startPractice, viewModel::openTutorConversation) { teacherSpeaking = it }
@@ -144,7 +144,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Practice -> PracticeScreen(state, viewModel::showHint, viewModel::checkPractice, viewModel::moveToRewrite)
                         Screen.Rewrite -> RewriteScreen(state, viewModel::updateRewrite, viewModel::submitRewrite)
                         Screen.Mastery -> MasteryScreen(state, viewModel::continueFromMastery)
-                        Screen.ParentDashboard -> ParentDashboard(state, viewModel::backToSubjects)
+                        Screen.ParentDashboard -> ParentDashboard(state, viewModel::backFromParentDashboard)
+                        Screen.GuardianAccess -> GuardianAccessScreen(state, viewModel::updateGuardianCode, viewModel::redeemGuardianCode, viewModel::createGuardianInvitation, viewModel::openLinkedLearnerReport, viewModel::unlinkLearner, viewModel::revokeGuardian, viewModel::refreshGuardianAccess, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
                         Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) }, viewModel::setSourceQuery, viewModel::searchDocumentSource, viewModel::useSourceSearchResult, viewModel::loadPdfPages, viewModel::setPdfPageInput, viewModel::reviewPdfPages, viewModel::confirmPdfPages)
@@ -253,7 +254,7 @@ private fun GradeScreen(onSelect: (Int) -> Unit) = Page {
 }
 
 @Composable
-private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit, onResumeDocument: () -> Unit) = Page {
+private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Unit, onParent: () -> Unit, onGuardian: () -> Unit, onDocuments: () -> Unit, onSettings: () -> Unit, onResume: () -> Unit, onResumeDocument: () -> Unit) = Page {
     Header("Grade ${state.grade ?: 6}", "What would you like to learn?", "Pick a subject to continue your personalised path.")
     if (state.canResumeMastery) PrimaryButton("Resume saved learning", !state.loading, onResume)
     if (state.canResumeDocumentQuiz) PrimaryButton("Resume document study", !state.loading, onResumeDocument)
@@ -268,7 +269,8 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
             }
         }
     }
-    OutlinedButton(onClick = onParent, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("View parent & teacher progress") }
+    OutlinedButton(onClick = onParent, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("View my progress report") }
+    OutlinedButton(onClick = onGuardian, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("Parent & teacher access") }
     TextButton(onClick = onDocuments, modifier = Modifier.fillMaxWidth()) { Text("Study from my own document") }
     TextButton(onClick = onSettings, modifier = Modifier.fillMaxWidth()) { Text("Settings and account") }
 }
@@ -548,8 +550,10 @@ private fun Metric(label: String, value: String, color: Color) = Row(Modifier.fi
 
 @Composable
 private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
-    TextButton(onClick = onBack) { Text("‹ Back to subjects") }
-    Header("Parent & teacher view", "Student progress", "A clear snapshot of learning progress and the best next action.")
+    TextButton(onClick = onBack) { Text(if (state.reportAccountEmail == null) "‹ Back to subjects" else "‹ Back to linked learners") }
+    Header("Read-only progress report", if (state.reportAccountEmail == null) "My progress" else "Student progress",
+        if (state.reportAccountEmail == null) "A clear snapshot of your learning progress and the best next action." else "Shared aggregate progress only. Answers and uploaded documents are never included.")
+    state.reportAccountEmail?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
     val snapshot = state.progressSnapshot
     if (snapshot != null) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
@@ -574,6 +578,62 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
     }
     Header("Focus next", "Current weak areas", snapshot?.weakAreas?.joinToString(" · ")?.ifBlank { "No unresolved weak areas recorded. Continue assessing and practising." } ?: "Complete a diagnostic to identify focus areas")
     TipCard("Suggested next step", snapshot?.recommendations?.joinToString("\n") ?: "Start a diagnostic to personalize your learning path.")
+}
+
+@Composable
+private fun GuardianAccessScreen(state: AppUiState, onCode: (String) -> Unit, onRedeem: () -> Unit,
+                                 onInvite: () -> Unit, onView: (GuardianAccount) -> Unit,
+                                 onUnlink: (String) -> Unit, onRevoke: (String) -> Unit,
+                                 onRefresh: () -> Unit, onBack: () -> Unit) = Page {
+    TextButton(onClick = onBack) { Text("‹ Back to subjects") }
+    Header("Consent and privacy", "Parent & teacher access", "Link a separate account to share aggregate progress. Answers, tutor conversations and uploaded documents stay private.")
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Link a learner report", fontWeight = FontWeight.Bold)
+            OutlinedTextField(value = state.guardianCodeDraft, onValueChange = onCode, modifier = Modifier.fillMaxWidth(),
+                label = { Text("Single-use learner code") }, singleLine = true)
+            PrimaryButton("Link learner", state.guardianCodeDraft.length >= 20 && !state.loading, onRedeem)
+        }
+    }
+    Text("Linked learner reports", fontWeight = FontWeight.Bold)
+    when {
+        state.linkedLearners == null -> Text("Loading linked learners…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        state.linkedLearners.isEmpty() -> Text("No learner reports linked.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> state.linkedLearners.forEach { learner ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(learner.email, fontWeight = FontWeight.Bold)
+                    OutlinedButton(onClick = { onView(learner) }, modifier = Modifier.fillMaxWidth()) { Text("View Grade ${state.grade ?: 8} report") }
+                    TextButton(onClick = { onUnlink(learner.id) }, modifier = Modifier.fillMaxWidth()) { Text("Remove linked learner", color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        }
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Share my report", fontWeight = FontWeight.Bold)
+            Text("Create a 15-minute single-use code. Creating another code immediately invalidates the previous one.")
+            PrimaryButton("Create sharing code", !state.loading, onInvite)
+            state.guardianInvitationCode?.let {
+                Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Give this code directly to the parent or teacher. It is shown only in this session and cannot be recovered.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+    Text("Accounts that can view my report", fontWeight = FontWeight.Bold)
+    when {
+        state.linkedGuardians == null -> Text("Loading access list…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        state.linkedGuardians.isEmpty() -> Text("No parent or teacher account has access.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> state.linkedGuardians.forEach { guardian ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(guardian.email, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { onRevoke(guardian.id) }, modifier = Modifier.fillMaxWidth()) { Text("Revoke report access", color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        }
+    }
+    TextButton(onClick = onRefresh, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) { Text("Refresh access list") }
 }
 
 @Composable

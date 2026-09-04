@@ -31,6 +31,22 @@ CREATE TABLE IF NOT EXISTS learner_preferences (
   owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   interests_json TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS guardian_invitations (
+  id TEXT PRIMARY KEY,
+  learner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_digest TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL, created_at TEXT NOT NULL, redeemed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS guardian_invitation_learner_idx
+  ON guardian_invitations(learner_id, expires_at);
+CREATE TABLE IF NOT EXISTS guardian_links (
+  guardian_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  learner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(guardian_id, learner_id),
+  CHECK(guardian_id <> learner_id)
+);
+CREATE INDEX IF NOT EXISTS guardian_link_learner_idx ON guardian_links(learner_id);
 CREATE TABLE IF NOT EXISTS quizzes (
   id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL,

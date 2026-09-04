@@ -99,7 +99,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
 | PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
 | PROG-02 | Weak concepts and personalized learning path | Partial | Recurring-error evidence, remediation updates, next-step selection tests |
-| PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Defined parent access model; grade-scoped reports, unique chapter counting, exact time windows |
+| PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts and read-only grade reports are device verified; identity/child-consent policy, retention, physical-device and UAT remain open |
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, source-grounding checks, deletion, interrupted-flow recovery |
 | DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Backend chapter-set validation; Android multi-selection and persistence; page/section/topic retrieval boundaries and device QA |
@@ -852,3 +852,13 @@ curriculum review, physical-device QA and UAT remain open.
   that exploration did not submit, coach or award mastery. Generated HTML/actions
   are deliberately rejected. See `cell-explorer.md` and OA-03 in
   `openmaic-provenance.md`; TUT-05 remains partial outside Fractions and Cells.
+- Added consent-based parent/teacher report sharing between separate authenticated
+  accounts. Learner-created codes are 128-bit, stored only as hashes, expire after
+  15 minutes, are single-use and are invalidated when regenerated. Links expose only
+  aggregate dashboard/weekly routes; answers, sessions, tutor chat and documents
+  remain owner-only. Either party can unlink, and account deletion cascades access.
+  API 36 verified redemption, read-only report disclosure and immediate removal.
+  Backend 448 passed with one existing Windows skip; Android 128 JVM tests, lint and
+  debug assembly passed.
+  See `guardian-report-access.md`; identity/child-consent policy, invitation retention,
+  physical-device accessibility, UAT and production verification remain open.

@@ -72,6 +72,11 @@ from .mastery_transactions import lock_mastery_snapshot, mastery_state_token, ch
 from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload
 from .learner_preferences import InterestPreferences
 from .tutor_conversation import TutorQuestionRequest, TutorTurn, answer_question as answer_tutor_follow_up, conversation_history
+from .guardian_access import (
+    GuardianInvitation, GuardianInvitationRedemption, LinkedAccount,
+    create_invitation, redeem_invitation, linked_learners, linked_guardians,
+    require_link, revoke_by_guardian, revoke_by_learner,
+)
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -200,6 +205,36 @@ def login(credentials: Credentials, settings: Settings = Depends(get_settings)) 
     if user is None or not verify_password(credentials.password, user["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     return Token(access_token=create_token(user["id"], settings))
+
+
+@app.post('/v1/guardian/invitations', response_model=GuardianInvitation, status_code=status.HTTP_201_CREATED)
+def new_guardian_invitation(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> GuardianInvitation:
+    return create_invitation(user_id, settings)
+
+
+@app.post('/v1/guardian/links', response_model=LinkedAccount, status_code=status.HTTP_201_CREATED)
+def link_guardian_account(request: GuardianInvitationRedemption, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> LinkedAccount:
+    return redeem_invitation(user_id, request.code, settings)
+
+
+@app.get('/v1/guardian/learners', response_model=list[LinkedAccount])
+def guardian_learners(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> list[LinkedAccount]:
+    return linked_learners(user_id, settings)
+
+
+@app.get('/v1/guardian/access', response_model=list[LinkedAccount])
+def learner_guardians(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> list[LinkedAccount]:
+    return linked_guardians(user_id, settings)
+
+
+@app.delete('/v1/guardian/learners/{learner_id}', status_code=status.HTTP_204_NO_CONTENT)
+def unlink_learner(learner_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> None:
+    revoke_by_guardian(user_id, learner_id, settings)
+
+
+@app.delete('/v1/guardian/access/{guardian_id}', status_code=status.HTTP_204_NO_CONTENT)
+def revoke_guardian(guardian_id: str, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> None:
+    revoke_by_learner(user_id, guardian_id, settings)
 
 
 @app.post("/v1/documents", response_model=DocumentSummary, status_code=status.HTTP_201_CREATED)
@@ -799,3 +834,19 @@ def weekly_report(grade: int | None = Query(default=None, ge=1, le=12), user_id:
         report.observed_study_seconds = observed_seconds(db, user_id, grade,
             datetime.fromisoformat(report.period_start), datetime.fromisoformat(report.period_end))
     return report
+
+
+@app.get('/v1/guardian/learners/{learner_id}/progress/dashboard', response_model=ProgressDashboard)
+def guardian_progress_dashboard(learner_id: str, grade: int | None = Query(default=None, ge=1, le=12),
+                                user_id: str = Depends(current_user_id),
+                                settings: Settings = Depends(get_settings)) -> ProgressDashboard:
+    require_link(user_id, learner_id, settings)
+    return progress_dashboard(grade, learner_id, settings)
+
+
+@app.get('/v1/guardian/learners/{learner_id}/progress/weekly-report', response_model=WeeklyReport)
+def guardian_weekly_report(learner_id: str, grade: int | None = Query(default=None, ge=1, le=12),
+                           user_id: str = Depends(current_user_id),
+                           settings: Settings = Depends(get_settings)) -> WeeklyReport:
+    require_link(user_id, learner_id, settings)
+    return weekly_report(grade, learner_id, settings)

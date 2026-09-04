@@ -26,6 +26,7 @@ data class StudyDocument(val id: String, val name: String, val chapters: List<Ch
 data class QuizQuestion(val id: String, val ordinal: Int, val prompt: String, val options: List<String>, val sourceReference: String)
 data class Feedback(val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
 data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizQuestion>)
+data class GuardianAccount(val id: String, val email: String, val linkedAt: String)
 
 data class LearningSubject(val id: String, val title: String, val icon: String, val progress: Int, val accent: Long)
 data class MasteryChapter(val id: String, val title: String, val progress: Int, val locked: Boolean = false)
@@ -43,7 +44,7 @@ data class ProgressSnapshot(
 sealed interface Screen {
     data object SignIn : Screen; data object Grade : Screen; data object Subjects : Screen; data object MasteryChapters : Screen
     data object Diagnostic : Screen; data object Tutor : Screen; data object TutorChat : Screen; data object Practice : Screen; data object Rewrite : Screen
-    data object Mastery : Screen; data object ParentDashboard : Screen; data object Home : Screen; data object Chapters : Screen
+    data object Mastery : Screen; data object ParentDashboard : Screen; data object GuardianAccess : Screen; data object Home : Screen; data object Chapters : Screen
     data object Question : Screen; data object Feedback : Screen; data object Results : Screen; data object Settings : Screen
     data object DocumentLibrary : Screen
     data object Interests : Screen
@@ -108,6 +109,9 @@ data class AppUiState(
     val documentDifficulty: String = "easy", val savedQuizDifficulty: String? = null,
     val documentQuestionType: String = "multiple_choice", val savedQuizQuestionType: String? = null,
     val assessmentPoints: Int? = null, val assessmentFeedback: String? = null,
+    val linkedLearners: List<GuardianAccount>? = null, val linkedGuardians: List<GuardianAccount>? = null,
+    val guardianInvitationCode: String? = null, val guardianInvitationExpiresAt: String? = null,
+    val guardianCodeDraft: String = "", val reportAccountEmail: String? = null,
 )
 
 class LearningViewModel(application: Application) : AndroidViewModel(application) {
@@ -405,7 +409,44 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     }
     fun openParentDashboard() {
         val current = mutableState.value
-        perform(null) { mutableState.value = current.copy(progressSnapshot = api.progressWithWeekly(current.grade ?: 8), screen = Screen.ParentDashboard) }
+        perform(null) { mutableState.value = current.copy(progressSnapshot = api.progressWithWeekly(current.grade ?: 8), reportAccountEmail = null, screen = Screen.ParentDashboard) }
+    }
+    fun openGuardianAccess() {
+        mutableState.value = mutableState.value.copy(screen = Screen.GuardianAccess, linkedLearners = null, linkedGuardians = null,
+            guardianInvitationCode = null, guardianInvitationExpiresAt = null, guardianCodeDraft = "")
+        refreshGuardianAccess()
+    }
+    fun refreshGuardianAccess() = perform(null) {
+        mutableState.value = mutableState.value.copy(linkedLearners = api.linkedLearners(), linkedGuardians = api.linkedGuardians())
+    }
+    fun createGuardianInvitation() = perform(null) {
+        val invitation = api.createGuardianInvitation()
+        mutableState.value = mutableState.value.copy(guardianInvitationCode = invitation.first,
+            guardianInvitationExpiresAt = invitation.second)
+    }
+    fun updateGuardianCode(value: String) {
+        mutableState.value = mutableState.value.copy(guardianCodeDraft = value.trim().take(128))
+    }
+    fun redeemGuardianCode() = perform(null) {
+        api.redeemGuardianInvitation(mutableState.value.guardianCodeDraft)
+        mutableState.value = mutableState.value.copy(guardianCodeDraft = "", linkedLearners = api.linkedLearners())
+    }
+    fun revokeGuardian(guardianId: String) = perform(null) {
+        api.revokeGuardian(guardianId)
+        mutableState.value = mutableState.value.copy(linkedGuardians = api.linkedGuardians(), guardianInvitationCode = null, guardianInvitationExpiresAt = null)
+    }
+    fun unlinkLearner(learnerId: String) = perform(null) {
+        api.unlinkLearner(learnerId)
+        mutableState.value = mutableState.value.copy(linkedLearners = api.linkedLearners())
+    }
+    fun openLinkedLearnerReport(learner: GuardianAccount) {
+        val current = mutableState.value
+        perform(null) { mutableState.value = current.copy(progressSnapshot = api.progressWithWeekly(current.grade ?: 8, learner.id),
+            reportAccountEmail = learner.email, screen = Screen.ParentDashboard) }
+    }
+    fun backFromParentDashboard() {
+        mutableState.value = mutableState.value.copy(screen = if (mutableState.value.reportAccountEmail == null) Screen.Subjects else Screen.GuardianAccess,
+            reportAccountEmail = null)
     }
     fun openSettings() { mutableState.value = mutableState.value.copy(screen = Screen.Settings) }
     fun openInterests() {
@@ -728,6 +769,14 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun signOut() { token = null; masterySubmissionState.clear() }
     fun deleteAccount() { requestNoContent("DELETE", "/v1/account"); signOut() }
     fun getInterests(): List<String> = request("GET", "/v1/account", null).getJSONArray("interests").strings()
+    fun createGuardianInvitation(): Pair<String, String> = request("POST", "/v1/guardian/invitations", "{}").let {
+        it.getString("code") to it.getString("expires_at")
+    }
+    fun redeemGuardianInvitation(code: String): GuardianAccount = guardianAccount(request("POST", "/v1/guardian/links", JSONObject().put("code", code).toString()))
+    fun linkedLearners(): List<GuardianAccount> = guardianAccounts(requestArray("GET", "/v1/guardian/learners"))
+    fun linkedGuardians(): List<GuardianAccount> = guardianAccounts(requestArray("GET", "/v1/guardian/access"))
+    fun unlinkLearner(id: String) = requestNoContent("DELETE", "/v1/guardian/learners/$id")
+    fun revokeGuardian(id: String) = requestNoContent("DELETE", "/v1/guardian/access/$id")
     fun saveInterests(values: List<String>): List<String> = request("PUT", "/v1/account/interests",
         JSONObject().put("interests", JSONArray(values)).toString()).getJSONArray("interests").strings()
     fun upload(resolver: ContentResolver, uri: Uri, onProgress: (DocumentUploadProgress) -> Unit): StudyDocument {
@@ -909,8 +958,9 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             })
         }
     }
-    fun progressDashboard(grade: Int): ProgressSnapshot {
-        val response = request("GET", "/v1/progress/dashboard?grade=$grade", null)
+    fun progressDashboard(grade: Int, learnerId: String? = null): ProgressSnapshot {
+        val path = learnerId?.let { "/v1/guardian/learners/$it/progress/dashboard?grade=$grade" } ?: "/v1/progress/dashboard?grade=$grade"
+        val response = request("GET", path, null)
         val subjectsObject = response.getJSONObject("subjects")
         val subjects = subjectsObject.keys().asSequence().associateWith { (subjectsObject.getDouble(it) * 100).toInt() }
         val chapters = response.getJSONArray("chapters")
@@ -920,15 +970,16 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
             if (response.isNull("unlocked_chapter_ids")) null else response.getJSONArray("unlocked_chapter_ids").strings())
         return ProgressSnapshot(subjects, response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), chapterScores = scores, masteredChapterIds = mastered, unlockedChapterIds = unlocked)
     }
-    fun weeklyReport(grade: Int): ProgressSnapshot {
-        val response = request("GET", "/v1/progress/weekly-report?grade=$grade", null)
+    fun weeklyReport(grade: Int, learnerId: String? = null): ProgressSnapshot {
+        val path = learnerId?.let { "/v1/guardian/learners/$it/progress/weekly-report?grade=$grade" } ?: "/v1/progress/weekly-report?grade=$grade"
+        val response = request("GET", path, null)
         val studySeconds = parseWeeklyStudySeconds(if (response.isNull("observed_study_seconds")) null else response.get("observed_study_seconds"))
         return ProgressSnapshot(emptyMap(), response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(),
             response.getInt("questions_answered"), (response.getDouble("accuracy") * 100).toInt(), response.getInt("mastered_chapters"),
             response.getDouble("estimated_exam_readiness").toInt(), response.getString("readiness_label").replace('_', ' ').replaceFirstChar(Char::uppercase),
             weeklyObservedStudySeconds = studySeconds)
     }
-    fun progressWithWeekly(grade: Int): ProgressSnapshot { val dashboard = progressDashboard(grade); val weekly = weeklyReport(grade); return dashboard.copy(questionsAnswered = weekly.questionsAnswered, accuracy = weekly.accuracy, masteredChapters = weekly.masteredChapters, examReadiness = weekly.examReadiness, readinessLabel = weekly.readinessLabel, weeklyObservedStudySeconds = weekly.weeklyObservedStudySeconds) }
+    fun progressWithWeekly(grade: Int, learnerId: String? = null): ProgressSnapshot { val dashboard = progressDashboard(grade, learnerId); val weekly = weeklyReport(grade, learnerId); return dashboard.copy(questionsAnswered = weekly.questionsAnswered, accuracy = weekly.accuracy, masteredChapters = weekly.masteredChapters, examReadiness = weekly.examReadiness, readinessLabel = weekly.readinessLabel, weeklyObservedStudySeconds = weekly.weeklyObservedStudySeconds) }
     private fun request(method: String, path: String, body: String?): JSONObject {
         val sessionId = Regex("^/v1/mastery/sessions/([^/]+)(?:/(diagnostic-answer|practice|rewrite))?$")
             .matchEntire(path)?.groupValues?.get(1)
@@ -944,6 +995,10 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         } finally { connection.disconnect() }
     }
     private fun requestNoContent(method: String, path: String) { readApiResponse(connection(method, path, "application/json")) }
+    private fun requestArray(method: String, path: String): JSONArray {
+        val active = connection(method, path, "application/json")
+        return try { JSONArray(readApiResponse(active)) } finally { active.disconnect() }
+    }
     private fun connection(method: String, path: String, contentType: String): HttpURLConnection = (URL(baseUrl + path).openConnection() as HttpURLConnection).apply { requestMethod = method; instanceFollowRedirects = false; connectTimeout = 15_000; readTimeout = apiReadTimeout(method, path); doInput = true; setRequestProperty("Content-Type", contentType); token?.let { setRequestProperty("Authorization", "Bearer $it") }; if (method == "POST" || method == "PUT" || method == "PATCH") doOutput = true }
     private fun readJson(connection: HttpURLConnection, authenticationRequest: Boolean = false): JSONObject = JSONObject(readApiResponse(connection, authenticationRequest))
     private fun document(value: JSONObject) = StudyDocument(value.getString("id"), value.getString("original_name"), value.getJSONArray("chapters").let { array -> (0 until array.length()).map { index -> array.getJSONObject(index).let { Chapter(it.getString("id"), it.getString("title"), it.getDouble("confidence").toFloat()) } } })
@@ -953,6 +1008,8 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         return QuizQuestion(value.getString("id"), value.getInt("ordinal"), value.getString("prompt"), options, value.getString("source_reference"))
     }
     private fun adaptiveQuestion(value: JSONObject) = DiagnosticQuestion(value.getString("prompt"), value.getJSONArray("options").strings(), "")
+    private fun guardianAccount(value: JSONObject) = GuardianAccount(value.getString("id"), value.getString("email"), value.getString("linked_at"))
+    private fun guardianAccounts(values: JSONArray) = (0 until values.length()).map { guardianAccount(values.getJSONObject(it)) }
     private fun JSONArray.toQuestionList(): List<QuizQuestion> = (0 until length()).map { question(getJSONObject(it)) }
     private fun JSONArray.strings(): List<String> = (0 until length()).map(::getString)
 }
