@@ -352,7 +352,13 @@ private fun AnswerChoice(option: String, selected: Boolean, onClick: () -> Unit)
 
 @Composable
 private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -> Unit, onSpeakingChanged: (Boolean) -> Unit) {
-    val lesson = state.tutorLesson
+    val lesson = state.tutorLesson ?: TutorLesson(
+        "Add the numerators",
+        "When fractions have the same denominator, the pieces are the same size. Keep the denominator and add only the top numbers.",
+        "3/4 + 1/4 = (3 + 1) / 4 = 4/4 = 1",
+        "Try this pattern: 2/5 + 3/5 = 5/5 = 1",
+        "What is 2/8 + 4/8?",
+    )
     var reading by remember(lesson) { mutableStateOf(false) }
     Page {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
@@ -362,19 +368,11 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -
             Text("Your answer: ${state.selectedDiagnosticAnswer ?: "Needs another look"}", color = Muted)
         }
     }
-    Header("A quick explanation", lesson?.title ?: "Add the numerators", lesson?.explanation ?: "When fractions have the same denominator, the pieces are the same size. Keep the denominator and add only the top numbers.")
     RewriteAssessmentFeedback(state)
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Worked example", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Indigo)
-            Text(lesson?.workedExample ?: "3/4 + 1/4 = (3 + 1) / 4 = 4/4 = 1", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
-            Text(lesson?.hint ?: "Try this pattern: 2/5 + 3/5 = 5/5 = 1", color = Muted)
-        }
-    }
+    LessonWalkthrough(lesson)
     TipCard("Your tutor is paying attention", if (state.coachingRound > 0) "Let’s try a different explanation and practise it once more." else "A short practice question will check that the idea clicked.")
     TutorAvatar(tutorPresence(state.loading, reading))
-    ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". ")) {
+    ReadAloudControls(listOf(lesson.title, lesson.explanation, lesson.workedExample).joinToString(". ")) {
         reading = it
         onSpeakingChanged(it)
     }

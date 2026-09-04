@@ -31,6 +31,18 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
 enum class ExplorerKind { FRACTIONS, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
+enum class LessonStage(val label: String) { CONCEPT("1. Understand"), EXAMPLE("2. Worked example"), HINT("3. Try the hint") }
+
+data class LessonStageContent(val heading: String, val body: String, val guidance: String)
+
+fun lessonStageContent(lesson: TutorLesson, stage: LessonStage): LessonStageContent = when (stage) {
+    LessonStage.CONCEPT -> LessonStageContent(lesson.title, lesson.explanation,
+        "First connect the key idea to the question you just answered.")
+    LessonStage.EXAMPLE -> LessonStageContent("Worked example", lesson.workedExample,
+        "Follow each part of the example before moving to the hint.")
+    LessonStage.HINT -> LessonStageContent("Your next step", lesson.hint,
+        "Use the hint on the practice question. This walkthrough does not submit an answer.")
+}
 
 fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "math" && chapterId == "fractions" -> ExplorerKind.FRACTIONS
@@ -70,6 +82,32 @@ val mapLineLessons = listOf(
     MapLineLesson("Coordinates", "20° N, 60° E", "Combine latitude first and longitude second to identify one location.",
         "20° N is north of the Equator; 60° E is east of the Prime Meridian."),
 )
+
+@Composable
+fun LessonWalkthrough(lesson: TutorLesson) {
+    var selected by rememberSaveable(lesson.title, lesson.explanation, lesson.workedExample, lesson.hint) {
+        mutableIntStateOf(0)
+    }
+    val stage = LessonStage.entries[selected]
+    val content = lessonStageContent(lesson, stage)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Learn it step by step", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Choose a stage. You control when the explanation advances.")
+            LessonStage.entries.forEachIndexed { index, item ->
+                OutlinedButton(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (selected == index) "Selected: ${item.label}" else item.label)
+                }
+            }
+            Text(content.heading, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(content.body, modifier = Modifier.semantics {
+                contentDescription = "${stage.label}. ${content.heading}. ${content.body}"
+            })
+            Text(content.guidance, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
 
 @Composable
 fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {

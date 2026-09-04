@@ -24,6 +24,13 @@ This is a state-driven animation and device callback check, not acoustic quality
 TalkBack-navigation, phoneme lip-sync, microphone recognition, UAT or production
 evidence. TUT-05 and TUT-06 remain partial across broader lessons and devices.
 
+Every tutor intervention now also renders a learner-controlled native walkthrough
+with separate concept, worked-example and hint stages. Specialized visual explorers
+remain available for four explicitly supported subject/chapter pairs. JVM tests
+verify that each stage maps to the matching server lesson field and that the hint
+stage explicitly discloses that exploration does not submit an answer. This is broad interaction coverage,
+not broad subject-specific animation or device/UAT evidence.
+
 ## API 36 playback lifecycle QA
 
 Command: `scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyReadAloud`.

@@ -6,6 +6,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InteractiveLessonExplorerTest {
+    private val lesson = TutorLesson("Equal-sized parts", "Keep equal denominators.",
+        "2/5 + 1/5 = 3/5", "Keep the denominator 5.", "What is 1/5 + 3/5?")
+
+    @Test fun everyTutorLessonHasThreeLearnerControlledStagesWithNonSubmissionDisclosure() {
+        assertEquals(listOf("1. Understand", "2. Worked example", "3. Try the hint"),
+            LessonStage.entries.map { it.label })
+        assertEquals("Equal-sized parts", lessonStageContent(lesson, LessonStage.CONCEPT).heading)
+        assertEquals(lesson.explanation, lessonStageContent(lesson, LessonStage.CONCEPT).body)
+        assertEquals(lesson.workedExample, lessonStageContent(lesson, LessonStage.EXAMPLE).body)
+        assertEquals(lesson.hint, lessonStageContent(lesson, LessonStage.HINT).body)
+        assertTrue(lessonStageContent(lesson, LessonStage.HINT).guidance.contains("does not submit"))
+    }
+
     @Test fun routesOnlySupportedSubjectChapterPairs() {
         assertEquals(ExplorerKind.FRACTIONS, explorerKind("math", "fractions"))
         assertEquals(ExplorerKind.CELL_ORGANELLES, explorerKind("science", "cells"))
