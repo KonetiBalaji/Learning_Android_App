@@ -16,6 +16,7 @@ Set the following through the chosen host's secret/configuration facility:
 - `LEARNING_AI_MODE=openai`
 - `OPENAI_API_KEY`: server-side secret
 - `OPENAI_MODEL`: reviewed supported model, currently `gpt-5-mini`
+- `LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY`: 1 through 100000; default 200
 
 Optional Google sign-in and throttle settings remain as documented elsewhere.
 Never place the JWT secret or provider key in Git, the Android APK, a deployment
@@ -26,14 +27,26 @@ storage, missing or malformed release revision, deterministic AI mode, or a miss
 provider key. Staging enforces explicit storage, secret and revision but permits the
 deterministic provider for pre-provider exercises. Unknown environment names fail.
 
+Provider-backed document generation, diagnostics, explanations, tutor questions,
+fresh practice and rewrite assessment share an atomic UTC-day counter per account.
+Admission happens before provider work. Replays that return an already-committed
+quiz or tutor turn do not consume another operation; provider attempts do, including
+attempts that later fail validation, because they incur cost. At the configured cap,
+the backend returns 429 with seconds-until-next-UTC-day and a fixed non-sensitive
+error code. Android shows accurate next-day guidance and preserves existing state.
+Deterministic QA does not consume this quota. Account deletion cascades its counters.
+This bounds request count, not tokens or currency; host-level spend alerts and a
+provider project budget remain production requirements.
+
 `GET /health` returns only safe deployment identity: status, environment, revision,
 provider name and model. A deployment verifier must compare its revision to the
 private APK candidate manifest and expected Git commit before testing. A healthy
 response proves process readiness only; it does not prove migrations, model quality,
 storage durability, backup/restore, TLS routing or capacity.
 
-Nine configuration tests cover the valid production profile, each required input,
-staging behavior and invalid environment names. Real production acceptance still
+Configuration and quota tests cover the valid production profile, each required
+input, invalid limits, UTC rollover, owner isolation, pre-provider rejection and
+deterministic bypass. Real production acceptance still
 requires the user-confirmed host/domain, TLS and proxy configuration, encrypted
 persistent storage, secret manager, backup/restore drill, retention decision,
-monitoring/alerts, provider quotas, rollback and UAT-approved APK.
+monitoring/alerts, provider project-budget alerts, rollback and UAT-approved APK.

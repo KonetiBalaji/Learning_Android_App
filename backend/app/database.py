@@ -33,6 +33,11 @@ CREATE TABLE IF NOT EXISTS learner_preferences (
   owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   interests_json TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ai_usage_days (
+  owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day TEXT NOT NULL, operations INTEGER NOT NULL CHECK(operations >= 0),
+  PRIMARY KEY(owner_id, day)
+);
 CREATE TABLE IF NOT EXISTS guardian_invitations (
   id TEXT PRIMARY KEY,
   learner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -18,6 +18,7 @@ fun apiFailure(status: Int, authenticationRequest: Boolean = false, recoveryCode
         status == 415 -> "This file type is not supported. Choose PDF, DOCX or plain text."
         status == 422 -> (if (authenticationRequest) null else documentRecoveryMessage(recoveryCode))
             ?: "Please check your input or selected document and try again."
+        status == 429 && recoveryCode == "daily_ai_limit" -> "You reached today's AI learning limit. Try again tomorrow. Your saved progress is unchanged."
         status == 429 -> "Too many requests. Please wait a moment before trying again."
         status >= 500 -> "The learning service is temporarily unavailable. Please try again."
         else -> "The request could not be completed. Please try again."
@@ -41,7 +42,7 @@ fun readApiResponse(connection: HttpURLConnection, authenticationRequest: Boolea
     try {
         val status = connection.responseCode
         if (status !in 200..299) {
-            val recoveryCode = if (status == 422 && !authenticationRequest)
+            val recoveryCode = if (status in setOf(422, 429) && !authenticationRequest)
                 runCatching { connection.getHeaderField("X-Learning-Error") }.getOrNull() else null
             runCatching { connection.errorStream?.close() }
             throw apiFailure(status, authenticationRequest, recoveryCode)

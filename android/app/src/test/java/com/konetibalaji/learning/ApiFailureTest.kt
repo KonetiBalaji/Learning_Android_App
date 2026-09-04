@@ -8,6 +8,16 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 class ApiFailureTest {
+    @Test fun dailyAiLimitHasAccurateRecoveryGuidance() {
+        assertEquals("You reached today's AI learning limit. Try again tomorrow. Your saved progress is unchanged.",
+            apiFailure(429, recoveryCode = "daily_ai_limit").message)
+        assertEquals("Too many requests. Please wait a moment before trying again.", apiFailure(429).message)
+        val failure = assertThrows(ApiFailure::class.java) {
+            readApiResponse(Response(429, "private quota details", recovery = "daily_ai_limit"))
+        }
+        assertTrue(failure.message!!.contains("tomorrow"))
+        assertFalse(failure.message!!.contains("private quota details"))
+    }
     private class Response(private val code: Int, body: String = "", private val broken: Boolean = false, private val recovery: String? = null) : HttpURLConnection(URL("https://example.invalid")) {
         var disconnected = false
         var closed = false
@@ -86,5 +96,6 @@ class ApiFailureTest {
         listOf(401, 403, 404, 409, 500).forEach {
             assertEquals(apiFailure(it).message, apiFailure(it, recoveryCode = "empty_pdf_pages").message)
         }
+        assertEquals(apiFailure(429).message, apiFailure(429, recoveryCode = "empty_pdf_pages").message)
     }
 }

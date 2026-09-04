@@ -47,3 +47,8 @@ runtime directory, a random JWT secret of at least 32 characters and the exact
 `../docs/production-configuration.md` for the complete gate and remaining host
 requirements. `/health` exposes the safe environment/revision identity needed to
 match a backend to a private APK candidate; it never returns secret values.
+
+Provider-backed operations are limited per authenticated account and UTC day with
+`LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY` (default 200). The counter is stored
+in the runtime database and applies before external provider work; configure
+provider-side project budgets and alerts as an independent production backstop.

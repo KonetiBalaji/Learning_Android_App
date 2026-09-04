@@ -65,7 +65,7 @@ def conversation_history(session, settings):
     return [turn_payload(row) for row in rows]
 
 
-def answer_question(session, item, request, settings, provider):
+def answer_question(session, item, request, settings, provider, before_provider=lambda: None):
     check_expected_state(session, request.expected_state)
     if session['status'] not in {'tutor', 'practice'}:
         raise HTTPException(409, 'Tutor questions are available during tutoring and practice.')
@@ -93,6 +93,13 @@ def answer_question(session, item, request, settings, provider):
                    (session['id'], request_id, token, request.question, datetime.now(timezone.utc).isoformat()))
     history = [{'question': row['question'], 'answer': safe_tutor_reply(TutorAnswer.model_validate_json(row['reply_json'])).answer}
                for row in reversed(history)]
+    try:
+        before_provider()
+    except HTTPException:
+        with connection(settings.database_path) as db:
+            db.execute("UPDATE tutor_turns SET status = 'failed' WHERE session_id = ? AND request_id = ?",
+                       (session['id'], request_id))
+        raise
     try:
         reply = safe_tutor_reply(TutorAnswer.model_validate(provider.answer_question(session['grade'], item, request.question, history)))
         with connection(settings.database_path) as db:

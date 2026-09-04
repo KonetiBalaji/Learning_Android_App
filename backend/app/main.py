@@ -79,6 +79,7 @@ from .guardian_access import (
     require_link, revoke_by_guardian, revoke_by_learner, cleanup_invitations,
 )
 from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter
+from .ai_usage import consume_ai_operation
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -424,6 +425,7 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         selected = resolve_quiz_selection(document['extracted_text'], chapters, request.chapter_ids, request.source_ranges)
         generation_ids = [chapter.id for chapter in selected]
         if settings.ai_mode == 'openai':
+            consume_ai_operation(settings, user_id)
             generated = generate_document_questions(document["extracted_text"], selected, generation_ids, request.question_count, settings, request.difficulty, request.question_type)
         elif settings.ai_mode == 'deterministic':
             if request.question_type != 'multiple_choice':
@@ -554,6 +556,7 @@ def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(cur
     if required is not None:
         raise HTTPException(status_code=403, detail=f'Complete {required} in this grade before starting this chapter')
     try:
+        consume_ai_operation(settings, user_id)
         bank = tutor_provider(settings).diagnostic_bank(request.grade, request.subject_id, request.chapter_id)
     except DiagnosticUnavailable as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -599,6 +602,7 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
     # Generate before advancing state: provider failures must leave the question retryable.
     lesson = None
     if not correct:
+        consume_ai_operation(settings, user_id)
         interests = account_profile(user_id, settings).interests
         provider = tutor_provider(settings, interests=tuple(interests)) if interests else tutor_provider(settings)
         lesson = provider.explain(session["grade"], item, request.selected_option)
@@ -637,7 +641,8 @@ def ask_tutor_question(session_id: str, request: TutorQuestionRequest, user_id: 
     if session['status'] not in {'tutor', 'practice'}:
         raise HTTPException(409, 'Tutor questions are available during tutoring and practice.')
     item = session_diagnostic_bank(session)[session['current_question']]
-    return answer_tutor_follow_up(session, item, request, settings, tutor_provider(settings))
+    return answer_tutor_follow_up(session, item, request, settings, tutor_provider(settings),
+                                  before_provider=lambda: consume_ai_operation(settings, user_id))
 
 
 @app.post("/v1/mastery/sessions/{session_id}/practice", response_model=PracticeOutcome)
@@ -652,6 +657,7 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
     next_item = None
     next_lesson = None
     if not correct and request.fresh_practice:
+        consume_ai_operation(settings, user_id)
         with connection(settings.database_path) as db:
             previous_prompts = tuple(row['prompt'] for row in db.execute(
                 "SELECT prompt FROM mastery_attempts WHERE session_id = ? AND phase = 'practice' ORDER BY created_at",
@@ -694,6 +700,7 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
     bank = session_diagnostic_bank(session)
     item = bank[session["current_question"]]
     interests = tuple(account_profile(user_id, settings).interests)
+    consume_ai_operation(settings, user_id)
     provider = tutor_provider(settings, interests)
     assessment = provider.assess_rewrite(session["grade"], item, request.response)
     if not assessment.available:
@@ -708,6 +715,7 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
         lesson = lesson.model_copy(update={"explanation": coaching})
     next_item = None
     if not understood and request.fresh_practice:
+        consume_ai_operation(settings, user_id)
         with connection(settings.database_path) as db:
             previous_prompts = tuple(row['prompt'] for row in db.execute(
                 "SELECT prompt FROM mastery_attempts WHERE session_id = ? AND phase = 'practice' ORDER BY created_at",
