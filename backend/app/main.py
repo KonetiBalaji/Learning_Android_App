@@ -570,9 +570,10 @@ def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(cur
             raise HTTPException(status_code=403, detail=f'Complete {required} in this grade before starting this chapter')
         db.execute(
             """INSERT INTO mastery_sessions
-               (id, owner_id, grade, subject_id, chapter_id, started_at, questions_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (session_id, user_id, request.grade, request.subject_id.lower(), request.chapter_id.lower(), now(), serialize_diagnostic_bank(bank)),
+               (id, owner_id, grade, subject_id, chapter_id, catalog_version, started_at, questions_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, user_id, request.grade, request.subject_id.lower(), request.chapter_id.lower(),
+             CATALOG_VERSION, now(), serialize_diagnostic_bank(bank)),
         )
     return DiagnosticSession(id=session_id, status="diagnostic", question=public_question(bank[0], 0, len(bank)),
                              state_token=mastery_state_token(dict(id=session_id, status='diagnostic', current_question=0, correct_answers=0, coaching_rounds=0)))
@@ -769,7 +770,8 @@ def mastery_session_state(session_id: str, user_id: str = Depends(current_user_i
         lesson = TutorIntervention.model_validate_json(session["tutor_json"]) if session["tutor_json"] else tutor_for(item)
     return MasterySessionState(
         state_token=mastery_state_token(session),
-        id=session_id, grade=session["grade"], subject_id=session["subject_id"], chapter_id=session["chapter_id"],
+        id=session_id, catalog_version=session['catalog_version'], grade=session["grade"],
+        subject_id=session["subject_id"], chapter_id=session["chapter_id"],
         status=session["status"], question=public_question(item, index, len(bank)) if item else None,
         tutor=lesson, selected_option=answer["response"] if answer and lesson else None,
         mastery_score=index / len(bank), coaching_rounds=session["coaching_rounds"], started_at=session["started_at"],

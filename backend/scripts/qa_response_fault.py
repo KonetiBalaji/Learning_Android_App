@@ -33,6 +33,18 @@ def install_response_fault(app):
                  serialize_diagnostic_bank(FRACTION_DIAGNOSTIC)))
         return {'fixture_state': state}
 
+    @app.post('/__qa/mastery/latest/mark-legacy-catalog')
+    def mark_latest_mastery_legacy(user_id=Depends(current_user_id), settings=Depends(get_settings)):
+        from app.database import connection
+        with connection(settings.database_path) as db:
+            row = db.execute('''SELECT id FROM mastery_sessions WHERE owner_id = ?
+                                ORDER BY started_at DESC, rowid DESC LIMIT 1''', (user_id,)).fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail='Mastery session not found')
+            db.execute("UPDATE mastery_sessions SET catalog_version = 'legacy-qa' WHERE id = ? AND owner_id = ?",
+                       (row['id'], user_id))
+        return {'session_id': row['id'], 'catalog_version': 'legacy-qa'}
+
     @app.get('/__qa/learning-path/geometry-count')
     def geometry_count(user_id=Depends(current_user_id), settings=Depends(get_settings)):
         from app.database import connection

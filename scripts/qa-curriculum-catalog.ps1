@@ -54,6 +54,21 @@ FindText $label 30 -Scroll|Out-Null
 FindText 'Social Studies' 30 -Scroll|Out-Null
 Adb shell screencap -p /sdcard/qa-curriculum-catalog.png|Out-Null
 Adb pull /sdcard/qa-curriculum-catalog.png (Join-Path $repo 'artifacts\qa-curriculum-catalog.png')|Out-Null
+TapText 'Mathematics' 30 -Scroll
+TapText 'Fractions' 30 -Scroll
+FindText 'Diagnostic quiz'|Out-Null
+$legacy=Invoke-RestMethod 'http://127.0.0.1:8000/__qa/mastery/latest/mark-legacy-catalog' -Method Post -Headers $headers
+if($legacy.catalog_version-ne'legacy-qa'){throw 'QA server did not mark the session with a legacy catalog.'}
+RestartApp
+FindText 'Your saved lesson uses an older curriculum catalog. Start a new diagnostic from the current catalog.'|Out-Null
+TapText 'Try again'
+FindText $label 30 -Scroll|Out-Null
+FindText 'Mathematics' 30 -Scroll|Out-Null
+FindAbsent 'Resume saved learning'
+$retained=Invoke-RestMethod "http://127.0.0.1:8000/v1/mastery/sessions/$($legacy.session_id)" -Headers $headers
+if($retained.catalog_version-ne'legacy-qa'){throw 'Server did not retain the legacy-catalog mastery record.'}
+Adb shell screencap -p /sdcard/qa-curriculum-catalog-migration.png|Out-Null
+Adb pull /sdcard/qa-curriculum-catalog-migration.png (Join-Path $repo 'artifacts\qa-curriculum-catalog-migration.png')|Out-Null
 Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers $headers|Out-Null
 Adb shell pm clear $package|Out-Null
-Write-Output 'PASS: API 36 loaded the versioned server catalog, exposed all four subject chapter lists, failed closed without stale grade data, recovered explicitly, and restored the recovered catalog after restart.'
+Write-Output 'PASS: API 36 loaded and recovered the server catalog, restored it after restart, and safely retired a local resume pointer for a legacy-catalog session.'

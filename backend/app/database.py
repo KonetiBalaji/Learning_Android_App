@@ -6,8 +6,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+from .learning_path import CATALOG_VERSION
 
-SCHEMA = """
+
+SCHEMA = f"""
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS auth_attempt_windows (
   client_digest TEXT PRIMARY KEY, expires_at REAL NOT NULL, attempts INTEGER NOT NULL
@@ -71,6 +73,7 @@ CREATE TABLE IF NOT EXISTS quiz_creation_requests (
 CREATE TABLE IF NOT EXISTS mastery_sessions (
   id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   grade INTEGER NOT NULL, subject_id TEXT NOT NULL, chapter_id TEXT NOT NULL,
+  catalog_version TEXT NOT NULL DEFAULT '{CATALOG_VERSION}',
   current_question INTEGER NOT NULL DEFAULT 0, correct_answers INTEGER NOT NULL DEFAULT 0,
   coaching_rounds INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'diagnostic',
   started_at TEXT NOT NULL, completed_at TEXT, questions_json TEXT NOT NULL DEFAULT ''
@@ -132,6 +135,9 @@ def initialize(path: Path) -> None:
             connection.execute("ALTER TABLE mastery_sessions ADD COLUMN questions_json TEXT NOT NULL DEFAULT ''")
         if "tutor_json" not in columns:
             connection.execute("ALTER TABLE mastery_sessions ADD COLUMN tutor_json TEXT")
+        if "catalog_version" not in columns:
+            connection.execute("ALTER TABLE mastery_sessions ADD COLUMN catalog_version TEXT NOT NULL DEFAULT ''")
+            connection.execute("UPDATE mastery_sessions SET catalog_version = ? WHERE catalog_version = ''", (CATALOG_VERSION,))
         attempt_columns = {row[1] for row in connection.execute("PRAGMA table_info(mastery_attempts)")}
         if "assessment_json" not in attempt_columns:
             connection.execute("ALTER TABLE mastery_attempts ADD COLUMN assessment_json TEXT")

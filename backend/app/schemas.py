@@ -249,6 +249,7 @@ class RewriteOutcome(BaseModel):
 class MasterySessionState(BaseModel):
     state_token: str
     id: str
+    catalog_version: str
     grade: int
     subject_id: str
     chapter_id: str

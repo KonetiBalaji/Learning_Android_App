@@ -252,6 +252,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             val resumed = api.resumeMastery(sessionId)
             preferences.edit().putString(activeFlowKey(), "mastery").apply()
             val catalog = api.catalog(resumed.grade)
+            if (resumed.catalogVersion != catalog.version) {
+                check(preferences.edit().remove(activeSessionKey()).remove(activeFlowKey()).commit())
+                mutableState.value = mutableState.value.copy(
+                    grade = resumed.grade, subject = null, masteryChapter = null,
+                    catalogVersion = catalog.version, catalogBoard = catalog.board,
+                    catalogSubjects = catalog.subjects, catalogChapters = catalog.chapters,
+                    masterySessionId = null, canResumeMastery = false, screen = Screen.Subjects,
+                )
+                throw ApiFailure(409, false,
+                    "Your saved lesson uses an older curriculum catalog. Start a new diagnostic from the current catalog.")
+            }
             val subject = catalog.subjects.firstOrNull { it.id == resumed.subjectId }
                 ?: error("The saved subject is not available in this version.")
             val chapter = catalog.chapters[subject.id]?.firstOrNull { it.id == resumed.chapterId }
@@ -947,13 +958,13 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     data class StartedDiagnostic(val id: String, val question: DiagnosticQuestion, val ordinal: Int, val total: Int)
     data class DiagnosticResult(val correct: Boolean, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int, val masteryScore: Int, val tutor: TutorLesson?)
     data class RewriteResult(val mastered: Boolean, val score: Int, val confidence: String, val coaching: String?, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int?, val assessmentPoints: Int?, val assessmentFeedback: String?, val nextLesson: TutorLesson? = null)
-    data class ResumedMastery(val grade: Int, val subjectId: String, val chapterId: String, val status: String, val question: DiagnosticQuestion?, val ordinal: Int, val total: Int, val tutor: TutorLesson?, val selected: String?, val score: Int, val coachingRounds: Int, val assessmentPoints: Int?, val assessmentFeedback: String?)
+    data class ResumedMastery(val catalogVersion: String, val grade: Int, val subjectId: String, val chapterId: String, val status: String, val question: DiagnosticQuestion?, val ordinal: Int, val total: Int, val tutor: TutorLesson?, val selected: String?, val score: Int, val coachingRounds: Int, val assessmentPoints: Int?, val assessmentFeedback: String?)
     fun resumeMastery(sessionId: String): ResumedMastery {
         val response = request("GET", "/v1/mastery/sessions/$sessionId", null)
         val question = response.optJSONObject("question")
         val tutor = response.optJSONObject("tutor")?.let { TutorLesson(it.getString("title"), it.getString("explanation"), it.getString("worked_example"), it.getString("hint"), it.getString("practice_prompt")) }
         return masterySubmissionState.accept(sessionId, response.getString("state_token")) {
-            ResumedMastery(response.getInt("grade"), response.getString("subject_id"), response.getString("chapter_id"), response.getString("status"), question?.let(::adaptiveQuestion), question?.getInt("ordinal") ?: 1, question?.getInt("total") ?: 3, tutor, if (response.isNull("selected_option")) null else response.getString("selected_option"), (response.getDouble("mastery_score") * 100).toInt(), response.getInt("coaching_rounds"), if (response.isNull("assessment_points")) null else response.getInt("assessment_points"), if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
+            ResumedMastery(response.getString("catalog_version"), response.getInt("grade"), response.getString("subject_id"), response.getString("chapter_id"), response.getString("status"), question?.let(::adaptiveQuestion), question?.getInt("ordinal") ?: 1, question?.getInt("total") ?: 3, tutor, if (response.isNull("selected_option")) null else response.getString("selected_option"), (response.getDouble("mastery_score") * 100).toInt(), response.getInt("coaching_rounds"), if (response.isNull("assessment_points")) null else response.getInt("assessment_points"), if (response.isNull("assessment_feedback")) null else response.getString("assessment_feedback"))
         }
     }
     fun startDiagnostic(grade: Int, subjectId: String, chapterId: String): StartedDiagnostic {

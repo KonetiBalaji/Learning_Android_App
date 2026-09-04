@@ -892,7 +892,12 @@ curriculum review, physical-device QA and UAT remain open.
   changed to Grade 9 under an injected one-shot 503, proved no stale Grade 8 catalog
   remained, displayed an explicit recovery action, recovered all four subjects and
   retained the recovered catalog after restart. Both success and fail-closed frames
-  were visually inspected. Backend 454 passed with one existing Windows skip;
-  Android 133 JVM tests, lint and debug assembly passed. See
+  were visually inspected. Mastery sessions now persist and return their creation
+  catalog version; legacy databases are migrated, and Android refuses to map an
+  older saved lesson into a changed catalog while retaining its server record.
+  API 36 verified that restart path, absence of the local resume action, current
+  catalog rendering and an authenticated read of the retained legacy-version server
+  session. Backend 456 passed with one existing Windows skip; Android 133 JVM tests,
+  lint and debug assembly passed. See
   `shared/contracts/curriculum-catalog.md`. This is a synchronized foundation catalog,
   not authoritative board coverage or curriculum UAT.

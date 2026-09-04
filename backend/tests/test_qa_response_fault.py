@@ -28,6 +28,10 @@ def test_learning_path_fixtures_are_owner_scoped_and_not_production_routes(monke
             assert test.post(path, params={'state': 'diagnostic'}, headers=headers).status_code == 200
             assert test.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == []
             assert test.get('/__qa/learning-path/geometry-count', headers=headers).json() == {'sessions': 0}
+            marked = test.post('/__qa/mastery/latest/mark-legacy-catalog', headers=headers)
+            assert marked.status_code == 200
+            assert marked.json()['catalog_version'] == 'legacy-qa'
+            assert test.post('/__qa/mastery/latest/mark-legacy-catalog', headers={'Authorization': f'Bearer {other}'}).status_code == 404
         assert not any(route.path.startswith('/__qa/') for route in production.app.routes)
     finally:
         client.__exit__(None, None, None)
