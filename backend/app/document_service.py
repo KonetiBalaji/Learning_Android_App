@@ -47,7 +47,7 @@ async def validate_and_store(upload: UploadFile, settings: Settings) -> tuple[Pa
     try:
         text = await asyncio.to_thread(
             extract_text_isolated, content, suffix, settings.document_parse_timeout_seconds,
-            settings.max_concurrent_document_parsers)
+            settings.max_concurrent_document_parsers, settings.database_path)
     except ParserCapacityError as error:
         busy = DocumentValidationError(DocumentErrorCode.DOCUMENT_PROCESSING_BUSY,
                                        'Document processing is busy. Retry shortly.')
@@ -192,11 +192,12 @@ def apply_parser_memory_limit() -> None:
 
 
 def extract_text_isolated(content: bytes, suffix: str, timeout_seconds: int,
-                          max_concurrent_parsers: int = 2) -> str:
+                          max_concurrent_parsers: int = 2,
+                          database_path: Path | None = None) -> str:
     """Parse untrusted content out of process and return only bounded text."""
     if suffix not in ALLOWED_SUFFIXES or not 1 <= timeout_seconds <= 120:
         raise ValueError('Invalid isolated document parsing request')
-    with parser_slot(max_concurrent_parsers):
+    with parser_slot(max_concurrent_parsers, database_path, timeout_seconds + 10):
         context = multiprocessing.get_context('spawn')
         parent, child = context.Pipe(duplex=False)
         process = context.Process(target=_bounded_extract_worker, args=(child, content, suffix), daemon=True)

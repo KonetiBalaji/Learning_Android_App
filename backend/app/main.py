@@ -384,7 +384,8 @@ def owned_pdf_pages(document_id: str, user_id: str, settings: Settings):
         pages = read_pdf_pages_isolated(Path(row['stored_path']), settings.uploads_dir,
                                         row['extracted_text'], settings.max_upload_bytes,
                                         settings.document_parse_timeout_seconds,
-                                        settings.max_concurrent_document_parsers)
+                                        settings.max_concurrent_document_parsers,
+                                        settings.database_path)
     except ParserCapacityError as error:
         busy = DocumentValidationError(DocumentErrorCode.DOCUMENT_PROCESSING_BUSY,
                                        'Document processing is busy. Retry shortly.')

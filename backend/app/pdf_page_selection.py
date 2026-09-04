@@ -58,8 +58,9 @@ def _pdf_pages_worker(pipe, content: bytes, text: str) -> None:
 
 
 def read_pdf_pages_isolated(stored: Path, uploads: Path, text: str, max_bytes: int,
-                            timeout_seconds: int, max_concurrent_parsers: int = 2) -> list[PdfPage]:
-    with parser_slot(max_concurrent_parsers):
+                            timeout_seconds: int, max_concurrent_parsers: int = 2,
+                            database_path: Path | None = None) -> list[PdfPage]:
+    with parser_slot(max_concurrent_parsers, database_path, timeout_seconds + 10):
         return _read_pdf_pages_isolated(stored, uploads, text, max_bytes, timeout_seconds)
 
 

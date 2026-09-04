@@ -1,5 +1,6 @@
 from io import BytesIO
 import asyncio
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -10,6 +11,7 @@ import pytest
 
 from app import document_service
 from app.config import Settings
+from app.database import initialize
 from app.parser_capacity import ParserCapacityError, parser_slot
 from fastapi import HTTPException, UploadFile
 
@@ -70,6 +72,53 @@ def test_parser_capacity_rejects_unsafe_limits(limit):
     with pytest.raises(ValueError, match='Concurrent parser limit'):
         with parser_slot(limit):
             pass
+
+
+@pytest.mark.parametrize('seconds', [0, 301])
+def test_parser_capacity_rejects_unsafe_lease(seconds):
+    with pytest.raises(ValueError, match='Parser lease'):
+        with parser_slot(1, lease_seconds=seconds):
+            pass
+
+
+def hold_shared_parser_slot(database_path, ready, release, lease_seconds):
+    with parser_slot(1, database_path, lease_seconds):
+        ready.set()
+        release.wait(10)
+
+
+def test_parser_capacity_is_shared_across_processes_and_recovers_crashed_lease(tmp_path):
+    database = tmp_path / 'shared.sqlite3'
+    initialize(database)
+    context = multiprocessing.get_context('spawn')
+
+    ready, release = context.Event(), context.Event()
+    process = context.Process(target=hold_shared_parser_slot,
+                              args=(database, ready, release, 30))
+    process.start()
+    assert ready.wait(10)
+    with pytest.raises(ParserCapacityError, match='capacity'):
+        with parser_slot(1, database, 30):
+            pass
+    release.set()
+    process.join(10)
+    assert process.exitcode == 0
+    with parser_slot(1, database, 30):
+        pass
+
+    crashed_ready, never_release = context.Event(), context.Event()
+    crashed = context.Process(target=hold_shared_parser_slot,
+                              args=(database, crashed_ready, never_release, 1))
+    crashed.start()
+    assert crashed_ready.wait(10)
+    crashed.terminate()
+    crashed.join(10)
+    with pytest.raises(ParserCapacityError, match='capacity'):
+        with parser_slot(1, database, 30):
+            pass
+    time.sleep(1.1)
+    with parser_slot(1, database, 30):
+        pass
 
 
 def test_busy_upload_returns_retryable_error_without_saving(tmp_path):

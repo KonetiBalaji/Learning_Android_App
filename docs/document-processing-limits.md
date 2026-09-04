@@ -40,12 +40,16 @@ memory limit, set kill-on-job-close, and assign the parser process. Failure to
 create, configure or join that job fails parsing closed. Child exceptions and parser details never cross
 the boundary. Time/output violations return stable
 `document_processing_limit` recovery guidance and save no document or upload.
-Each API process also admits at most
-`LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS` parser children (2 by default). When
-all slots are occupied, uploads and PDF page indexing fail immediately with 503,
+All API worker processes that share the runtime database jointly admit at most
+`LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS` parser children (2 by default). A
+thread-local bounded semaphore provides an immediate first guard, while atomic
+SQLite leases enforce the host-wide total across workers. Leases last ten seconds
+longer than the configured parser timeout and expired leases are removed during
+the next admission, so a terminated API worker cannot permanently consume a slot.
+When all slots are occupied, uploads and PDF page indexing fail immediately with 503,
 `X-Learning-Error: document_processing_busy`, and `Retry-After: 2`; no new upload
-or selection is saved. Operators must include the number of API processes when
-calculating the host-wide parser and memory budget.
+or selection is saved. All workers on a host must use the same runtime database
+and configured limit; separate deployments need independent host budgets.
 Original-PDF page indexing uses the same spawned-process timeout and memory helper
 when it re-extracts a stored source. A timeout returns the same fixed recovery code
 without changing the document or any saved selection.
@@ -73,5 +77,5 @@ Windows symlink-privilege skip**; Android unit tests, lint, and debug APK assemb
 pass.
 
 Remaining production controls: deeper PDF object-expansion adversarial coverage,
-reverse-proxy ingress limits, multi-process hostile-parser load tests and retained-data policy. Preflight is not
+reverse-proxy ingress limits, sustained hostile-parser load tests and retained-data policy. Preflight is not
 a complete hostile-document sandbox or proof of production readiness.
