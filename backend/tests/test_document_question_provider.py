@@ -13,6 +13,7 @@ def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text
     item = item or dict(prompt='Which structure releases usable energy for cellular work?',
         options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'], correct_index=0,
         explanation=TEXT, chapter_id='cells', first_excerpt=0, last_excerpt=0)
+    item.setdefault('concept', 'Mitochondria')
     accepted = dict(item_index=0, demand_matches=True, assumptions_supported=True,
                     citation_complete=True, explanation_correct=True)
     outputs = iter([json.dumps({'questions': [item]}),
@@ -35,6 +36,8 @@ def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text
 def test_generation_requires_grounding_and_separate_blind_review(monkeypatch):
     result, calls = run(monkeypatch)
     assert result[0].correct_option == 'Mitochondria'
+    assert result[0].chapter_id == 'cells'
+    assert result[0].concept == 'Mitochondria'
     assert f'0-{len(TEXT)}' in result[0].source_reference
     assert all(call['store'] is False for call in calls)
     assert 'server reconstructs the exact supporting quote' in calls[0]['instructions']
@@ -59,6 +62,16 @@ def test_repeated_source_text_keeps_selected_occurrence_offset(monkeypatch):
     start = len(TEXT) + 1
     assert f'{start}-{start + len(TEXT)}' in result[0].source_reference
     assert json.loads(calls[2]['input'])['questions'][0]['quote'] == TEXT
+
+
+def test_invented_concept_label_fails_closed(monkeypatch):
+    item = dict(prompt='Which structure releases usable energy for cellular work?',
+        options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'], correct_index=0,
+        explanation=TEXT, chapter_id='cells', concept='cellular respiration',
+        first_excerpt=0, last_excerpt=0)
+    with pytest.raises(provider.QuestionGenerationUnavailable) as error:
+        run(monkeypatch, item=item)
+    assert str(error.value.__cause__) == 'Ungrounded concept'
 
 
 @pytest.mark.parametrize('kind,options', [('true_false', ['True', 'False']), ('yes_no', ['Yes', 'No'])])

@@ -26,11 +26,14 @@ data class StudyDocument(val id: String, val name: String, val chapters: List<Ch
 data class QuizQuestion(val id: String, val ordinal: Int, val prompt: String, val options: List<String>, val sourceReference: String)
 data class Feedback(val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
 data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizMistake>)
+data class DocumentChapterProgress(val id: String, val title: String, val questionsAnswered: Int,
+                                   val correctAnswers: Int, val accuracy: Float?)
 data class DocumentLearningProgress(
     val quizzesCreated: Int, val quizzesCompleted: Int, val questionsAnswered: Int,
     val correctAnswers: Int, val accuracy: Float, val trend: String,
     val improvementPercentagePoints: Float?, val strongSourceAreas: List<String>,
-    val weakSourceAreas: List<String>)
+    val weakSourceAreas: List<String>, val strongestConcepts: List<String>,
+    val weakConcepts: List<String>, val chapters: List<DocumentChapterProgress>)
 data class GuardianAccount(val id: String, val email: String, val linkedAt: String)
 data class CurriculumCatalogClient(val version: String, val grade: Int, val board: String,
                                    val subjects: List<LearningSubject>, val chapters: Map<String, List<MasteryChapter>>)
@@ -936,10 +939,23 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         }
         val improvement = if (response.isNull("improvement_percentage_points")) null
             else response.getDouble("improvement_percentage_points").toFloat().also { require(it in -100f..100f) }
+        val chapters = response.getJSONArray("chapters").let { values ->
+            (0 until values.length()).map { index ->
+                val value = values.getJSONObject(index)
+                val answered = value.getInt("questions_answered").also { require(it >= 0) }
+                val correct = value.getInt("correct_answers").also { require(it in 0..answered) }
+                val chapterAccuracy = if (value.isNull("accuracy")) null else
+                    value.getDouble("accuracy").toFloat().also { require(it in 0f..1f) }
+                DocumentChapterProgress(value.getString("chapter_id").also { require(it.isNotBlank()) },
+                    value.getString("title").also { require(it.isNotBlank()) }, answered, correct, chapterAccuracy)
+            }
+        }
         return DocumentLearningProgress(nonNegative("quizzes_created"), nonNegative("quizzes_completed"),
             nonNegative("questions_answered"), nonNegative("correct_answers"), accuracy, trend, improvement,
             response.getJSONArray("strong_source_areas").strings(),
-            response.getJSONArray("weak_source_areas").strings()).also {
+            response.getJSONArray("weak_source_areas").strings(),
+            response.getJSONArray("strongest_concepts").strings(),
+            response.getJSONArray("weak_concepts").strings(), chapters).also {
                 require(it.quizzesCompleted <= it.quizzesCreated && it.correctAnswers <= it.questionsAnswered)
             }
     }

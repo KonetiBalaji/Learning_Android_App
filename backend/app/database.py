@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS questions (
   id TEXT PRIMARY KEY, quiz_id TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
   ordinal INTEGER NOT NULL, prompt TEXT NOT NULL, options_json TEXT NOT NULL,
   correct_option TEXT NOT NULL, explanation TEXT NOT NULL, source_reference TEXT NOT NULL,
-  answered_option TEXT, answered_at TEXT, UNIQUE(quiz_id, ordinal)
+  answered_option TEXT, answered_at TEXT, chapter_id TEXT, concept TEXT,
+  UNIQUE(quiz_id, ordinal)
 );
 CREATE TABLE IF NOT EXISTS pending_file_deletions (
   stored_path TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
@@ -160,6 +161,10 @@ def initialize(path: Path) -> None:
         question_columns = {row[1] for row in connection.execute("PRAGMA table_info(questions)")}
         if 'question_type' not in question_columns:
             connection.execute("ALTER TABLE questions ADD COLUMN question_type TEXT NOT NULL DEFAULT 'multiple_choice'")
+        if 'chapter_id' not in question_columns:
+            connection.execute('ALTER TABLE questions ADD COLUMN chapter_id TEXT')
+        if 'concept' not in question_columns:
+            connection.execute('ALTER TABLE questions ADD COLUMN concept TEXT')
         document_columns = {row[1] for row in connection.execute("PRAGMA table_info(documents)")}
         if 'stored_bytes' not in document_columns:
             connection.execute('ALTER TABLE documents ADD COLUMN stored_bytes INTEGER NOT NULL DEFAULT 0')

@@ -11,6 +11,22 @@ from .document_selection import resolve_chapters
 from .document_errors import DocumentErrorCode, DocumentValidationError
 
 
+NON_CONCEPT_WORDS = {
+    'chapter', 'this', 'that', 'these', 'those', 'there', 'their', 'which', 'while',
+    'when', 'where', 'with', 'from', 'into', 'through', 'under', 'outside', 'inside',
+    'other', 'many', 'what', 'have', 'has', 'help', 'helps',
+}
+
+
+def grounded_concept_term(sentence: str) -> str:
+    words = re.findall(r'[A-Za-z]{4,}', sentence)
+    substantive = [word for word in words if word.casefold() not in NON_CONCEPT_WORDS]
+    if not substantive:
+        raise DocumentValidationError(DocumentErrorCode.INSUFFICIENT_MATERIAL,
+                                      'A source sentence has no usable study term')
+    return substantive[0]
+
+
 @dataclass(frozen=True)
 class GeneratedQuestion:
     prompt: str
@@ -18,6 +34,8 @@ class GeneratedQuestion:
     correct_option: str
     explanation: str
     source_reference: str
+    chapter_id: str | None = None
+    concept: str | None = None
 
 
 def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids: list[str], count: int) -> list[GeneratedQuestion]:
@@ -41,7 +59,7 @@ def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids
     output: list[GeneratedQuestion] = []
     for position, (chapter, answer) in enumerate(unique[:count]):
         # Credential-free QA uses exact-text recall, not a fabricated semantic assessment.
-        term = max(re.findall(r'[A-Za-z]{4,}', answer), key=len)
+        term = grounded_concept_term(answer)
         distractors = list(dict.fromkeys(word for _, sentence in unique for word in re.findall(r'[A-Za-z]{4,}', sentence)
                                         if word.casefold() != term.casefold()))
         rng.shuffle(distractors)
@@ -56,6 +74,8 @@ def generate_grounded_questions(text: str, chapters: list[Chapter], selected_ids
                 correct_option=term,
                 explanation=f'The source sentence is: {answer}',
                 source_reference=f"{chapter.title} (source characters {chapter.start_character}-{chapter.end_character})",
+                chapter_id=chapter.id,
+                concept=term,
             )
         )
     if len(output) != count:

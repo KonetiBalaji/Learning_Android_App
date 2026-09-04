@@ -20,6 +20,7 @@ class QuestionFields(BaseModel):
     correct_index: int = Field(ge=0, le=3)
     explanation: str = Field(min_length=10, max_length=1200)
     chapter_id: str
+    concept: str = Field(min_length=2, max_length=100)
 
 
 class Item(QuestionFields):
@@ -67,7 +68,8 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                     'For multiple choice, provide three plausible but wrong distractors; do not use other source-supported '
                     'statements as distractors to a question about which statement is supported. For binary questions, false/no '
                     'must be contradicted by evidence, not merely absent from the source. Avoid double negatives. '
-                    'Include a helpful explanation and select first_excerpt and last_excerpt IDs '
+                    'Include a helpful explanation. Set concept to a short meaningful term or phrase copied exactly from the supporting source quote; never invent a category. '
+                    'Select first_excerpt and last_excerpt IDs '
                     'from the chosen chapter. Both endpoints are inclusive. Select the contiguous range containing '
                     'ALL evidence needed for the question and explanation, including intervening excerpts. '
                     'The server reconstructs the exact supporting quote; do not transcribe or invent quote text. '
@@ -101,6 +103,8 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                     raise ValueError('Invalid choices')
                 if item.chapter_id not in passages or item.quote not in passages[item.chapter_id]:
                     raise ValueError('Ungrounded quote')
+                if item.concept.strip().casefold() not in item.quote.casefold():
+                    raise ValueError('Ungrounded concept')
                 prompt = item.prompt.strip().casefold()
                 if prompt in prompts:
                     raise ValueError('Duplicate question')
@@ -128,8 +132,10 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
             options = list(item.options)
             if question_type == 'multiple_choice':
                 random.SystemRandom().shuffle(options)
-            result.append(GeneratedQuestion(item.prompt, options, item.options[item.correct_index],
-                          item.explanation, f'{chapter.title} (source characters {start}-{start + len(item.quote)})'))
+            result.append(GeneratedQuestion(prompt=item.prompt, options=options,
+                          correct_option=item.options[item.correct_index], explanation=item.explanation,
+                          source_reference=f'{chapter.title} (source characters {start}-{start + len(item.quote)})',
+                          chapter_id=item.chapter_id, concept=item.concept.strip()))
         return result
     except Exception as error:
         raise QuestionGenerationUnavailable('Question generation or validation unavailable') from error

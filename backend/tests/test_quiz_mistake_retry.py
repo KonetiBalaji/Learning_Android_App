@@ -45,6 +45,11 @@ def test_retry_mistakes_is_owned_idempotent_and_copies_only_incorrect(monkeypatc
         with connection(get_settings().database_path) as db:
             assert db.execute('SELECT COUNT(*) FROM quiz_retry_requests').fetchone()[0] == 1
             assert db.execute('SELECT COUNT(*) FROM quizzes').fetchone()[0] == 2
+            original_attribution = db.execute('SELECT chapter_id, concept FROM questions WHERE id = ?',
+                                              (first['id'],)).fetchone()
+            retry_attribution = db.execute('SELECT chapter_id, concept FROM questions WHERE quiz_id = ?',
+                                           (retry.json()['id'],)).fetchone()
+            assert tuple(retry_attribution) == tuple(original_attribution)
 
         other = client.post('/v1/auth/register', json={
             'email': 'retry-other@example.com', 'password': 'long-enough-password'}).json()

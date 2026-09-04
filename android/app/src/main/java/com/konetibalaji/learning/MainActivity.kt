@@ -781,8 +781,15 @@ private fun DocumentChaptersScreen(state: AppUiState, onSelect: (String) -> Unit
                         else -> "Complete two quizzes to see your improvement trend"
                     }
                     Text(trendText, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    progress.weakSourceAreas.firstOrNull()?.let { Text("Review next: $it") }
-                    progress.strongSourceAreas.firstOrNull()?.let { Text("Strong source area: $it") }
+                    if (progress.chapters.isNotEmpty()) {
+                        Text("Chapter accuracy", fontWeight = FontWeight.SemiBold)
+                        progress.chapters.forEach { chapter ->
+                            Text(if (chapter.accuracy == null) "${chapter.title} • Not started"
+                                else "${chapter.title} • ${(chapter.accuracy * 100).toInt()}% accuracy from ${chapter.questionsAnswered} answers")
+                        }
+                    }
+                    (progress.weakConcepts.firstOrNull() ?: progress.weakSourceAreas.firstOrNull())?.let { Text("Review next: $it") }
+                    (progress.strongestConcepts.firstOrNull() ?: progress.strongSourceAreas.firstOrNull())?.let { Text("Strongest concept: $it") }
                 }
             }
         }

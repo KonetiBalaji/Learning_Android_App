@@ -169,6 +169,14 @@ class DocumentQuizAttempt(BaseModel):
     retry_of: str | None = None
 
 
+class DocumentChapterProgress(BaseModel):
+    chapter_id: str
+    title: str
+    questions_answered: int
+    correct_answers: int
+    accuracy: float | None
+
+
 class DocumentLearningProgress(BaseModel):
     document_id: str
     quizzes_created: int
@@ -180,6 +188,9 @@ class DocumentLearningProgress(BaseModel):
     improvement_percentage_points: float | None
     strong_source_areas: list[str]
     weak_source_areas: list[str]
+    strongest_concepts: list[str]
+    weak_concepts: list[str]
+    chapters: list[DocumentChapterProgress]
     attempts: list[DocumentQuizAttempt]
 
 

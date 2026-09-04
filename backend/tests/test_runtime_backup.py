@@ -32,7 +32,11 @@ def runtime(tmp_path):
             (str(live), live.stat().st_size))
         db.execute("INSERT INTO pending_file_deletions VALUES (?, 2, 'filesystem_error')", (str(deleted),))
         db.execute("INSERT INTO quizzes (id,document_id,owner_id,title,created_at) VALUES ('quiz','document','owner','Quiz','2026-09-03')")
-        db.execute("INSERT INTO questions VALUES ('question','quiz',0,'Prompt','{}','A','Explanation','source', 'B','2026-09-03','multiple_choice')")
+        db.execute("""INSERT INTO questions
+            (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation,
+             source_reference, answered_option, answered_at, question_type)
+            VALUES ('question','quiz',0,'Prompt','{}','A','Explanation','source',
+                    'B','2026-09-03','multiple_choice')""")
         db.execute("INSERT INTO quiz_creation_requests VALUES ('owner','request','fingerprint','quiz')")
         db.execute("INSERT INTO mastery_sessions (id,owner_id,grade,subject_id,chapter_id,status,tutor_json,questions_json,started_at) VALUES ('session','owner',8,'math','fractions','rewrite','{}','[]','2026-09-03')")
         db.execute("INSERT INTO mastery_attempts VALUES ('attempt','session','practice','question','answer',1,'Adding like fractions','2026-09-03',NULL)")

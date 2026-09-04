@@ -71,6 +71,7 @@ from .schemas import (
     DocumentQuizState,
     DocumentLearningProgress,
     DocumentQuizAttempt,
+    DocumentChapterProgress,
     CurriculumCatalog,
     WeakAreaEvidence,
 )
@@ -381,8 +382,9 @@ def document_summary(document_id: str, user_id: str = Depends(current_user_id), 
 def document_learning_progress(document_id: str, user_id: str = Depends(current_user_id),
                                settings: Settings = Depends(get_settings)) -> DocumentLearningProgress:
     with connection(settings.database_path) as db:
-        if db.execute('SELECT 1 FROM documents WHERE id = ? AND owner_id = ?',
-                      (document_id, user_id)).fetchone() is None:
+        document = db.execute('SELECT chapters_json FROM documents WHERE id = ? AND owner_id = ?',
+                              (document_id, user_id)).fetchone()
+        if document is None:
             raise HTTPException(status_code=404, detail='Document not found')
         rows = db.execute('''SELECT quizzes.id, quizzes.created_at, quizzes.completed_at,
                 COUNT(questions.id) AS total,
@@ -401,6 +403,20 @@ def document_learning_progress(document_id: str, user_id: str = Depends(current_
             FROM questions JOIN quizzes ON quizzes.id = questions.quiz_id
             WHERE quizzes.document_id = ? AND quizzes.owner_id = ? AND questions.answered_option IS NOT NULL
             GROUP BY questions.source_reference''', (document_id, user_id)).fetchall()
+        chapter_rows = db.execute('''SELECT questions.chapter_id,
+                COUNT(*) AS answered,
+                SUM(CASE WHEN questions.answered_option = questions.correct_option THEN 1 ELSE 0 END) AS correct
+            FROM questions JOIN quizzes ON quizzes.id = questions.quiz_id
+            WHERE quizzes.document_id = ? AND quizzes.owner_id = ?
+              AND questions.answered_option IS NOT NULL AND questions.chapter_id IS NOT NULL
+            GROUP BY questions.chapter_id''', (document_id, user_id)).fetchall()
+        concept_rows = db.execute('''SELECT questions.concept,
+                COUNT(*) AS answered,
+                SUM(CASE WHEN questions.answered_option = questions.correct_option THEN 1 ELSE 0 END) AS correct
+            FROM questions JOIN quizzes ON quizzes.id = questions.quiz_id
+            WHERE quizzes.document_id = ? AND quizzes.owner_id = ?
+              AND questions.answered_option IS NOT NULL AND questions.concept IS NOT NULL
+            GROUP BY questions.concept''', (document_id, user_id)).fetchall()
     retry_of = {row['retry_quiz_id']: row['source_quiz_id'] for row in retry_rows}
     attempts = []
     for row in rows:
@@ -420,6 +436,19 @@ def document_learning_progress(document_id: str, user_id: str = Depends(current_
              else 'declining' if improvement < -0.05 else 'steady')
     strongest = sorted(source_rows, key=lambda row: (-row['correct'], row['incorrect'], row['source_reference']))
     weakest = sorted(source_rows, key=lambda row: (-row['incorrect'], row['correct'], row['source_reference']))
+    chapter_evidence = {row['chapter_id']: row for row in chapter_rows}
+    chapter_models = []
+    for chapter in [Chapter.model_validate(value) for value in parse_json(document['chapters_json'])]:
+        evidence = chapter_evidence.get(chapter.id)
+        answered = evidence['answered'] if evidence else 0
+        correct = evidence['correct'] if evidence else 0
+        chapter_models.append(DocumentChapterProgress(chapter_id=chapter.id, title=chapter.title,
+            questions_answered=answered, correct_answers=correct,
+            accuracy=(correct / answered if answered else None)))
+    strongest_concepts = sorted(concept_rows,
+        key=lambda row: (-(row['correct'] / row['answered']), -row['answered'], row['concept'].casefold()))
+    weakest_concepts = sorted(concept_rows,
+        key=lambda row: ((row['correct'] / row['answered']), -row['answered'], row['concept'].casefold()))
     return DocumentLearningProgress(document_id=document_id, quizzes_created=len(attempts),
         quizzes_completed=len(completed), questions_answered=answered_total,
         correct_answers=correct_total,
@@ -427,6 +456,9 @@ def document_learning_progress(document_id: str, user_id: str = Depends(current_
         improvement_percentage_points=improvement,
         strong_source_areas=[row['source_reference'] for row in strongest if row['correct'] > 0][:3],
         weak_source_areas=[row['source_reference'] for row in weakest if row['incorrect'] > 0][:3],
+        strongest_concepts=[row['concept'] for row in strongest_concepts if row['correct'] > 0][:3],
+        weak_concepts=[row['concept'] for row in weakest_concepts if row['correct'] < row['answered']][:3],
+        chapters=chapter_models,
         attempts=attempts)
 
 
@@ -586,11 +618,19 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         saved_ranges = sorted((part.model_dump() for part in request.source_ranges),
             key=lambda part: (part['start_character'], part['end_character'])) if request.source_ranges else None
         db.execute("INSERT INTO quizzes (id, document_id, owner_id, title, created_at, difficulty, question_type, source_ranges_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (quiz_id, document_id, user_id, f"Quiz: {document['original_name']}", now(), request.difficulty, request.question_type, json_value(saved_ranges) if saved_ranges else None))
+        selected_by_id = {chapter.id: chapter for chapter in selected}
+        source_chapters = [Chapter.model_validate(item) for item in parse_json(document['chapters_json'])]
         for ordinal, question in enumerate(generated, start=1):
+            generated_chapter = selected_by_id.get(question.chapter_id)
+            matches = [chapter for chapter in source_chapters if generated_chapter is not None
+                       and chapter.start_character <= generated_chapter.start_character
+                       and generated_chapter.end_character <= chapter.end_character]
+            source_chapter_id = matches[0].id if len(matches) == 1 else None
             db.execute(
-                """INSERT INTO questions (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation, source_reference, question_type)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (question_id(), quiz_id, ordinal, question.prompt, json_value(question.options), question.correct_option, question.explanation, question.source_reference, request.question_type),
+                """INSERT INTO questions (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation, source_reference, question_type, chapter_id, concept)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (question_id(), quiz_id, ordinal, question.prompt, json_value(question.options), question.correct_option,
+                 question.explanation, question.source_reference, request.question_type, source_chapter_id, question.concept),
             )
         first = db.execute("SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal LIMIT 1", (quiz_id,)).fetchone()
         if request_id is not None:
@@ -722,10 +762,10 @@ def retry_quiz_mistakes(quiz_id: str, request: RetryMistakesRequest,
         for ordinal, question in enumerate(mistakes, start=1):
             db.execute('''INSERT INTO questions
                 (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation,
-                 source_reference, question_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                 source_reference, question_type, chapter_id, concept) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (question_id(), retry_id, ordinal, question['prompt'], question['options_json'],
                  question['correct_option'], question['explanation'], question['source_reference'],
-                 question['question_type']))
+                 question['question_type'], question['chapter_id'], question['concept']))
         db.execute('''INSERT INTO quiz_retry_requests
             (owner_id, source_quiz_id, request_id, retry_quiz_id) VALUES (?, ?, ?, ?)''',
             (user_id, quiz_id, request_id, retry_id))
