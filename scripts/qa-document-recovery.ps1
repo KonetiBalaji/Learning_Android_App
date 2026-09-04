@@ -1,9 +1,10 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure, [switch]$VerifyResultActions)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure, [switch]$VerifyResultActions, [switch]$VerifyDocumentProgress)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
 if ($VerifySavedUploadFailure) { $VerifyUploadProgress = $true }
+if ($VerifyDocumentProgress) { $VerifyResultActions = $true }
 if ($VerifyUploadProgress -and ($VerifyLibrary -or $VerifyMultiChapter -or $VerifyQuestionCount -or $VerifyDifficulty -or $VerifyQuestionType -or $BinaryFixtureType -or $VerifyCreationRetry -or $VerifyStructureRepair -or $VerifyPreview -or $VerifyExcerpts -or $VerifySourceSearch -or $VerifyPdfPages)) { throw 'Upload progress QA is a standalone check' }
 if ($VerifySourceSearch) { $VerifyExcerpts = $true }
 $fixtureName = if ($VerifyPdfPages) { 'page-boundary-fixture.pdf' } elseif ($VerifyPreview -or $VerifyExcerpts) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
@@ -636,6 +637,28 @@ if ($VerifyResultActions) {
     TapText 'Increase to Medium'
     TextNode 'Choose chapters' | Out-Null
     TextNode 'Medium · apply a principle' | Out-Null
+    if ($VerifyDocumentProgress) {
+        $progress = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/progress" -Headers $headers
+        if ($progress.quizzes_created -ne 3 -or $progress.quizzes_completed -ne 3) { throw 'Document progress omitted completed quiz attempts' }
+        if ($progress.questions_answered -ne ($expectedCount + $mistakes.Count + 10)) { throw 'Document progress answer total is incorrect' }
+        if (@($progress.attempts | Where-Object { -not $_.complete -or -not $_.completed_at }).Count -ne 0) { throw 'Completed attempt history lacks completion evidence' }
+        $retryAttempt = $progress.attempts | Where-Object quiz_id -eq $retryQuizId | Select-Object -First 1
+        if (-not $retryAttempt -or $retryAttempt.retry_of -ne $quizId) { throw 'Retry attempt provenance is missing from document history' }
+        $accuracyPercent = [int][Math]::Truncate([double]$progress.accuracy * 100)
+        TextNode "$($progress.quizzes_completed) completed quizzes • $($progress.questions_answered) answers • $accuracyPercent% accuracy" | Out-Null
+        $trendText = switch ($progress.trend) {
+            'improving' { "Improving by $([int]$progress.improvement_percentage_points) percentage points since your previous completed quiz" }
+            'declining' { "Down $([Math]::Abs([int]$progress.improvement_percentage_points)) percentage points since your previous completed quiz" }
+            'steady' { 'Accuracy is steady since your previous completed quiz' }
+            default { throw 'Three completed attempts produced no document improvement trend' }
+        }
+        TextNode $trendText | Out-Null
+        if (@($progress.weak_source_areas).Count -gt 0) { TextNode "Review next: $($progress.weak_source_areas[0])" | Out-Null }
+        if (@($progress.strong_source_areas).Count -gt 0) { TextNode "Strong source area: $($progress.strong_source_areas[0])" | Out-Null }
+        Adb shell screencap -p /sdcard/qa-document-progress.png | Out-Null
+        Adb pull /sdcard/qa-document-progress.png (Join-Path $repo 'artifacts\qa-document-progress.png') | Out-Null
+        Write-Output 'PASS: Android displays owner-scoped per-document totals, source areas and multi-attempt improvement evidence'
+    }
     [xml]$difficultyPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     if (($difficultyPreferences.map.ChildNodes | Where-Object name -eq "document_difficulty:$qaEmail").InnerText -ne 'medium') { throw 'Increased difficulty was not persisted' }
     Adb shell screencap -p /sdcard/qa-document-increased-difficulty.png | Out-Null
