@@ -2,20 +2,23 @@
 
 ## Accessible animated teacher QA
 
-On 2026-09-04 the tutor lesson and conversation screens gained a native vector
-teacher presence. Its visible and accessibility states are derived from actual
-request and TTS lifecycle state: ready, thinking and speaking. The lesson avatar
-is adjacent to the read-aloud controls so the learner can see its mouth movement
-while listening; it does not claim phoneme-level lip synchronization. The TTS
-pace is set to 0.8 for a clearer teaching cadence and readiness now also requires
-the device engine to accept that rate.
+On 2026-09-04 every app screen gained a persistent teacher status bar, including
+a signed-out explanation before account creation. Its visible and accessibility
+states are derived from actual request and TTS lifecycle state: ready, thinking
+and speaking. Tutor lesson and conversation screens also show a larger native
+vector teacher; the lesson avatar is adjacent to the read-aloud controls so the
+learner can see its mouth movement while listening. It does not claim phoneme-level
+lip synchronization. The TTS pace is set to 0.8 for a clearer teaching cadence
+and readiness now also requires the device engine to accept that rate.
 
 `scripts/qa-mastery-resume.ps1 -ResetTestAppData -ExpectRubricFeedback
--VerifyReadAloud` passed on the dedicated API 36 AVD. It verified ready/speaking
-rendering, real TTS callbacks, background cancellation, no automatic resume,
-explicit restart/stop and completion. Speaking and ready frames were visually
-inspected. Android unit tests, lint and debug assembly passed; 124 JVM tests
-include ready/speaking/thinking state precedence and the bounded speech rate.
+-VerifyReadAloud` passed on the dedicated API 36 AVD. It verified the persistent
+bar while signed out and across grade, subject, diagnostic and tutor navigation,
+then ready/speaking rendering, real TTS callbacks, background cancellation, no
+automatic resume, explicit restart/stop and completion. Speaking and ready frames
+were visually inspected, including correction of an initial status-bar overlap.
+Android unit tests, lint and debug assembly passed; 124 JVM tests include
+ready/speaking/thinking state precedence and the bounded speech rate.
 
 This is a state-driven animation and device callback check, not acoustic quality,
 TalkBack-navigation, phoneme lip-sync, microphone recognition, UAT or production

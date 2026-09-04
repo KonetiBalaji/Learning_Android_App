@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -57,6 +58,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -108,6 +110,10 @@ fun learningColorScheme(dark: Boolean) = if (dark) {
 @Composable
 private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var teacherSpeaking by remember { mutableStateOf(false) }
+    LaunchedEffect(state.screen) {
+        if (state.screen !in setOf(Screen.Tutor, Screen.TutorChat)) teacherSpeaking = false
+    }
     val colors = learningColorScheme(state.darkMode)
     val activity = LocalActivity.current
     SideEffect {
@@ -120,7 +126,10 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
     }
     MaterialTheme(colorScheme = colors) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
+                topBar = { PersistentTeacherBar(tutorPresence(state.loading, teacherSpeaking), state.accountEmail.isNotBlank()) },
+            ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     when (state.screen) {
                         Screen.SignIn -> SignInScreen(state.loading, viewModel::authenticate) {
@@ -130,8 +139,8 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Subjects -> SubjectsScreen(state, viewModel::selectSubject, viewModel::openParentDashboard, viewModel::startDocumentStudy, viewModel::openSettings, viewModel::resumeLearning, viewModel::resumeDocumentQuiz)
                         Screen.MasteryChapters -> ChapterScreen(state, viewModel::selectMasteryChapter, viewModel::backToSubjects, viewModel::refreshProgress)
                         Screen.Diagnostic -> DiagnosticScreen(state, viewModel::selectDiagnosticAnswer, viewModel::submitDiagnostic)
-                        Screen.Tutor -> TutorScreen(state, viewModel::startPractice, viewModel::openTutorConversation)
-                        Screen.TutorChat -> TutorConversationScreen(state, viewModel::changeTutorQuestion, viewModel::sendTutorQuestion, viewModel::backFromTutorConversation)
+                        Screen.Tutor -> TutorScreen(state, viewModel::startPractice, viewModel::openTutorConversation) { teacherSpeaking = it }
+                        Screen.TutorChat -> TutorConversationScreen(state, viewModel::changeTutorQuestion, viewModel::sendTutorQuestion, viewModel::backFromTutorConversation) { teacherSpeaking = it }
                         Screen.Practice -> PracticeScreen(state, viewModel::showHint, viewModel::checkPractice, viewModel::moveToRewrite)
                         Screen.Rewrite -> RewriteScreen(state, viewModel::updateRewrite, viewModel::submitRewrite)
                         Screen.Mastery -> MasteryScreen(state, viewModel::continueFromMastery)
@@ -151,6 +160,41 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
             }
         }
         state.error?.let { ErrorDialog(it, viewModel::clearError) }
+    }
+}
+
+@Composable
+private fun PersistentTeacherBar(presence: TutorPresence, signedIn: Boolean) {
+    val description = if (!signedIn) "AI teacher available after sign in" else when (presence) {
+        TutorPresence.READY -> "AI teacher ready"
+        TutorPresence.THINKING -> "AI teacher is thinking"
+        TutorPresence.SPEAKING -> "AI teacher is speaking"
+    }
+    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 3.dp) {
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 52.dp).padding(horizontal = 20.dp, vertical = 8.dp)
+                .semantics { contentDescription = description },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(50), modifier = Modifier.size(36.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
+                }
+            }
+            Text(
+                if (!signedIn) "AI Teacher • Sign in to begin" else when (presence) {
+                    TutorPresence.READY -> "AI Teacher • Ready"
+                    TutorPresence.THINKING -> "AI Teacher • Thinking"
+                    TutorPresence.SPEAKING -> "AI Teacher • Speaking"
+                },
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Spacer(Modifier.weight(1f))
+            if (presence == TutorPresence.THINKING) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        }
     }
 }
 
@@ -273,7 +317,7 @@ private fun AnswerChoice(option: String, selected: Boolean, onClick: () -> Unit)
 ) { Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { RadioButton(selected, null); Spacer(Modifier.width(12.dp)); Text(option, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface) } }
 
 @Composable
-private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -> Unit) {
+private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -> Unit, onSpeakingChanged: (Boolean) -> Unit) {
     val lesson = state.tutorLesson
     var reading by remember(lesson) { mutableStateOf(false) }
     Page {
@@ -296,7 +340,10 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -
     }
     TipCard("Your tutor is paying attention", if (state.coachingRound > 0) "Let’s try a different explanation and practise it once more." else "A short practice question will check that the idea clicked.")
     TutorAvatar(tutorPresence(state.loading, reading))
-    ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". ")) { reading = it }
+    ReadAloudControls(listOfNotNull(lesson?.title, lesson?.explanation, lesson?.workedExample).joinToString(". ")) {
+        reading = it
+        onSpeakingChanged(it)
+    }
     OutlinedButton(onClick = onAsk, modifier = Modifier.fillMaxWidth()) { Text("Ask the tutor a question") }
     if (state.subject?.id == "math" && state.masteryChapter?.id == "fractions") FractionExplorer()
     PrimaryButton("I understand — practise now", onClick = onUnderstand)
@@ -304,7 +351,7 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -
 }
 
 @Composable
-private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Unit, onSend: () -> Unit, onBack: () -> Unit) {
+private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Unit, onSend: () -> Unit, onBack: () -> Unit, onSpeakingChanged: (Boolean) -> Unit) {
     var reading by remember(state.masterySessionId) { mutableStateOf(false) }
     Page {
     BackHandler(enabled = !state.loading, onBack = onBack)
@@ -331,7 +378,10 @@ private fun TutorConversationScreen(state: AppUiState, onChange: (String) -> Uni
         } }
     }
     state.tutorTurns.lastOrNull { it.status == "complete" }?.answer?.let { answer ->
-        ReadAloudControls(answer) { reading = it }
+        ReadAloudControls(answer) {
+            reading = it
+            onSpeakingChanged(it)
+        }
     }
     if (state.pendingTutorQuestion == null) {
         OutlinedTextField(state.tutorQuestion, onChange, modifier = Modifier.fillMaxWidth(), label = { Text("My question (up to 1000 characters)") })

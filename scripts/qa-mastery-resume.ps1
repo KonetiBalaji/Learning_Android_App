@@ -109,12 +109,15 @@ if ($VerifyTutorConversation -and ($health.ai_provider -ne 'scripted-qa' -or $Ve
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
+DescriptionNode 'AI teacher available after sign in' | Out-Null
 TapText 'New student? Create a private account'
 $qaEmail = "resume-" + [Guid]::NewGuid().ToString('N') + '@example.com'
 EnterField 0 $qaEmail
 EnterField 1 'qa-password-long-enough'
 TapText 'Create account'
+DescriptionNode 'AI teacher ready' | Out-Null
 TapText "Grade`n8"
+DescriptionNode 'AI teacher ready' | Out-Null
 TextNode 'No assessment yet' | Out-Null
 TapText 'Mathematics'
 if ($VerifyUnlocks) {
@@ -156,6 +159,7 @@ if ($VerifyUnlocks) {
 }
 TapText 'Fractions'
 TextNode 'Question 1 of 3' | Out-Null
+DescriptionNode 'AI teacher ready' | Out-Null
 if ($VerifyStudyTime) {
     $timeLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
     $timeHeaders = @{Authorization="Bearer $($timeLogin.access_token)"}
@@ -262,6 +266,7 @@ if ($VerifyReadAloud) {
         throw 'Speech engine not ready; cannot verify playback lifecycle on this device.'
     }
     TapText 'Read explanation aloud'
+    DescriptionNode 'AI teacher is speaking' | Out-Null
     Adb shell screencap -p /sdcard/qa-ai-teacher-speaking.png | Out-Null
     Adb pull /sdcard/qa-ai-teacher-speaking.png (Join-Path $repo 'artifacts\qa-ai-teacher-speaking.png') | Out-Null
     Adb shell input keyevent 3 | Out-Null
