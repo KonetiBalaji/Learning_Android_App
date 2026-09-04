@@ -44,6 +44,11 @@ The entries below identify actual source-informed adaptations made afterward.
   0 for keyword list, irrelevant response and instruction injection.
 - Dataset: `backend/evals/rewrite-fractions.json`. These are development regression
   cases about like fractions, not held-out evaluations or Grade 8 board coverage.
+- Follow-up cross-subject evaluation adds twelve held-out Science, English and
+  Geography cases. Two live 20-case runs passed all predeclared ranges. The first
+  exposed ungrounded extra guidance in full-credit comments; learner-visible
+  feedback was made server-owned for every score, and the second passed 20/20 with
+  that boundary verified. See `docs/rewrite-cross-subject-evaluation.md`.
 - Android: points and feedback are shown after grading and recovered from the
   persisted assessment on resume. Device checks use a visibly scripted QA
   evaluator; they do not count as live-model evaluation.

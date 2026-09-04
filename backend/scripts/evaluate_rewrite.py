@@ -6,6 +6,7 @@ Exit 1 if any score misses its expected range. Not a calibrated quality benchmar
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 import json
 from pathlib import Path
 import sys
@@ -26,13 +27,20 @@ def main():
     settings = get_settings()
     if not settings.openai_api_key:
         raise SystemExit("No server API key configured")
-    cases = json.loads((Path(__file__).resolve().parents[1] / "evals/rewrite-fractions.json").read_text(encoding="utf-8"))
+    eval_dir = Path(__file__).resolve().parents[1] / "evals"
+    cases = []
+    for name in ('rewrite-fractions.json', 'rewrite-cross-subject.json'):
+        cases.extend(json.loads((eval_dir / name).read_text(encoding="utf-8")))
 
     def evaluate(case):
         try:
             provider = OpenAITutorProvider(settings.openai_api_key, settings.openai_model)
-            assessment = provider.assess_rewrite(8, FRACTION_DIAGNOSTIC[0], case["response"])
-            passed = assessment.score is not None and case["min_score"] <= assessment.score <= case["max_score"]
+            item = replace(FRACTION_DIAGNOSTIC[0], **case.get('item', {}))
+            assessment = provider.assess_rewrite(8, item, case["response"])
+            expected_feedback = ("You explained the concept correctly and applied it to the question."
+                                 if assessment.score == 4 else None)
+            passed = (assessment.score is not None and case["min_score"] <= assessment.score <= case["max_score"]
+                      and (expected_feedback is None or assessment.feedback == expected_feedback))
             return {"id": case["id"], "passed": passed, "score": assessment.score, "feedback": assessment.feedback}
         except Exception as error:
             # Do not print provider exceptions: they may contain request details.

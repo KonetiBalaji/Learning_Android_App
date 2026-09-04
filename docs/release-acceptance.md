@@ -93,7 +93,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
-| TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
+| TUT-04 | Written explanation assessment | QA verified | Strict four-point rubric, server-owned feedback, persistence/failure tests and two 20/20 live synthetic runs across Math, Science, English and Geography cover false-pass patterns; calibration, educator review and UAT remain |
 | TUT-05 | Interactive examples and visible AI teacher | Partial | Math Fractions plus Grade 8 Science Cells, English Grammar and Social Geography have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversation, read-aloud lifecycle/animation and voice-input cancel/unavailable recovery are API 36 verified; successful microphone transcription, acoustic quality, TalkBack, physical device and UAT remain |
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
@@ -552,6 +552,13 @@ curriculum review, physical-device QA and UAT remain open.
   ASM-01 to QA verified; tokenless legacy clients, simultaneous provider-work
   coalescing, physical-device and UAT gates remain. See
   `docs/adaptive-submission-preconditions.md`.
+- Cross-subject rewrite evaluation added twelve held-out Science, English and
+  Geography cases to the eight-case Fractions regression. A first 20/20 live scoring
+  run exposed extra model-authored facts in full-credit comments; all learner-visible
+  score feedback is now server-owned, and a second `gpt-5-mini` run passed 20/20
+  while verifying the fixed score-4 confirmation. This advances TUT-04 to QA
+  verified, not calibrated accuracy, curriculum approval or UAT. See
+  `docs/rewrite-cross-subject-evaluation.md`.
 - Progress account-isolation QA: the extended `scripts/qa-account-switch.ps1`
   scenario created two synthetic accounts, seeded assessed progress only for the
   first, verified the second displayed no assessment rather than leaked progress,

@@ -27,10 +27,14 @@ RETRY_HINTS = {
     2: "You have part of the idea. Explain the missing relationship and show one step using the question.",
     3: "You described the concept. Apply it to the given question or worked example and explain why your result follows.",
 }
+FULL_CREDIT_FEEDBACK = "You explained the concept correctly and applied it to the question."
 
 
 def learner_feedback(result: GradeResult) -> str:
-    return result.comment if result.score == FULL_MARKS else RETRY_HINTS[result.score]
+    # The score is schema-constrained, but an unchecked model comment can still
+    # add facts outside the supplied lesson. Keep every learner-visible message
+    # server-owned; the model comment is not persisted or displayed.
+    return FULL_CREDIT_FEEDBACK if result.score == FULL_MARKS else RETRY_HINTS[result.score]
 
 
 class GradeResult(BaseModel):

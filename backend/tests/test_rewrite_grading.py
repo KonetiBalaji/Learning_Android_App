@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.mastery_service import FRACTION_DIAGNOSTIC
-from app.rewrite_grading import GradeResult, grading_prompts, learner_feedback
+from app.rewrite_grading import FULL_CREDIT_FEEDBACK, GradeResult, grading_prompts, learner_feedback
 from app.tutor_provider import OpenAITutorProvider, RewriteAssessment
 from test_mastery_loop import registered_client
 
@@ -43,6 +43,12 @@ def test_incomplete_feedback_never_relays_model_solution_leak(score):
     assert feedback
 
 
+def test_full_credit_feedback_cannot_add_unverified_model_facts():
+    leaked = GradeResult(score=4, comment="Correct. Also teach this unrelated unsupported fact.")
+    assert learner_feedback(leaked) == FULL_CREDIT_FEEDBACK
+    assert "unsupported" not in learner_feedback(leaked)
+
+
 @pytest.mark.parametrize("points,understood", [(0, False), (2, False), (3, False), (4, True)])
 def test_provider_uses_pinned_grading_contract(points, understood):
     provider = OpenAITutorProvider("unused-test-key", "test-model")
@@ -56,7 +62,8 @@ def test_provider_uses_pinned_grading_contract(points, understood):
     result = provider.assess_rewrite(8, FRACTION_DIAGNOSTIC[0], "My explanation")
     assert result.understood == understood
     assert result.score == points
-    assert result.feedback
+    assert result.feedback == (FULL_CREDIT_FEEDBACK if points == 4 else learner_feedback(GradeResult(
+        score=points, comment="Explain the role of the denominator.")))
     assert captured["store"] is False
     schema = captured["text"]["format"]
     assert schema["strict"] is True
