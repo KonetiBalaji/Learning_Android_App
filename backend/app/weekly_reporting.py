@@ -3,6 +3,10 @@ from datetime import UTC, datetime, timedelta
 
 from .schemas import WeeklyReport
 
+MIN_READINESS_RESPONSES = 10
+MIN_READINESS_CHAPTERS = 2
+INDEPENDENT_ASSESSMENT_PHASES = frozenset({'diagnostic', 'rewrite'})
+
 
 def utc_timestamp(value: str | None) -> datetime | None:
     if not value:
@@ -44,8 +48,17 @@ def build_weekly_report(sessions, attempts, as_of: datetime, bank_sizes: dict[st
     weak = [name for name, score in sorted(scores.items(), key=lambda item: (item[1], item[0])) if score < .7][:3]
     accuracy = correct / len(responses) if responses else 0.0
     completion = len(completed_chapters) / len(active_chapters) if active_chapters else 0.0
-    readiness = round((accuracy * .6 + completion * .4) * 100, 1)
-    label = ('high' if readiness >= 85 else 'developing' if readiness >= 60 else 'needs_support') if responses else 'insufficient_evidence'
+    independent = [row for row in responses if row['phase'] in INDEPENDENT_ASSESSMENT_PHASES]
+    assessed_chapters = {chapter_key(by_id[row['session_id']]) for row in independent}
+    has_readiness_evidence = (len(independent) >= MIN_READINESS_RESPONSES
+                              and len(assessed_chapters) >= MIN_READINESS_CHAPTERS)
+    if has_readiness_evidence:
+        independent_accuracy = sum(int(row['correct']) for row in independent) / len(independent)
+        readiness = round((independent_accuracy * .6 + completion * .4) * 100, 1)
+        label = 'high' if readiness >= 85 else 'developing' if readiness >= 60 else 'needs_support'
+    else:
+        readiness = 0.0
+        label = 'insufficient_evidence'
     recommendations = [f'Review {concept} for 15 minutes' for concept in weak]
     if not recommendations:
         recommendations = ['Continue with the next chapter or review a mastered concept'] if completed_chapters else ['Complete one diagnostic this week']

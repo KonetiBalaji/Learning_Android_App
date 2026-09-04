@@ -591,8 +591,8 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("7-day learning report", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Metric("Learning indicator", if (snapshot.questionsAnswered == 0) "Not enough evidence" else "${snapshot.examReadiness}% · ${snapshot.readinessLabel}", Success)
-                Text("Uncalibrated heuristic, not a prediction of exam performance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Metric("Learning indicator", learningIndicatorText(snapshot.examReadiness, snapshot.readinessLabel), Success)
+                Text("Requires at least 10 independent diagnostic or rewrite answers across 2 chapters. Uncalibrated heuristic, not a prediction of exam performance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Metric("Learning responses", snapshot.questionsAnswered.toString(), Indigo)
                 Text("Includes diagnostic answers, guided practice and explanations in the last 7 days (UTC).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Metric("Response accuracy", if (snapshot.questionsAnswered == 0) "No responses yet" else "${snapshot.accuracy}%", Success)
@@ -611,6 +611,10 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
     Header("Focus next", "Current weak areas", snapshot?.weakAreas?.joinToString(" · ")?.ifBlank { "No unresolved weak areas recorded. Continue assessing and practising." } ?: "Complete a diagnostic to identify focus areas")
     TipCard("Suggested next step", snapshot?.recommendations?.joinToString("\n") ?: "Start a diagnostic to personalize your learning path.")
 }
+
+internal fun learningIndicatorText(examReadiness: Int, readinessLabel: String): String =
+    if (readinessLabel == "Insufficient evidence") "Not enough evidence"
+    else "$examReadiness% · $readinessLabel"
 
 @Composable
 private fun GuardianAccessScreen(state: AppUiState, onCode: (String) -> Unit, onRedeem: () -> Unit,

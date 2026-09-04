@@ -37,7 +37,8 @@ def test_weekly_window_and_distinct_completion_use_activity_not_session_start(mo
         assert report['period_start'] == '2026-08-27T12:00:00+00:00'
         assert report['period_end'] == '2026-09-03T12:00:00+00:00'
         assert report['readiness_is_calibrated'] is False
-        assert report['estimated_exam_readiness'] == 60.0  # 2/3 response accuracy and 1/2 active chapters complete.
+        assert report['estimated_exam_readiness'] == 0.0
+        assert report['readiness_label'] == 'insufficient_evidence'
         assert report['strongest_concepts'] == []  # 2/3 is below the 70% evidence threshold.
         assert report['weak_areas'] == ['Fractions']
         assert client.get('/v1/progress/weekly-report?grade=6', headers=headers).json()['questions_answered'] == 0
@@ -61,5 +62,35 @@ def test_empty_week_has_no_claimed_strength_or_readiness_evidence(monkeypatch, t
         assert report['questions_answered'] == report['mastered_chapters'] == report['active_subjects'] == 0
         assert report['readiness_label'] == 'insufficient_evidence'
         assert report['strongest_concepts'] == report['weak_areas'] == []
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_readiness_uses_only_sufficient_independent_cross_chapter_evidence(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        monkeypatch.setattr('app.main.now', lambda: '2026-09-03T12:00:00+00:00')
+        owner = client.get('/v1/account', headers=headers).json()['id']
+        with connection(get_settings().database_path) as db:
+            bank = serialize_diagnostic_bank(diagnostic_bank('math', 'fractions'))
+            for session_id, chapter in [('first', 'fractions'), ('second', 'decimals')]:
+                db.execute('INSERT INTO mastery_sessions (id, owner_id, grade, subject_id, chapter_id, started_at, status, current_question, questions_json) VALUES (?, ?, 8, ?, ?, ?, ?, ?, ?)',
+                           (session_id, owner, 'math', chapter, '2026-09-01T00:00:00+00:00',
+                            'diagnostic', 0, bank))
+            attempts = [
+                (f'assessment-{index}', 'first' if index < 5 else 'second',
+                 'diagnostic' if index % 2 == 0 else 'rewrite', 1)
+                for index in range(10)
+            ]
+            attempts.extend((f'practice-{index}', 'first', 'practice', 0) for index in range(20))
+            for attempt_id, session_id, phase, correct in attempts:
+                db.execute('INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                           (attempt_id, session_id, phase, 'synthetic', 'synthetic', correct,
+                            'Fractions', '2026-09-02T00:00:00+00:00'))
+        report = client.get('/v1/progress/weekly-report?grade=8', headers=headers).json()
+        assert report['questions_answered'] == 30 and report['accuracy'] == 1 / 3
+        assert report['estimated_exam_readiness'] == 60.0
+        assert report['readiness_label'] == 'developing'
+        assert report['readiness_is_calibrated'] is False
     finally:
         client.__exit__(None, None, None)
