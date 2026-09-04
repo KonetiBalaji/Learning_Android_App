@@ -37,3 +37,13 @@ uv run pytest
 - Uploaded material and the SQLite database stay under `backend/.runtime/`, which is ignored by Git.
 
 This is a local MVP. Before any public deployment, replace the local file store with managed encrypted storage, move the signing secret to a secret manager, introduce rate limiting, and configure retention/deletion operations for the deployed environment.
+
+## Staging and production startup
+
+Non-development startup is fail-closed. Configure an explicit absolute durable
+runtime directory, a random JWT secret of at least 32 characters and the exact
+40-character Git revision. Production additionally requires
+`LEARNING_AI_MODE=openai` and a server-side `OPENAI_API_KEY`. See
+`../docs/production-configuration.md` for the complete gate and remaining host
+requirements. `/health` exposes the safe environment/revision identity needed to
+match a backend to a private APK candidate; it never returns secret values.

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 
@@ -24,12 +26,26 @@ class Settings:
     google_client_id: str | None = None
     auth_attempts_per_window: int = 30
     auth_window_seconds: int = 60
+    environment: Literal['development', 'staging', 'production'] = 'development'
+    release_revision: str = 'development'
+    runtime_configured: bool = True
 
     def __post_init__(self):
+        if self.environment not in {'development', 'staging', 'production'}:
+            raise ValueError('LEARNING_ENVIRONMENT must be development, staging or production')
         if not 1 <= self.auth_attempts_per_window <= 1000:
             raise ValueError("Authentication attempt limit must be between 1 and 1000")
         if not 1 <= self.auth_window_seconds <= 3600:
             raise ValueError("Authentication window must be between 1 and 3600 seconds")
+        if self.environment in {'staging', 'production'}:
+            if len(self.jwt_secret) < 32 or self.jwt_secret == 'local-development-secret-change-before-deployment':
+                raise ValueError('Staging and production require an explicit JWT secret of at least 32 characters')
+            if not self.runtime_configured or not self.runtime_dir.is_absolute():
+                raise ValueError('Staging and production require an explicit absolute runtime directory')
+            if not re.fullmatch(r'[0-9a-f]{40}', self.release_revision):
+                raise ValueError('Staging and production require a full lowercase Git release revision')
+        if self.environment == 'production' and (self.ai_mode != 'openai' or not self.openai_api_key):
+            raise ValueError('Production requires the reviewed OpenAI provider and a server-side key')
 
     @property
     def database_path(self) -> Path:
@@ -41,7 +57,8 @@ class Settings:
 
 
 def get_settings() -> Settings:
-    base = Path(os.getenv("LEARNING_RUNTIME_DIR", Path(__file__).parents[1] / ".runtime"))
+    configured_runtime = os.getenv("LEARNING_RUNTIME_DIR", "").strip()
+    base = Path(configured_runtime or Path(__file__).parents[1] / ".runtime")
     secret = os.getenv("LEARNING_JWT_SECRET", "local-development-secret-change-before-deployment")
     base.mkdir(parents=True, exist_ok=True)
     (base / "uploads").mkdir(exist_ok=True)
@@ -57,4 +74,7 @@ def get_settings() -> Settings:
         google_client_id=os.getenv("LEARNING_GOOGLE_CLIENT_ID", "").strip() or None,
         auth_attempts_per_window=int(os.getenv("LEARNING_AUTH_ATTEMPTS", "30")),
         auth_window_seconds=int(os.getenv("LEARNING_AUTH_WINDOW_SECONDS", "60")),
+        environment=os.getenv('LEARNING_ENVIRONMENT', 'development').strip().lower(),
+        release_revision=os.getenv('LEARNING_RELEASE_REVISION', 'development').strip(),
+        runtime_configured=bool(configured_runtime),
     )

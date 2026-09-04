@@ -138,7 +138,13 @@ def session_diagnostic_bank(session: sqlite3.Row):
 
 @app.get("/health")
 def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
-    return {"status": "ok", "ai_provider": tutor_provider(settings).name, "model": settings.openai_model if settings.ai_mode == "openai" else "none"}
+    return {
+        "status": "ok",
+        "environment": settings.environment,
+        "revision": settings.release_revision,
+        "ai_provider": tutor_provider(settings).name,
+        "model": settings.openai_model if settings.ai_mode == "openai" else "none",
+    }
 
 
 @app.get("/v1/account", response_model=UserProfile)

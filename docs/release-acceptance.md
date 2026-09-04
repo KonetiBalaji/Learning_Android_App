@@ -120,6 +120,14 @@ without secret values. A disposable-key `assembleRelease`/APK Signature Scheme v
 check passed; this is packaging QA, not an owned production signature, reachable
 backend, UAT candidate or deployment. See `private-apk-release.md`.
 
+Backend production mode now fails startup without an explicit absolute runtime
+volume, strong non-default JWT secret, full Git revision, reviewed OpenAI mode and
+server-side provider key. Health reports safe environment/revision/provider identity
+for APK-to-backend reconciliation. Seven configuration tests pass. This prevents
+accidental development configuration but does not provide the still-unconfirmed
+host, TLS proxy, durable volume, secret manager, quotas, monitoring or recovery
+evidence. See `production-configuration.md`.
+
 ## Delivery stages and exit gates
 
 1. **Development:** all requirements mapped; partial features repaired; OpenMAIC
