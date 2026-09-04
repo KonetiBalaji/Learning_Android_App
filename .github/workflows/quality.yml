@@ -62,8 +62,10 @@ jobs:
           container_b="learning-api-b-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           volume="learning-runtime-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           cleanup() {
+            docker compose -f deploy/compose.production.yml down >/dev/null 2>&1 || true
             docker rm -f "$container_a" "$container_b" >/dev/null 2>&1 || true
             docker volume rm "$volume" >/dev/null 2>&1 || true
+            test -z "${tls_dir:-}" || rm -rf "$tls_dir"
           }
           trap cleanup EXIT
           docker volume create "$volume" >/dev/null
@@ -105,6 +107,34 @@ jobs:
           python backend/scripts/production_load_smoke.py \
             "http://127.0.0.1:${port_a}" "http://127.0.0.1:${port_b}" \
             --requests 1400 --concurrency 40
+          docker rm -f "$container_a" "$container_b" >/dev/null
+          tls_dir="$(mktemp -d)"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout "$tls_dir/privkey.pem" -out "$tls_dir/fullchain.pem" \
+            -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 >/dev/null 2>&1
+          export LEARNING_API_IMAGE="$image"
+          export LEARNING_RELEASE_REVISION="$GITHUB_SHA"
+          export LEARNING_JWT_SECRET=ci-only-random-secret-over-32-characters
+          export OPENAI_API_KEY=ci-placeholder-never-used
+          export LEARNING_RUNTIME_VOLUME="$volume"
+          export LEARNING_TLS_DIR="$tls_dir"
+          export LEARNING_HTTPS_BIND=127.0.0.1:18443
+          docker compose -f deploy/compose.production.yml config --quiet
+          docker compose -f deploy/compose.production.yml up --detach --no-build
+          for attempt in {1..30}; do
+            if tls_payload="$(curl --fail --silent --show-error --cacert "$tls_dir/fullchain.pem" https://localhost:18443/ready)"; then
+              break
+            fi
+            sleep 1
+          done
+          python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$tls_payload" "$GITHUB_SHA"
+          if docker compose -f deploy/compose.production.yml port api 8000; then
+            echo "API container must not publish its internal port" >&2
+            exit 1
+          fi
+          docker compose -f deploy/compose.production.yml down
+          rm -rf "$tls_dir"
+          tls_dir=""
 
   android:
     runs-on: ubuntu-latest

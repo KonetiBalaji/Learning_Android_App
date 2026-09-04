@@ -1,8 +1,8 @@
 # Backend production configuration gate
 
-Status: startup validation and a locked non-root container are implemented and
-automated. No production host, TLS proxy, persistent volume, secret manager or
-deployed instance is configured.
+Status: startup validation, locked non-root containers and a host-neutral TLS proxy
+stack are implemented and automated. No production host/domain, persistent volume,
+secret manager, trusted certificate or deployed instance is configured.
 
 Set the following through the chosen host's secret/configuration facility:
 
@@ -100,6 +100,14 @@ round-robin authenticated traffic. This is repeatable
 packaging evidence only. It does not prove volume durability, encryption, TLS,
 trusted-proxy behavior, cross-host/network-filesystem safety, provider access,
 long-duration capacity, monitoring, or deployment on a user-owned host.
+
+`deploy/compose.production.yml` and `deploy/nginx.conf` add the release-facing HTTPS
+boundary, private API network, strict multipart/body and slow-client timeouts, a
+bounded per-IP request gate, read-only/no-new-privileges containers and an explicit
+external runtime volume. Hosted CI boots this stack with an ephemeral certificate,
+checks readiness through TLS and rejects a published API port. See
+`production-deployment-stack.md`. This validates configuration, not a real domain,
+trusted certificate, durable host volume or deployed operations.
 
 `uv run python -m app.release_candidate <manifest> --expected-environment
 production` performs that comparison and independently rehashes the APK. It also
