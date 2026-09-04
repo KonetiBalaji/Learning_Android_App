@@ -36,23 +36,28 @@ From `android` with the `LearnSmart_API36` AVD connected:
 ```powershell
 .\gradlew.bat :app:connectedDebugAndroidTest
 Set-Location ..
-.\scripts\qa-chapter-explorers.ps1 -ResetTestAppData
+.\scripts\qa-chapter-explorers.ps1 -ResetTestAppData -VerifyTalkBack
 ```
 
 Verified on 2026-09-04: 13 tests ran, 0 failures, 0 errors and 0 skipped on
 `LearnSmart_API36(AVD) - 16`. The generated XML result is
 `app/build/outputs/androidTest-results/connected/debug/TEST-LearnSmart_API36(AVD) - 16-_app-.xml`.
 The full-journey script separately passed all 13 routes and wrote one post-action
-screenshot per route under ignored `artifacts/qa-explorer-*.png`. Representative
-locked and unlocked captures across all four subjects were visually inspected.
+screenshot per route under ignored `artifacts/qa-explorer-*.png`. With
+`-VerifyTalkBack`, every route also activated the installed TalkBack service,
+verified the route heading, changed selection and instructional description in
+the accessibility hierarchy, then restored the prior service and notification
+permission settings. Representative locked and unlocked captures across all four
+subjects were visually inspected.
 
 ## Evidence boundary
 
 This proves that each production route resolves to a rendered native control and
 that its learner-controlled selection changes on an API 36 emulator, with no
 error-level finding from the automated Accessibility Test Framework checks
-triggered by those actions. Automated checks cannot establish traversal order,
-spoken clarity or actual assistive-technology usability. This evidence therefore
-does not claim manual TalkBack review, physical-device coverage,
+triggered by those actions. It also proves those three route-specific semantics
+remain exposed while the real TalkBack service is active. Hierarchy inspection
+cannot establish traversal order, spoken clarity or actual assistive-technology
+usability. This evidence therefore does not claim manual spoken TalkBack review, physical-device coverage,
 curriculum-board approval or user acceptance. Those gates remain separately tracked in
 `release-acceptance.md`.

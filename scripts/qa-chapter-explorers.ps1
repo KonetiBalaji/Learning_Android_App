@@ -1,5 +1,6 @@
 param(
     [switch]$ResetTestAppData,
+    [switch]$VerifyTalkBack,
     [string[]]$Route = @()
 )
 $ErrorActionPreference = 'Stop'
@@ -65,6 +66,43 @@ function RestartApp {
     Adb shell am start -n "$package/.MainActivity" | Out-Null
     Start-Sleep -Seconds 3
 }
+function VerifyTalkBackExplorer([string]$heading, [string]$selected, [string]$descriptionPattern) {
+    $oldServices = ((Adb shell settings get secure enabled_accessibility_services) -join '').Trim()
+    $oldEnabled = ((Adb shell settings get secure accessibility_enabled) -join '').Trim()
+    $talkBackPackage = 'com.google.android.marvin.talkback'
+    $notificationPermission = 'android.permission.POST_NOTIFICATIONS'
+    if (-not ((Adb shell pm path $talkBackPackage) -join '')) { throw 'TalkBack is not installed on the dedicated QA emulator.' }
+    $notificationWasGranted = ((& $adb -s emulator-5554 shell cmd package check-permission $notificationPermission $talkBackPackage) -join '').Trim() -eq 'granted'
+    try {
+        if (-not $notificationWasGranted) { Adb shell pm grant $talkBackPackage $notificationPermission | Out-Null }
+        Adb shell settings put secure enabled_accessibility_services "$talkBackPackage/$talkBackPackage.TalkBackService" | Out-Null
+        Adb shell settings put secure accessibility_enabled 1 | Out-Null
+        Start-Sleep -Seconds 2
+        if (((Adb shell dumpsys accessibility) -join "`n") -notmatch 'com\.google\.android\.marvin\.talkback/.+TalkBackService') {
+            throw 'TalkBack service did not become active.'
+        }
+        $tree = Ui
+        $nodes = @($tree.SelectNodes('//node'))
+        if (-not ($nodes | Where-Object text -eq $heading)) { throw "TalkBack tree omitted heading: $heading" }
+        if (-not ($nodes | Where-Object text -eq $selected)) { throw "TalkBack tree omitted selected control: $selected" }
+        $semanticNode = $nodes | Where-Object { $_.'content-desc' -match $descriptionPattern } | Select-Object -First 1
+        for ($attempt = 0; -not $semanticNode -and $attempt -lt 4; $attempt++) {
+            Adb shell input swipe 540 1800 540 750 400 | Out-Null
+            Start-Sleep -Milliseconds 500
+            $semanticNode = (Ui).SelectNodes('//node') | Where-Object { $_.'content-desc' -match $descriptionPattern } | Select-Object -First 1
+        }
+        if (-not $semanticNode) {
+            throw "TalkBack tree omitted instructional semantics matching: $descriptionPattern"
+        }
+    } finally {
+        if ($oldServices -in @('', 'null')) { Adb shell settings delete secure enabled_accessibility_services | Out-Null }
+        else { Adb shell settings put secure enabled_accessibility_services $oldServices | Out-Null }
+        if ($oldEnabled -in @('', 'null')) { Adb shell settings delete secure accessibility_enabled | Out-Null }
+        else { Adb shell settings put secure accessibility_enabled $oldEnabled | Out-Null }
+        if (-not $notificationWasGranted) { Adb shell pm revoke $talkBackPackage $notificationPermission | Out-Null }
+        Start-Sleep -Seconds 1
+    }
+}
 
 if (-not $ResetTestAppData) { throw 'This destructive QA script requires -ResetTestAppData and clears only the dedicated QA emulator app.' }
 if (-not (Test-Path $apk)) { throw 'Build android/app/build/outputs/apk/debug/app-debug.apk first.' }
@@ -73,19 +111,19 @@ $health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
 if ($health.ai_provider -ne 'scripted-catalog-qa') { throw 'Run serve_qa.py --qa-only --catalog-fixture first.' }
 
 $examples = @(
-    [pscustomobject]@{ Key='math/decimals'; Subject='Mathematics'; Chapter='Decimals'; Heading='Explore decimal place value'; Action='Explore Ones'; Selected='Selected: Ones'; Prerequisite=$null },
-    [pscustomobject]@{ Key='math/percentages'; Subject='Mathematics'; Chapter='Percentages'; Heading='Explore percentages'; Action='Show 50%'; Selected='Selected: 50%'; Prerequisite=$null },
-    [pscustomobject]@{ Key='math/algebra'; Subject='Mathematics'; Chapter='Algebra'; Heading='Balance an equation'; Action='Subtract 3 from both sides'; Selected='Selected: Subtract 3 from both sides'; Prerequisite=$null },
-    [pscustomobject]@{ Key='math/geometry'; Subject='Mathematics'; Chapter='Geometry'; Heading='Explore triangle area'; Action='Base 8, height 5'; Selected='Selected: Base 8, height 5'; Prerequisite='math/algebra' },
-    [pscustomobject]@{ Key='science/matter'; Subject='Science'; Chapter='Matter and Materials'; Heading='Explore particle models'; Action='Liquid'; Selected='Selected: Liquid'; Prerequisite=$null },
-    [pscustomobject]@{ Key='science/force-and-motion'; Subject='Science'; Chapter='Force and Motion'; Heading='Explore constant speed'; Action='3 m/s for 4 s'; Selected='Selected: 3 m/s for 4 s'; Prerequisite=$null },
-    [pscustomobject]@{ Key='science/ecosystems'; Subject='Science'; Chapter='Ecosystems'; Heading='Trace ecosystem energy'; Action='Grasshopper →'; Selected='Selected: Grasshopper'; Prerequisite='science/force-and-motion' },
-    [pscustomobject]@{ Key='english/reading-comprehension'; Subject='English'; Chapter='Reading Comprehension'; Heading='Build an inference'; Action='Inference'; Selected='Selected: Inference'; Prerequisite=$null },
-    [pscustomobject]@{ Key='english/vocabulary'; Subject='English'; Chapter='Vocabulary'; Heading='Build word meaning'; Action='Root: help'; Selected='Selected: Root: help'; Prerequisite=$null },
-    [pscustomobject]@{ Key='english/writing'; Subject='English'; Chapter='Writing'; Heading='Explore paragraph structure'; Action='Evidence'; Selected='Selected: Evidence'; Prerequisite='english/vocabulary' },
-    [pscustomobject]@{ Key='social/history'; Subject='Social Studies'; Chapter='History'; Heading='Evaluate historical sources'; Action='A photograph taken at the event'; Selected='Selected: A photograph taken at the event'; Prerequisite=$null },
-    [pscustomobject]@{ Key='social/civics'; Subject='Social Studies'; Chapter='Civics'; Heading='Trace a civic decision'; Action='2. Public input'; Selected='Selected: 2. Public input'; Prerequisite=$null },
-    [pscustomobject]@{ Key='social/economics'; Subject='Social Studies'; Chapter='Economics'; Heading='Explore supply and demand'; Action='Price 4'; Selected='Selected: Price 4'; Prerequisite='social/civics' }
+    [pscustomobject]@{ Key='math/decimals'; Subject='Mathematics'; Chapter='Decimals'; Heading='Explore decimal place value'; Action='Explore Ones'; Selected='Selected: Ones'; Accessible='42 point 375.*ones place highlighted'; Prerequisite=$null },
+    [pscustomobject]@{ Key='math/percentages'; Subject='Mathematics'; Chapter='Percentages'; Heading='Explore percentages'; Action='Show 50%'; Selected='Selected: 50%'; Accessible='100-square grid with 50 squares highlighted'; Prerequisite=$null },
+    [pscustomobject]@{ Key='math/algebra'; Subject='Mathematics'; Chapter='Algebra'; Heading='Balance an equation'; Action='Subtract 3 from both sides'; Selected='Selected: Subtract 3 from both sides'; Accessible='2x equals 8'; Prerequisite=$null },
+    [pscustomobject]@{ Key='math/geometry'; Subject='Mathematics'; Chapter='Geometry'; Heading='Explore triangle area'; Action='Base 8, height 5'; Selected='Selected: Base 8, height 5'; Accessible='Triangle with base 8.*height 5.*area 20'; Prerequisite='math/algebra' },
+    [pscustomobject]@{ Key='science/matter'; Subject='Science'; Chapter='Matter and Materials'; Heading='Explore particle models'; Action='Liquid'; Selected='Selected: Liquid'; Accessible='Liquid particle model'; Prerequisite=$null },
+    [pscustomobject]@{ Key='science/force-and-motion'; Subject='Science'; Chapter='Force and Motion'; Heading='Explore constant speed'; Action='3 m/s for 4 s'; Selected='Selected: 3 m/s for 4 s'; Accessible='3 metres per second.*4 seconds.*12 metres'; Prerequisite=$null },
+    [pscustomobject]@{ Key='science/ecosystems'; Subject='Science'; Chapter='Ecosystems'; Heading='Trace ecosystem energy'; Action='Grasshopper →'; Selected='Selected: Grasshopper'; Accessible='Grasshopper, Primary consumer, 1000 example energy units'; Prerequisite='science/force-and-motion' },
+    [pscustomobject]@{ Key='english/reading-comprehension'; Subject='English'; Chapter='Reading Comprehension'; Heading='Build an inference'; Action='Inference'; Selected='Selected: Inference'; Accessible='Reading passage\.'; Prerequisite=$null },
+    [pscustomobject]@{ Key='english/vocabulary'; Subject='English'; Chapter='Vocabulary'; Heading='Build word meaning'; Action='Root: help'; Selected='Selected: Root: help'; Accessible='Word unhelpful split into prefix'; Prerequisite=$null },
+    [pscustomobject]@{ Key='english/writing'; Subject='English'; Chapter='Writing'; Heading='Explore paragraph structure'; Action='Evidence'; Selected='Selected: Evidence'; Accessible='Evidence\. Students can measure real plant growth'; Prerequisite='english/vocabulary' },
+    [pscustomobject]@{ Key='social/history'; Subject='Social Studies'; Chapter='History'; Heading='Evaluate historical sources'; Action='A photograph taken at the event'; Selected='Selected: A photograph taken at the event'; Accessible='Primary source\..*It records a moment'; Prerequisite=$null },
+    [pscustomobject]@{ Key='social/civics'; Subject='Social Studies'; Chapter='Civics'; Heading='Trace a civic decision'; Action='2. Public input'; Selected='Selected: 2. Public input'; Accessible='Civic stage 2, Public input'; Prerequisite=$null },
+    [pscustomobject]@{ Key='social/economics'; Subject='Social Studies'; Chapter='Economics'; Heading='Explore supply and demand'; Action='Price 4'; Selected='Selected: Price 4'; Accessible='At price 4, quantity demanded is 8 and quantity supplied is 8'; Prerequisite='social/civics' }
 )
 if ($Route.Count) {
     $unknown = @($Route | Where-Object { $_ -notin $examples.Key })
@@ -122,6 +160,7 @@ foreach ($example in $examples) {
     FindText $example.Heading 30 -Scroll | Out-Null
     TapText $example.Action 30 -Scroll
     FindText $example.Selected 30 -Scroll | Out-Null
+    if ($VerifyTalkBack) { VerifyTalkBackExplorer $example.Heading $example.Selected $example.Accessible }
 
     [xml]$preferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     $sessionId = ($preferences.map.ChildNodes | Where-Object name -eq "active_mastery:$email").InnerText

@@ -109,7 +109,7 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | Blind answer solving plus separate fail-closed hint review, repeated deterministic and general practice persistence, four-subject Grade 8 live sampling and no automatic chapter mastery after one remediated concept; broader curriculum, latency/cost, device breadth, educator review and UAT remain |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
 | TUT-04 | Written explanation assessment | QA verified | Strict four-point rubric, server-owned feedback, persistence/failure tests and two 20/20 live synthetic runs across Math, Science, English and Geography cover false-pass patterns; calibration, educator review and UAT remain |
-| TUT-05 | Interactive examples and visible AI teacher | Partial | Every tutor lesson has a learner-controlled native concept/worked-example/hint walkthrough, and all 17 catalog chapters have specialized native explorers with full Grade 8 login-to-wrong-answer-to-tutor emulator journeys. The newer 13 also have API 36 component instrumentation with automated Accessibility Test Framework checks; their journeys verify interaction cannot mutate mastery. Manual TalkBack review, physical-device coverage, board-approved curriculum breadth and user acceptance remain open |
+| TUT-05 | Interactive examples and visible AI teacher | Partial | Every tutor lesson has a learner-controlled native concept/worked-example/hint walkthrough, and all 17 catalog chapters have specialized native explorers with full Grade 8 login-to-wrong-answer-to-tutor emulator journeys. The newer 13 also have API 36 component instrumentation with automated Accessibility Test Framework checks; their journeys verify interaction cannot mutate mastery and expose the route heading, changed selection and instructional description while the installed TalkBack service is active. Manual spoken TalkBack traversal, physical-device coverage, board-approved curriculum breadth and user acceptance remain open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversation, read-aloud lifecycle/animation and voice-input cancel/unavailable recovery are API 36 verified; successful transcript admission is control-free, whitespace-normalized, bounded without splitting Unicode pairs and JVM tested. Microphone transcription accuracy, acoustic quality, TalkBack, physical device and UAT remain |
 | MAST-01 | Mastery, time spent, next chapter unlock | QA verified | All stored assessment items must resolve before durable mastery; API 36 verifies remediation/restart/completion, graph-based unlock/relock recovery, bounded foreground presence and honest weekly display; physical-device/accessibility/UAT remain |
 | PROG-01 | Real student subject/chapter progress | QA verified | Static percentages are absent; backend-derived chapter/assessed-subject values, zero state, owner isolation, sign-out/sign-in and restart restoration are backend tested and API 36 verified; physical-device/UAT remain |
@@ -1057,3 +1057,12 @@ curriculum review, physical-device QA and UAT remain open.
   existing Windows skip; Android JVM tests, lint and debug assembly passed. This is
   implementation and emulator QA, not proof of a production schedule, storage-
   provider erasure, legal review or UAT; see `data-retention.md`.
+- Extended the deterministic Grade 8 catalog explorer journey across all 13 newer
+  specialized routes with the emulator's installed TalkBack service genuinely
+  active. Each fresh-account path exposed its heading, changed selection and
+  route-specific instructional description in the accessibility hierarchy, kept
+  the server session in tutor state with zero coaching and mastery mutation, and
+  restored prior accessibility and notification-permission settings. All 13 routes
+  passed on the dedicated API 36 AVD. This is service-active hierarchy evidence,
+  not manual spoken traversal, physical-device usability, curriculum-board approval
+  or UAT; see `chapter-explorer-device-qa.md`.
