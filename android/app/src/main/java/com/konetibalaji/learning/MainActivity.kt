@@ -345,7 +345,7 @@ private fun TutorScreen(state: AppUiState, onUnderstand: () -> Unit, onAsk: () -
         onSpeakingChanged(it)
     }
     OutlinedButton(onClick = onAsk, modifier = Modifier.fillMaxWidth()) { Text("Ask the tutor a question") }
-    if (state.subject?.id == "math" && state.masteryChapter?.id == "fractions") FractionExplorer()
+    InteractiveLessonExplorer(state.subject?.id, state.masteryChapter?.id)
     PrimaryButton("I understand — practise now", onClick = onUnderstand)
     }
 }

@@ -94,7 +94,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path and Android save/clear/restart verified; live example quality, failure/account-switch checks remain |
 | TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
-| TUT-05 | Interactive examples and visible AI teacher | Partial | Working interactive teaching visuals, accessible avatar, verified device interaction |
+| TUT-05 | Interactive examples and visible AI teacher | Partial | Fractions and Grade 8 Cells have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
 | PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
@@ -108,7 +108,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
 | SEC-02 | Production hardening | Partial | HTTPS release guard, offline backup checks and persistent authentication peer throttle implemented; production proxy/capacity, account-based abuse controls, provider-cost limits, operational logs and deployment recovery still need verification |
-| UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading and OA-02 owner-material quota adaptations are pinned/licensed/tested; rich interactive scenes still need a separate TUT-05 decision/evidence |
+| UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading, OA-02 owner-material quotas and OA-03 bounded native action/highlight patterns are pinned, licensed and tested; this is selective adaptation, not a port |
 | QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
 | PROD-01 | Production deployment | Missing | User-confirmed host/domain/distribution, staging verification, rollback, secrets and operational checks |
@@ -150,6 +150,15 @@ legacy size backfill. No TypeScript, database schema, agent runtime or repositor
 history was copied. Backend 444 passed with one Windows skip; Android 126 JVM tests,
 lint and debug assembly passed. See `openmaic-provenance.md` and
 `document-storage-quota.md`.
+
+OA-03 selectively adapts OpenMAIC's typed action, explicit dispatch and
+state-driven highlighting concepts into an allowlisted native Cells explorer. It
+executes no generated HTML, JavaScript, model action payload or arbitrary coordinate
+command. API 36 verified selection/highlighting and a server read proved exploration
+left mastery unchanged. Android 128 JVM tests, lint and debug assembly passed;
+backend regression remained 444 passing with one existing Windows skip. See
+`openmaic-provenance.md` and `cell-explorer.md`. Broader interactive coverage,
+curriculum review, physical-device QA and UAT remain open.
 
 ## Delivery stages and exit gates
 
@@ -836,3 +845,10 @@ lint and debug assembly passed. See `openmaic-provenance.md` and
   Backend 425 passed with one Windows skip; Android 124 JVM tests, lint and debug
   assembly passed. This is one emulator QA path, not curriculum, physical-device,
   educator/UAT or production acceptance; see `shared/contracts/fresh-practice.md`.
+- Added a native Grade 8 Science Cells explorer with three curated organelle
+  selections, state-driven diagram highlights, instructional function/evidence text
+  and dynamic accessibility semantics. API 36 scripted QA changed the selection,
+  visually confirmed the result and proved through the authenticated session API
+  that exploration did not submit, coach or award mastery. Generated HTML/actions
+  are deliberately rejected. See `cell-explorer.md` and OA-03 in
+  `openmaic-provenance.md`; TUT-05 remains partial outside Fractions and Cells.

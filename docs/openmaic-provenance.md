@@ -92,5 +92,35 @@ HTML teaching scenes, course generation, and material-grounding pipeline still
 need separate compatibility/security decisions. Multi-agent classroom simulation and
 course publishing are not required for the learner's single-teacher Android flow;
 provider voice cloning is rejected because device TTS avoids retaining biometric
-voice material. Rich interactive scenes remain a candidate for TUT-05 rather than
-being silently counted as integrated. OA-01 and OA-02 do not claim a complete port.
+voice material. OA-03 below adopts only a bounded native interaction/highlight
+pattern; general model-authored scenes and other lesson coverage remain candidates.
+OA-01 through OA-03 do not claim a complete port.
+
+## OA-03: Bounded native lesson actions and highlighting
+
+- Upstream repository: https://github.com/THU-MAIC/OpenMAIC
+- Pinned revision: `f6cf8fd4b74ac83ea969e88b6dc2c974931b4d65`
+- Sources inspected in the existing clean checkout:
+  - `lib/orchestration/types.ts` (typed whiteboard action vocabulary)
+  - `lib/orchestration/tool-schemas.ts` (bounded action schemas)
+  - `lib/store/canvas.ts` (selected/highlighted presentation state)
+  - `lib/action/engine.ts` (explicit dispatch of recognized actions)
+- License: MIT, Copyright (c) 2026 THU-MAIC. The full notice remains in
+  `third_party/OpenMAIC-LICENSE.txt`.
+- Acquisition: inspected the listed files at the pinned commit. No cherry-pick,
+  TypeScript copy, repository history, runtime package or upstream schema was added.
+- Local implementation: `InteractiveLessonExplorer.kt` routes exact supported
+  subject/chapter pairs to application-owned Compose scenes. The Cells scene uses a
+  small typed selection vocabulary, explicit button dispatch and separate visual
+  highlighting state, with curated native drawing and lesson content.
+- Adapted elements: allowlisted actions instead of free-form UI mutation; a visible
+  selected object; state-driven highlighting; and a stable action-to-view mapping.
+- Deliberate changes: fixed lesson routes and organelle actions replace generic
+  coordinate/tool actions. The diagram uses native Compose Canvas and local saved UI
+  state. Exploration cannot call learning endpoints or mutate mastery.
+- Rejected: generated HTML/JavaScript execution, model-controlled tool/action
+  payloads, arbitrary whiteboard coordinates, full action-engine portability,
+  multi-agent orchestration, course publishing and voice cloning.
+- Verification: route/content unit tests plus API 36 scripted device interaction,
+  visual inspection and server-side no-mastery-mutation assertion. This proves one
+  bounded Cells scene, not general interactivity, curriculum alignment or UAT.

@@ -23,6 +23,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--qa-only", action="store_true")
     parser.add_argument("--binary-fixtures", action="store_true")
+    parser.add_argument("--science-fixture", action="store_true")
     parser.add_argument("--upload-response-delay", type=int, choices=range(0, 21), default=0)
     parser.add_argument("--fail-saved-upload-response", action="store_true")
     args = parser.parse_args()
@@ -35,6 +36,7 @@ def main():
     os.environ["LEARNING_JWT_SECRET"] = secrets.token_hex(32)
     import app.main as api
     from app.tutor_provider import DeterministicTutorProvider, RewriteAssessment
+    from app.mastery_service import DiagnosticItem
     import uvicorn
     if args.binary_fixtures:
         # Replace the only document-provider entry point before serving requests.
@@ -43,7 +45,26 @@ def main():
         api.generate_document_questions = generate_binary_fixture
 
     class ScriptedQAProvider(DeterministicTutorProvider):
-        name = "scripted-binary-qa" if args.binary_fixtures else "scripted-qa"
+        name = ("scripted-science-qa" if args.science_fixture else
+                "scripted-binary-qa" if args.binary_fixtures else "scripted-qa")
+
+        def diagnostic_bank(self, grade, subject_id, chapter_id):
+            if args.science_fixture and (grade, subject_id, chapter_id) == (8, 'science', 'cells'):
+                concepts = (
+                    ('Where is most DNA stored in a eukaryotic cell?', ('Cell wall', 'Nucleus', 'Ribosome', 'Cytoplasm'), 'Nucleus', 'Nucleus'),
+                    ('Which organelle releases usable energy from food?', ('Nucleus', 'Mitochondrion', 'Vacuole', 'Cell wall'), 'Mitochondrion', 'Mitochondrion'),
+                    ('Which structure builds proteins?', ('Ribosome', 'Nucleus', 'Vacuole', 'Cell membrane'), 'Ribosome', 'Ribosome'),
+                )
+                return tuple(DiagnosticItem(
+                    prompt=prompt, options=options, correct_option=answer,
+                    concept=f'Cell organelles — {concept.lower()}',
+                    explanation=f'The {concept.lower()} has a distinct job that supports the cell.',
+                    worked_example=f'Use the cell diagram to locate the {concept.lower()} and connect it to its function.',
+                    hint='Match the organelle name to the function shown in the lesson.',
+                    practice_prompt=f'Name the organelle described in this {concept.lower()} example.',
+                    practice_answers=(answer,),
+                ) for prompt, options, answer, concept in concepts)
+            return super().diagnostic_bank(grade, subject_id, chapter_id)
 
         def answer_question(self, grade, item, question, history):
             return scripted_tutor_answer(question)
