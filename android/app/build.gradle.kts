@@ -6,6 +6,10 @@ plugins {
 }
 
 val releaseApiBaseUrl = providers.gradleProperty("releaseApiBaseUrl").orNull
+val releaseStoreFile = providers.environmentVariable("LEARN_SMART_RELEASE_STORE_FILE").orNull
+val releaseStorePassword = providers.environmentVariable("LEARN_SMART_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("LEARN_SMART_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("LEARN_SMART_RELEASE_KEY_PASSWORD").orNull
 // Public OAuth audience, never an OpenAI key or OAuth client secret.
 val googleServerClientId = providers.gradleProperty("googleServerClientId").orNull.orEmpty().trim()
 require(googleServerClientId.isEmpty() || Regex("[0-9]+-[A-Za-z0-9_-]+\\.apps\\.googleusercontent\\.com").matches(googleServerClientId)) {
@@ -24,13 +28,39 @@ val validateReleaseEndpoint = tasks.register("validateReleaseEndpoint") {
         }
     }
 }
+val validateReleaseSigning = tasks.register("validateReleaseSigning") {
+    doLast {
+        val values = mapOf(
+            "LEARN_SMART_RELEASE_STORE_FILE" to releaseStoreFile,
+            "LEARN_SMART_RELEASE_STORE_PASSWORD" to releaseStorePassword,
+            "LEARN_SMART_RELEASE_KEY_ALIAS" to releaseKeyAlias,
+            "LEARN_SMART_RELEASE_KEY_PASSWORD" to releaseKeyPassword,
+        )
+        val missing = values.filterValues { it.isNullOrBlank() }.keys
+        require(missing.isEmpty()) { "Release signing environment is incomplete: ${missing.joinToString()}" }
+        val keyStore = file(releaseStoreFile!!)
+        require(keyStore.isFile) { "Release keystore does not exist or is not a file" }
+    }
+}
 tasks.configureEach {
-    if (name == "preReleaseBuild") dependsOn(validateReleaseEndpoint)
+    if (name == "preReleaseBuild") dependsOn(validateReleaseEndpoint, validateReleaseSigning)
 }
 
 android {
     namespace = "com.konetibalaji.learning"
     compileSdk = 37
+
+    signingConfigs {
+        create("privateRelease") {
+            if (!releaseStoreFile.isNullOrBlank() && !releaseStorePassword.isNullOrBlank() &&
+                !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()) {
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.konetibalaji.learning"
@@ -51,6 +81,7 @@ android {
             val endpoint = releaseApiBaseUrl.orEmpty().trimEnd('/').replace("\\", "\\\\").replace("\"", "\\\"")
             buildConfigField("String", "API_BASE_URL", "\"$endpoint\"")
             manifestPlaceholders["cleartextAllowed"] = "false"
+            signingConfig = signingConfigs.getByName("privateRelease")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

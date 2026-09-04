@@ -1,0 +1,80 @@
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^https://')]
+    [string]$BackendUrl,
+    [string]$OutputDirectory = 'artifacts\private-release'
+)
+$ErrorActionPreference = 'Stop'
+$repo = Split-Path $PSScriptRoot -Parent
+$output = [IO.Path]::GetFullPath((Join-Path $repo $OutputDirectory))
+$artifactRoot = [IO.Path]::GetFullPath((Join-Path $repo 'artifacts'))
+if (-not $output.StartsWith($artifactRoot + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'OutputDirectory must stay inside this repository artifacts directory.'
+}
+$required = @(
+    'LEARN_SMART_RELEASE_STORE_FILE',
+    'LEARN_SMART_RELEASE_STORE_PASSWORD',
+    'LEARN_SMART_RELEASE_KEY_ALIAS',
+    'LEARN_SMART_RELEASE_KEY_PASSWORD'
+)
+$missing = @($required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) })
+if ($missing.Count) { throw "Missing release signing environment: $($missing -join ', ')" }
+$store = [IO.Path]::GetFullPath([Environment]::GetEnvironmentVariable('LEARN_SMART_RELEASE_STORE_FILE'))
+if (-not (Test-Path -LiteralPath $store -PathType Leaf)) { throw 'Release keystore file does not exist.' }
+$commit = (git -C $repo rev-parse HEAD) -join ''
+$dirty = (git -C $repo status --porcelain --untracked-files=no) -join ''
+if ($dirty) { throw 'Refusing to build a candidate from a modified tracked worktree.' }
+
+Push-Location (Join-Path $repo 'android')
+try {
+    & .\gradlew.bat clean assembleRelease "-PreleaseApiBaseUrl=$BackendUrl"
+    if ($LASTEXITCODE -ne 0) { throw 'Release APK build failed.' }
+} finally { Pop-Location }
+
+$source = Join-Path $repo 'android\app\build\outputs\apk\release\app-release.apk'
+if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'Signed release APK was not produced.' }
+New-Item -ItemType Directory -Force -Path $output | Out-Null
+$destination = Join-Path $output 'learn-smart-private-release.apk'
+Copy-Item -LiteralPath $source -Destination $destination -Force
+$sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk\build-tools'
+$apksigner = Get-ChildItem -LiteralPath $sdk -Directory | Sort-Object Name -Descending |
+    ForEach-Object { Join-Path $_.FullName 'apksigner.bat' } | Where-Object { Test-Path -LiteralPath $_ } |
+    Select-Object -First 1
+if (-not $apksigner) { throw 'Android apksigner was not found.' }
+$verification = (& $apksigner verify --verbose --print-certs $destination 2>&1) -join "`n"
+if ($LASTEXITCODE -ne 0 -or $verification -notmatch 'Verified') { throw 'APK signature verification failed.' }
+$certificate = ([regex]::Match($verification, '(?:Signer #1|V2 Signer): certificate SHA-256 digest: ([0-9a-f]+)',
+    [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Groups[1].Value.ToLowerInvariant()
+if (-not $certificate) { throw 'APK signing certificate digest was unavailable.' }
+$hash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+$aapt = Get-ChildItem -LiteralPath $sdk -Directory | Sort-Object Name -Descending |
+    ForEach-Object { Join-Path $_.FullName 'aapt2.exe' } | Where-Object { Test-Path -LiteralPath $_ } |
+    Select-Object -First 1
+if (-not $aapt) { throw 'Android aapt2 was not found.' }
+$badging = (& $aapt dump badging $destination 2>&1) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw 'APK package metadata could not be read.' }
+$package = [regex]::Match($badging, "package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'" )
+if (-not $package.Success -or $package.Groups[1].Value -ne 'com.konetibalaji.learning') {
+    throw 'APK package identity or version metadata is invalid.'
+}
+$manifest = [ordered]@{
+    product = 'Learn Smart AI'
+    distribution = 'private APK'
+    git_commit = $commit
+    version_name = $package.Groups[3].Value
+    version_code = [int]$package.Groups[2].Value
+    backend_url = $BackendUrl.TrimEnd('/')
+    apk_file = [IO.Path]::GetFileName($destination)
+    apk_sha256 = $hash
+    signing_certificate_sha256 = $certificate
+    built_at_utc = [DateTime]::UtcNow.ToString('o')
+    production_verified = $false
+    uat_accepted = $false
+}
+$manifestPath = Join-Path $output 'candidate-manifest.json'
+$manifest | ConvertTo-Json | Set-Content -LiteralPath $manifestPath -Encoding utf8
+Write-Output "APK=$destination"
+Write-Output "MANIFEST=$manifestPath"
+Write-Output "SHA256=$hash"
+Write-Output "CERTIFICATE_SHA256=$certificate"

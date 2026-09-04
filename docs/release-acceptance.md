@@ -113,6 +113,13 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
 | PROD-01 | Production deployment | Missing | User-confirmed host/domain/distribution, staging verification, rollback, secrets and operational checks |
 
+Private APK packaging now fails closed without a non-local HTTPS endpoint, a clean
+commit and all four environment-only signing inputs. The build helper verifies the
+signature and records commit, APK/certificate hashes, APK version and backend URL
+without secret values. A disposable-key `assembleRelease`/APK Signature Scheme v2
+check passed; this is packaging QA, not an owned production signature, reachable
+backend, UAT candidate or deployment. See `private-apk-release.md`.
+
 ## Delivery stages and exit gates
 
 1. **Development:** all requirements mapped; partial features repaired; OpenMAIC

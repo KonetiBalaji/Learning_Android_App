@@ -21,6 +21,12 @@ emulator/loopback hosts. A release build requires an explicit HTTPS
 validation, not proof of host ownership, server security, reachability or deployment.
 Release signing and a confirmed production backend remain pending.
 
+Release packaging now requires an explicit owned keystore through environment-only
+inputs, verifies the resulting APK signature and emits a commit/hash/certificate
+manifest. The successful QA path used only a disposable certificate and placeholder
+HTTPS endpoint, so final signing ownership and production deployment remain pending.
+See `private-apk-release.md`.
+
 ## Verification on 2026-09-03
 
 - `:app:assembleDebug :app:testDebugUnitTest :app:lintDebug` passed.
