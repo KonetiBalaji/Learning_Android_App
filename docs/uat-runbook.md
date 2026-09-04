@@ -51,7 +51,9 @@ instructions and educational errors, not just crashes.
 ## Issue and acceptance record
 
 For each issue: `ID / requirement IDs / candidate commit+APK hash / device / steps /
-expected / actual / impact / redacted evidence / fix commit / tester retest result`.
+expected / actual / impact / Support ID when shown / redacted evidence / fix commit / tester retest result`.
+The Support ID is safe operational correlation metadata; do not copy response bodies,
+tokens, learner answers or other private content into the report.
 Do not close an issue solely because a unit test passes. Reproduce the user's
 journey on the corrected candidate and have the tester confirm the outcome.
 

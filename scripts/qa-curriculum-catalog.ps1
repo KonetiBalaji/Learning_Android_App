@@ -7,6 +7,7 @@ function Adb{& $adb -s emulator-5554 @args;if($LASTEXITCODE-ne0){throw "ADB fail
 function Ui{for($i=0;$i-lt5;$i++){if(((Adb shell uiautomator dump /sdcard/qa-catalog.xml)-join'')-match'dumped to'){return [xml]((Adb shell cat /sdcard/qa-catalog.xml)-join"`n")};Start-Sleep -Milliseconds 500};throw 'Could not obtain a fresh Android UI hierarchy.'}
 function Center($node){$b=[regex]::Matches($node.bounds,'\d+')|ForEach-Object{[int]$_.Value};@([int](($b[0]+$b[2])/2),[int](($b[1]+$b[3])/2))}
 function FindText([string]$text,[int]$seconds=30,[switch]$Scroll){$until=(Get-Date).AddSeconds($seconds);do{$node=(Ui).SelectNodes('//node')|Where-Object text -eq $text|Select-Object -First 1;if($node){return $node};if($Scroll){Adb shell input swipe 540 1850 540 750 350|Out-Null};Start-Sleep -Milliseconds 600}while((Get-Date)-lt$until);throw "UI text not found: $text"}
+function FindTextMatch([string]$pattern,[int]$seconds=30){$until=(Get-Date).AddSeconds($seconds);do{$node=(Ui).SelectNodes('//node')|Where-Object text -match $pattern|Select-Object -First 1;if($node){return $node};Start-Sleep -Milliseconds 600}while((Get-Date)-lt$until);throw "UI text pattern not found: $pattern"}
 function FindAbsent([string]$text,[int]$seconds=5){$until=(Get-Date).AddSeconds($seconds);do{$node=(Ui).SelectNodes('//node')|Where-Object text -eq $text|Select-Object -First 1;if($node){throw "Unexpected stale UI text found: $text"};Start-Sleep -Milliseconds 500}while((Get-Date)-lt$until)}
 function TapText([string]$text,[int]$seconds=30,[switch]$Scroll){$p=Center(FindText $text $seconds -Scroll:$Scroll);Adb shell input tap $p[0] $p[1]|Out-Null;Start-Sleep -Milliseconds 900}
 function EnterField([int]$index,[string]$value){$f=@((Ui).SelectNodes('//node')|Where-Object class -eq 'android.widget.EditText');$p=Center $f[$index];Adb shell input tap $p[0] $p[1]|Out-Null;foreach($c in $value.ToCharArray()){switch($c){'@'{Adb shell input keyevent 77|Out-Null}'.'{Adb shell input keyevent 56|Out-Null}'-'{Adb shell input keyevent 69|Out-Null}default{Adb shell input text ([string]$c)|Out-Null}}};Adb shell input keyevent 4|Out-Null}
@@ -36,7 +37,11 @@ TapText 'Settings and account' 30 -Scroll
 TapText 'Change grade · 8' 30 -Scroll
 Invoke-RestMethod 'http://127.0.0.1:8000/__qa/catalog/fail-next-response' -Method Post -Headers $headers|Out-Null
 TapText "Grade`n9"
-FindText 'The learning service is temporarily unavailable. Please try again.'|Out-Null
+$supportPattern='^The learning service is temporarily unavailable\. Please try again\.\s+Support ID: [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+$supportNode=FindTextMatch $supportPattern
+if($supportNode.text-notmatch'Support ID: ([0-9a-f-]{36})$'){throw 'The failure dialog did not expose a canonical support ID.'}
+Adb shell screencap -p /sdcard/qa-support-id.png|Out-Null
+Adb pull /sdcard/qa-support-id.png (Join-Path $repo 'artifacts\qa-support-id.png')|Out-Null
 TapText 'Try again'
 FindText 'The curriculum catalog is unavailable. Reconnect, then refresh.'|Out-Null
 FindText 'Refresh curriculum and progress'|Out-Null

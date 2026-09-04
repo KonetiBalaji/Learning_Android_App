@@ -126,9 +126,15 @@ def install_response_fault(app):
             mode = armed.pop(path)
             if mode == 'malformed':
                 payload = json.loads(b''.join([chunk async for chunk in response.body_iterator]))
-                return JSONResponse({'state_token': payload['state_token']})
+                replacement = JSONResponse({'state_token': payload['state_token']})
+                if request_id := response.headers.get('x-request-id'):
+                    replacement.headers['x-request-id'] = request_id
+                return replacement
             # Endpoint has committed. Substitute a gateway-like failure instead of
             # delivering the saved outcome. This is not a TCP-disconnect simulation.
             await response.body_iterator.aclose()
-            return JSONResponse({'detail': 'Scripted QA response failure after commit'}, status_code=503)
+            replacement = JSONResponse({'detail': 'Scripted QA response failure after commit'}, status_code=503)
+            if request_id := response.headers.get('x-request-id'):
+                replacement.headers['x-request-id'] = request_id
+            return replacement
         return response

@@ -1,11 +1,30 @@
 package com.konetibalaji.learning
 
 import java.net.HttpURLConnection
+import java.util.UUID
 
 /** Server response bodies are deliberately excluded: validation details may echo passwords. */
-class ApiFailure(val status: Int, val sessionExpired: Boolean, message: String) : Exception(message)
+class ApiFailure(
+    val status: Int,
+    val sessionExpired: Boolean,
+    message: String,
+    val requestId: String? = null,
+) : Exception(message)
 
-fun apiFailure(status: Int, authenticationRequest: Boolean = false, recoveryCode: String? = null): ApiFailure {
+fun canonicalRequestId(value: String?): String? = runCatching {
+    value?.takeIf { it.length == 36 }?.let(UUID::fromString)?.toString()?.takeIf { it == value }
+}.getOrNull()
+
+fun apiFailureDisplay(failure: ApiFailure): String = failure.requestId?.let {
+    "${failure.message}\n\nSupport ID: $it"
+} ?: failure.message.orEmpty()
+
+fun apiFailure(
+    status: Int,
+    authenticationRequest: Boolean = false,
+    recoveryCode: String? = null,
+    requestId: String? = null,
+): ApiFailure {
     val expired = status == 401 && !authenticationRequest
     val message = when {
         expired -> "Your session has expired or is no longer valid. Please sign in again."
@@ -23,7 +42,7 @@ fun apiFailure(status: Int, authenticationRequest: Boolean = false, recoveryCode
         status >= 500 -> "The learning service is temporarily unavailable. Please try again."
         else -> "The request could not be completed. Please try again."
     }
-    return ApiFailure(status, expired, message)
+    return ApiFailure(status, expired, message, canonicalRequestId(requestId))
 }
 
 /** Only exact known codes select client-owned text; never interpolate headers or bodies. */
@@ -44,8 +63,17 @@ fun readApiResponse(connection: HttpURLConnection, authenticationRequest: Boolea
         if (status !in 200..299) {
             val recoveryCode = if (status in setOf(422, 429) && !authenticationRequest)
                 runCatching { connection.getHeaderField("X-Learning-Error") }.getOrNull() else null
+            // Android's HTTP stack may expose lowercase wire headers in title case and
+            // does not consistently normalize lookup casing across API levels.
+            val requestId = listOf("X-Request-ID", "x-request-id", "X-Request-Id")
+                .firstNotNullOfOrNull { name -> runCatching { connection.getHeaderField(name) }.getOrNull() }
+                ?: runCatching {
+                    connection.headerFields.entries.firstOrNull {
+                        it.key?.equals("X-Request-ID", ignoreCase = true) == true
+                    }?.value?.firstOrNull()
+                }.getOrNull()
             runCatching { connection.errorStream?.close() }
-            throw apiFailure(status, authenticationRequest, recoveryCode)
+            throw apiFailure(status, authenticationRequest, recoveryCode, requestId)
         }
         if (status == 204) return ""
         return connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }

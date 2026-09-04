@@ -727,13 +727,13 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 val cleared = withContext(Dispatchers.IO) { runCatching { tokenStore.clear() } }.isSuccess
                 // Keep account-scoped resume pointers. Reauthentication can restore server progress.
                 mutableState.value = AppUiState(darkMode = mutableState.value.darkMode,
-                    error = if (cleared) failure.message else "Your session is invalid. Saved credentials could not be cleared. Please sign in again.")
+                    error = if (cleared) apiFailureDisplay(failure) else "Your session is invalid. Saved credentials could not be cleared. Please sign in again.")
             } else if (recovery != null) {
                 resumeAfterConflict = recovery
                 mutableState.value = mutableState.value.copy(loading = false)
             } else {
                 val message = when (failure) {
-                    is ApiFailure -> failure.message
+                    is ApiFailure -> apiFailureDisplay(failure)
                     is DocumentUploadException -> failure.message
                     is IOException -> "Could not reach the learning service. Check your connection and try again."
                     else -> "Something went wrong. Please try again."

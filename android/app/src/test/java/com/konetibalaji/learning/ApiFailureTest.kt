@@ -18,7 +18,7 @@ class ApiFailureTest {
         assertTrue(failure.message!!.contains("tomorrow"))
         assertFalse(failure.message!!.contains("private quota details"))
     }
-    private class Response(private val code: Int, body: String = "", private val broken: Boolean = false, private val recovery: String? = null) : HttpURLConnection(URL("https://example.invalid")) {
+    private class Response(private val code: Int, body: String = "", private val broken: Boolean = false, private val recovery: String? = null, private val requestId: String? = null) : HttpURLConnection(URL("https://example.invalid")) {
         var disconnected = false
         var closed = false
         val stream = object : ByteArrayInputStream(body.toByteArray()) { override fun close() { closed = true; super.close() } }
@@ -26,6 +26,8 @@ class ApiFailureTest {
         override fun getInputStream() = stream
         override fun getErrorStream() = stream
         override fun getHeaderField(name: String): String? = if (name == "X-Learning-Error") recovery else null
+        override fun getHeaderFields(): MutableMap<String, MutableList<String>> =
+            requestId?.let { mutableMapOf("x-request-id" to mutableListOf(it)) } ?: mutableMapOf()
         override fun disconnect() { disconnected = true }
         override fun connect() {}
         override fun usingProxy() = false
@@ -85,6 +87,18 @@ class ApiFailureTest {
             assertTrue(failure.message!!.contains(hint))
             assertFalse(failure.message!!.contains("private-source-password"))
             assertTrue(response.closed && response.disconnected)
+        }
+    }
+
+    @Test fun canonicalSupportIdIsShownOnlyForFailedRequestsAndUntrustedValuesAreDropped() {
+        val id = "123e4567-e89b-12d3-a456-426614174000"
+        val failure = assertThrows(ApiFailure::class.java) { readApiResponse(Response(503, requestId = id)) }
+        assertEquals(id, failure.requestId)
+        assertTrue(apiFailureDisplay(failure).endsWith("Support ID: $id"))
+        listOf(null, "", id.uppercase(), "not-a-uuid", "$id\nforged").forEach { value ->
+            val rejected = assertThrows(ApiFailure::class.java) { readApiResponse(Response(503, requestId = value)) }
+            assertNull(rejected.requestId)
+            assertFalse(apiFailureDisplay(rejected).contains("Support ID:"))
         }
     }
 
