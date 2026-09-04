@@ -21,6 +21,7 @@ def test_complete_production_configuration_is_traceable(monkeypatch, tmp_path):
     settings = get_settings()
     assert settings.environment == 'production'
     assert settings.release_revision == REVISION
+    assert settings.openai_embedding_model == 'text-embedding-3-small'
     assert settings.openai_api_key not in repr(settings)
     response = health(settings)
     assert response['environment'] == 'production' and response['revision'] == REVISION

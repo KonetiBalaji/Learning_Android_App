@@ -4,7 +4,7 @@ from app.config import get_settings
 from app.database import connection
 from app.document_search import search_source
 from app.document_selection import resolve_quiz_selection
-from app.schemas import Chapter, SourceRange
+from app.schemas import Chapter, SourceRange, SourceSearchHit, SourceSearchResults
 from test_mastery_loop import registered_client
 
 
@@ -134,5 +134,47 @@ def test_api_search_is_owned_read_only_and_never_calls_generation(monkeypatch, t
         with connection(get_settings().database_path) as db:
             assert db.execute('SELECT COUNT(*) FROM quizzes').fetchone()[0] == 0
             assert db.execute('SELECT COUNT(*) FROM quiz_creation_requests').fetchone()[0] == 0
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_api_uses_quota_bound_semantic_fallback_only_after_lexical_miss(monkeypatch, tmp_path):
+    monkeypatch.setenv('LEARNING_AI_MODE', 'openai')
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-key-never-sent')
+    client, headers = registered_client(monkeypatch, tmp_path)
+    calls = []
+    try:
+        text = ('Chapter 1 Safety\nCars use seat belts to reduce crash injuries. '
+                'The restraint spreads force and helps keep passengers inside the vehicle. ' * 4)
+        document = client.post('/v1/documents', headers=headers,
+            files={'file': ('source.txt', text)})
+        assert document.status_code == 201, document.text
+        document = document.json()
+        chapter_id = document['chapters'][0]['id']
+
+        def semantic(document_id, source, chapters, chapter_ids, query, limit, key, model):
+            calls.append((document_id, source, chapter_ids, query, limit, key, model))
+            start = source.index('Cars')
+            return SourceSearchResults(document_id=document_id, query=query,
+                matches=[SourceSearchHit(chapter_id=chapter_id, title=chapters[0].title,
+                    start_character=start, end_character=len(source), text=source[start:],
+                    match_start=start, match_end=len(source), context_truncated=False)],
+                has_more=False, match_mode='semantic_embedding')
+
+        monkeypatch.setattr('app.semantic_source_search.semantic_search_source', semantic)
+        path = f"/v1/documents/{document['id']}/search"
+        exact = client.post(path, headers=headers,
+            json={'chapter_ids': [chapter_id], 'query': 'seat belts'})
+        assert exact.status_code == 200 and exact.json()['match_mode'] == 'literal_case_insensitive'
+        assert calls == []
+
+        related = client.post(path, headers=headers,
+            json={'chapter_ids': [chapter_id], 'query': 'automobile protection'})
+        assert related.status_code == 200 and related.json()['match_mode'] == 'semantic_embedding'
+        assert calls[0][3:] == ('automobile protection', 20, 'test-key-never-sent',
+                                'text-embedding-3-small')
+        with connection(get_settings().database_path) as db:
+            assert db.execute('SELECT operations FROM ai_usage_days').fetchone()[0] == 1
+            assert db.execute('SELECT COUNT(*) FROM quizzes').fetchone()[0] == 0
     finally:
         client.__exit__(None, None, None)

@@ -17,6 +17,7 @@ services:
       LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY: ${LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY:-200}
       OPENAI_API_KEY: ${OPENAI_API_KEY:?Set the server-side provider key}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       LEARNING_GOOGLE_CLIENT_ID: ${LEARNING_GOOGLE_CLIENT_ID:-}
     volumes:
       - runtime:/runtime

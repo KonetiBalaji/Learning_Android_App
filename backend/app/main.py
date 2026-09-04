@@ -557,7 +557,21 @@ def search_document_source(document_id: str, request: SourceSearchRequest,
     row = owned_document(document_id, user_id, settings)
     try:
         chapters = [Chapter.model_validate(item) for item in parse_json(row['chapters_json'])]
-        return search_source(document_id, row['extracted_text'], chapters, request.chapter_ids, request.query, request.limit)
+        result = search_source(document_id, row['extracted_text'], chapters, request.chapter_ids, request.query, request.limit)
+        if result.matches or settings.ai_mode != 'openai':
+            return result
+        from .semantic_source_search import (
+            SemanticSearchScopeTooLarge, SemanticSearchUnavailable, semantic_search_source,
+        )
+        consume_ai_operation(settings, user_id)
+        try:
+            return semantic_search_source(document_id, row['extracted_text'], chapters,
+                request.chapter_ids, request.query.strip(), request.limit,
+                settings.openai_api_key or '', settings.openai_embedding_model)
+        except SemanticSearchUnavailable as error:
+            raise HTTPException(status_code=503, detail='Semantic source search is temporarily unavailable; retry or use exact source words') from error
+        except SemanticSearchScopeTooLarge as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=422, detail='Invalid search phrase or selected source ranges') from error
 

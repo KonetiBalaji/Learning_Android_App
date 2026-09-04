@@ -98,7 +98,8 @@ class SourceSearchResults(BaseModel):
     query: str
     matches: list[SourceSearchHit]
     has_more: bool
-    match_mode: str = 'literal_case_insensitive'
+    match_mode: Literal['literal_case_insensitive', 'all_query_terms_case_insensitive',
+                        'semantic_embedding'] = 'literal_case_insensitive'
 
 
 class QuizRequest(BaseModel):

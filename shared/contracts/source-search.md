@@ -26,15 +26,20 @@ If no exact phrase exists, a bounded topic-query fallback removes a small docume
 set of English question/connector words and requires **every** remaining distinct
 term (up to eight) as a whole word in one source passage, in any order. It never
 returns a passage for only some terms and never falls back to the whole document.
-It is **not semantic search**, stemming, synonym expansion, spelling correction,
-OCR or an authoritative topic/curriculum index. A zero result therefore does not
-prove the document lacks a related explanation.
+When both local modes return no passages and the server is configured for OpenAI,
+one quota-counted embedding request compares the query with deterministic verbatim
+passages from the selected chapters. At most 80,000 selected source characters are
+admitted; a larger scope fails with an instruction to select fewer chapters rather
+than silently searching only part of the material. Invalid, missing, non-finite,
+zero-length or dimension-mismatched vectors fail closed. Similarity is only a
+retrieval suggestion, not proof of relevance, curriculum alignment, spelling
+correction or OCR quality. The learner must read and explicitly select a result.
 
 ## Response
 
 The response contains `document_id`, trimmed `query`, `matches`, `has_more`, and
-`match_mode`, which is `literal_case_insensitive` or
-`all_query_terms_case_insensitive`.
+`match_mode`, which is `literal_case_insensitive`,
+`all_query_terms_case_insensitive` or `semantic_embedding`.
 Each hit contains:
 
 - `chapter_id`, `title`: the stored chapter identity, not generated labels.
@@ -45,7 +50,7 @@ Each hit contains:
   line/paragraph at either edge.
 
 Offsets are absolute Unicode code points, start-inclusive and end-exclusive.
-The algorithm prefers the source line/paragraph containing a match, with at most
+The local algorithm prefers the source line/paragraph containing a match, with at most
 300 preceding characters when the paragraph is long, and caps each result at
 2,000 characters. Results follow source order, not a relevance score. Matches
 already covered by a returned passage are not repeated. A phrase straddling the
@@ -58,6 +63,15 @@ Refine the phrase or chapter selection to narrow results; pagination is not yet
 implemented. Returned ranges can be explicitly reviewed and submitted through
 the existing `source_ranges` quiz contract. Overlap/insufficient-material checks
 still apply; search alone never selects text or broadens quiz scope.
+
+Semantic candidates are contiguous source-order chunks of at most 1,600 Unicode
+code points. Returned semantic `match_start` and `match_end` intentionally cover
+the complete verbatim passage because no literal token span is claimed. Up to the
+requested result limit are selected by cosine similarity above the fixed minimum,
+then returned in source order. Neither embeddings, similarity scores nor queries
+are persisted. Provider failure returns retryable HTTP 503; daily quota exhaustion
+uses the existing HTTP 429 AI-learning-limit contract. Local exact/all-term hits do
+not spend provider quota.
 
 ## Verification and remaining work
 
@@ -192,3 +206,11 @@ denied, matching its starting state. The journey then completed excerpt restart,
 This proves the named topic-result nodes are available to real TalkBack on the API
 36 emulator. It does not prove spoken wording/order for every screen, gesture-only
 navigation, switch access, a physical device, or user acceptance.
+
+## Semantic fallback implementation and live check
+
+The bounded embedding fallback, fail-closed vector contract, quota behavior,
+Android response validation and one synthetic live synonym/distractor check are
+recorded in `docs/semantic-source-search-evaluation.md`. That evidence does not
+retroactively make the earlier deterministic emulator journey semantic-device QA;
+an actual device journey and a broader labeled relevance set remain open.

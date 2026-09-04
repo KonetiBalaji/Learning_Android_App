@@ -26,8 +26,20 @@ class DocumentSearchTest {
             result.copy(chapterIds = setOf("other")), result.copy(hits = listOf(hit.copy(chapterId = "other")))).forEach {
             assertThrows(IllegalArgumentException::class.java) { validate(it) }
         }
+        assertThrows(IllegalArgumentException::class.java) { validate(result.copy(matchMode = "provider_magic")) }
+    }
+
+    @Test fun validatesSemanticPassageWithoutPretendingQueryWordsAreLiteralMatches() {
+        val passage = "Cars reduce crash injury"
+        val semanticHit = SourceSearchHit("chapter", "Source", 10, 10 + passage.length,
+            passage, 10, 10 + passage.length, false)
+        val semantic = DocumentSearch("doc", "automobile protection", setOf("chapter"),
+            listOf(semanticHit), false, "semantic_embedding")
+        assertEquals(semantic, validateSourceSearch(semantic, "doc", semantic.query, setOf("chapter")))
+        assertTrue(documentSearchStatus(semantic).contains("semantically related"))
         assertThrows(IllegalArgumentException::class.java) {
-            validate(result.copy(matchMode = "semantic"))
+            validateSourceSearch(semantic.copy(hits = listOf(semanticHit.copy(matchEnd = 20))),
+                "doc", semantic.query, setOf("chapter"))
         }
     }
 
@@ -55,7 +67,7 @@ class DocumentSearchTest {
     @Test fun emptyResultsStayEmptyAndLimitsFailClosed() {
         val empty = validate(result.copy(hits = emptyList()))
         assertTrue(empty.hits.isEmpty())
-        assertTrue(documentSearchStatus(empty).startsWith("No source passage"))
+        assertTrue(documentSearchStatus(empty).startsWith("No relevant source passage"))
         assertThrows(IllegalArgumentException::class.java) { validate(result.copy(hits = emptyList(), hasMore = true)) }
         assertThrows(IllegalArgumentException::class.java) { validate(result.copy(hits = List(21) { hit })) }
         assertThrows(IllegalStateException::class.java) { selectedSearchExcerpt(result.copy(hits = emptyList()), "doc", setOf("chapter"), 0) }

@@ -918,7 +918,7 @@ private fun DocumentPdfPageControls(state: AppUiState, onLoad: () -> Unit, onInp
 @Composable
 private fun DocumentSourceSearchControls(state: AppUiState, onQuery: (String) -> Unit, onSearch: () -> Unit, onUseResult: (Int) -> Unit) {
     Text("Find a topic or phrase", style = MaterialTheme.typography.titleLarge)
-    Text("Search the checked chapters for an exact phrase first. If there is no phrase match, every important query word must occur in one bounded source passage. This does not infer synonyms or change your selection automatically. Search covers whole checked chapters, even in excerpt mode.")
+    Text("Search the checked chapters for an exact phrase first, then all important query words. When the live AI service is configured, a zero-result search can find semantically related wording. Semantic results are suggestions: verify the source passage before selecting it. Search never changes your selection automatically and covers whole checked chapters, even in excerpt mode.")
     OutlinedTextField(value = state.sourceQuery, onValueChange = onQuery, label = { Text("Topic or source phrase (2–120 characters)") },
         singleLine = true, enabled = !state.loading, modifier = Modifier.fillMaxWidth())
     TextButton(onClick = onSearch, enabled = !state.loading && state.selectedChapterIds.isNotEmpty() && validSourceQuery(state.sourceQuery)) { Text("Search selected chapters") }

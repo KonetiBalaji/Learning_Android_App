@@ -29,6 +29,7 @@ class Settings:
     max_concurrent_document_parsers: int = 2
     openai_api_key: str | None = field(default=None, repr=False)
     openai_model: str = "gpt-5-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
     ai_mode: str = "deterministic"
     google_client_id: str | None = None
     auth_attempts_per_window: int = 30
@@ -108,6 +109,8 @@ def get_settings() -> Settings:
         max_ai_operations_per_owner_per_day=int(os.getenv('LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY', '200')),
         openai_api_key=api_key,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini",
+        openai_embedding_model=(os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small").strip()
+                                or "text-embedding-3-small"),
         ai_mode=ai_mode,
         google_client_id=os.getenv("LEARNING_GOOGLE_CLIENT_ID", "").strip() or None,
         auth_attempts_per_window=int(os.getenv("LEARNING_AUTH_ATTEMPTS", "30")),
