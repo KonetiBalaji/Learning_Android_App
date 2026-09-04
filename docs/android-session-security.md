@@ -45,5 +45,19 @@ See `private-apk-release.md`.
   test AndroidKeyStore itself. Dependency metadata access returned HTTP 502;
   no unverified instrumentation dependency was added.
 
+## Authenticated-decryption device evidence (2026-09-04)
+
+`scripts/qa-corrupt-session.ps1 -ResetTestAppData` passed on the dedicated API 36
+emulator. After Android persisted a real encrypted bearer-token envelope, the QA
+runner force-stopped the app and replaced only that isolated preference value with
+a malformed versioned envelope. Startup rejected authenticated decryption, removed
+encrypted and legacy credential fields, displayed the safe sign-in recovery message,
+and remained signed out after another restart. Password reauthentication succeeded
+before the disposable account was deleted. No token, ciphertext or password was
+printed. This verifies the app's altered-ciphertext path on AndroidKeyStore, not OEM
+key invalidation, hardware-backed storage certification, physical-device behavior
+or user UAT. Final Android verification passed 126 JVM tests, lint and debug APK
+assembly.
+
 References: [Android Keystore](https://developer.android.com/privacy-and-security/keystore)
 and [backup controls](https://developer.android.com/identity/data/autobackup).

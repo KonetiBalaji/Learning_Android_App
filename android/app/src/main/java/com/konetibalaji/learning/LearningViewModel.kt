@@ -163,7 +163,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             api.restoreToken(restored.getOrNull())
             mutableState.value = mutableState.value.copy(loading = false,
                 screen = if (api.hasToken) (if (savedGrade == null) Screen.Grade else Screen.Subjects) else Screen.SignIn,
-                error = if (restored.isFailure) "Unable to restore the saved session. Please sign in." else null)
+                error = sessionRestoreError(restored.isFailure, tokenStore.lastReadFailed))
             if (api.hasToken && preferences.getString(activeFlowKey(), null) == "document" && mutableState.value.canResumeDocumentQuiz) resumeDocumentQuiz()
             else if (api.hasToken && preferences.contains(activeSessionKey())) resumeLearning()
             else if (api.hasToken && savedGrade != null) refreshProgress()

@@ -86,7 +86,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
-| AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and AndroidKeyStore provider-failure exercise |
+| AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
 | AUTH-02 | Google login | Partial | Backend exchange and Android Credential Manager wiring implemented; disabled-build device QA passes. OAuth configuration, real sign-in, lifecycle recovery and user acceptance remain missing |
 | CUR-01 | Grade 1–12, subject and chapter selection | Partial | User-confirmed curriculum/board; authoritative chapter coverage and grade isolation |
 | ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
@@ -134,6 +134,13 @@ cross-account bleed. A one-minute server token then expired naturally; the real
 401 cleared encrypted credentials, survived restart signed out, and allowed password
 reauthentication before disposable-account deletion. This advances AUTH-01 to QA
 verified, not physical-device UAT. See `authentication-recovery.md`.
+
+API 36 authenticated-decryption QA altered a real encrypted session only inside the
+dedicated app sandbox. Startup failed closed, displayed safe recovery, cleared both
+credential fields across restart and allowed password reauthentication. The synthetic
+account was deleted. This covers ciphertext corruption with AndroidKeyStore but not
+OEM key invalidation, hardware-backed certification or user UAT; see
+`android-session-security.md`. Android 126 JVM tests, lint and debug assembly pass.
 
 ## Delivery stages and exit gates
 

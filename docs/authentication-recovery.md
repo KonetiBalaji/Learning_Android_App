@@ -57,6 +57,8 @@ signed out after force-stop/restart. Password reauthentication succeeded so the
 disposable account could be deleted. This was not a fabricated error response.
 
 Token lifetime is now configurable from 1 minute through 30 days and rejects values
-outside that range. Still needed: AndroidKeyStore/provider failure injection and
-physical-device/user UAT. Network-loss mutation reconciliation belongs to ASM-01,
+outside that range. A separate API 36 run altered the real encrypted envelope and
+verified authenticated-decryption failure, visible recovery, credential clearing,
+restart and reauthentication. OEM/provider key invalidation and physical-device/user
+UAT remain. Network-loss mutation reconciliation belongs to ASM-01,
 not basic authentication acceptance. This is QA, not UAT or production proof.

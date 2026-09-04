@@ -7,8 +7,15 @@ import java.security.KeyStore
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
+const val SESSION_RESTORE_ERROR = "Unable to restore the saved session. Please sign in."
+fun sessionRestoreError(readOperationFailed: Boolean, encryptedReadFailed: Boolean): String? =
+    SESSION_RESTORE_ERROR.takeIf { readOperationFailed || encryptedReadFailed }
+
 /** Call on an IO dispatcher. No plaintext fallback; migrations commit atomically. */
 class SessionTokenStore(private val preferences: SharedPreferences, private val alias: String = "learn-smart-session-v1") {
+    @Volatile var lastReadFailed: Boolean = false
+        private set
+
     private fun cipher(): TokenCipher {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         val existing = store.getKey(alias, null) as? SecretKey
@@ -25,6 +32,7 @@ class SessionTokenStore(private val preferences: SharedPreferences, private val 
     }
 
     @Synchronized fun read(): String? {
+        lastReadFailed = false
         return try {
             val sealed = preferences.getString("session_ciphertext", null)
             if (sealed != null) {
@@ -36,6 +44,7 @@ class SessionTokenStore(private val preferences: SharedPreferences, private val 
             }
         } catch (_: Exception) {
             // Missing/invalidated key, altered ciphertext or migration failure => fresh login.
+            lastReadFailed = true
             clear()
             null
         }
