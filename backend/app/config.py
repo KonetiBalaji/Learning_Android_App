@@ -37,6 +37,8 @@ class Settings:
             raise ValueError("Authentication attempt limit must be between 1 and 1000")
         if not 1 <= self.auth_window_seconds <= 3600:
             raise ValueError("Authentication window must be between 1 and 3600 seconds")
+        if not 1 <= self.token_minutes <= 60 * 24 * 30:
+            raise ValueError('Token lifetime must be between 1 minute and 30 days')
         if self.environment in {'staging', 'production'}:
             if len(self.jwt_secret) < 32 or self.jwt_secret == 'local-development-secret-change-before-deployment':
                 raise ValueError('Staging and production require an explicit JWT secret of at least 32 characters')
@@ -68,6 +70,7 @@ def get_settings() -> Settings:
     return Settings(
         runtime_dir=base,
         jwt_secret=secret,
+        token_minutes=int(os.getenv('LEARNING_TOKEN_MINUTES', str(60 * 24))),
         openai_api_key=api_key,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini",
         ai_mode=ai_mode,

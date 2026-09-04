@@ -53,3 +53,10 @@ def test_unknown_environment_is_rejected(monkeypatch):
     monkeypatch.setenv('LEARNING_ENVIRONMENT', 'prod-ish')
     with pytest.raises(ValueError):
         get_settings()
+
+
+@pytest.mark.parametrize('minutes', ['0', '43201'])
+def test_unsafe_token_lifetime_is_rejected(monkeypatch, minutes):
+    monkeypatch.setenv('LEARNING_TOKEN_MINUTES', minutes)
+    with pytest.raises(ValueError, match='Token lifetime'):
+        get_settings()

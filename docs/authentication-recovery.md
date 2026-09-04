@@ -38,6 +38,25 @@ mutations whose response was lost. That work remains in ASM-01.
   synthetic account and associated learning data were deleted; no user account
   was used. Deleted synthetic data is not recoverable through the app.
 
-Still needed: timed token expiry and reauthentication on-device, saved-session
-recovery across account switches, token-store failure injection, and network-loss
-mutation reconciliation. This is QA, not user UAT acceptance or production proof.
+## Account-switch and timed-expiry device evidence (2026-09-04)
+
+`scripts/qa-account-switch.ps1 -ResetTestAppData` passed on LearnSmart_API36
+against an isolated deterministic backend. Android created two synthetic accounts,
+saved Sports for Account A and Music for Account B, signed out/in, and restarted.
+Account A restored exactly one selection (Sports) while Music remained unselected;
+direct owner-authenticated profiles independently matched both values. The inspected
+account-switch screenshot contains no email or credential. Both successful accounts
+and one leftover account from a failed harness attempt were deleted.
+
+`LEARNING_TOKEN_MINUTES=1` plus `scripts/qa-session-expiry.ps1
+-ResetTestAppData` then exercised an actual server-issued expiry. Before expiry the
+device preference held one encrypted session envelope and no plaintext assertion was
+printed. After 65 seconds, Android's real progress request received 401, showed the
+safe expired-session message, removed encrypted and legacy credentials, and stayed
+signed out after force-stop/restart. Password reauthentication succeeded so the
+disposable account could be deleted. This was not a fabricated error response.
+
+Token lifetime is now configurable from 1 minute through 30 days and rejects values
+outside that range. Still needed: AndroidKeyStore/provider failure injection and
+physical-device/user UAT. Network-loss mutation reconciliation belongs to ASM-01,
+not basic authentication acceptance. This is QA, not UAT or production proof.

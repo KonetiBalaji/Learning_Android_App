@@ -9,6 +9,7 @@ Set the following through the chosen host's secret/configuration facility:
 - `LEARNING_RUNTIME_DIR`: explicit absolute path on the durable mounted volume
 - `LEARNING_JWT_SECRET`: random value of at least 32 characters
 - `LEARNING_RELEASE_REVISION`: exact 40-character lowercase Git commit
+- `LEARNING_TOKEN_MINUTES`: 1 through 43200; default is 1440
 - `LEARNING_AI_MODE=openai`
 - `OPENAI_API_KEY`: server-side secret
 - `OPENAI_MODEL`: reviewed supported model, currently `gpt-5-mini`
@@ -28,7 +29,7 @@ private APK candidate manifest and expected Git commit before testing. A healthy
 response proves process readiness only; it does not prove migrations, model quality,
 storage durability, backup/restore, TLS routing or capacity.
 
-Seven configuration tests cover the valid production profile, each required input,
+Nine configuration tests cover the valid production profile, each required input,
 staging behavior and invalid environment names. Real production acceptance still
 requires the user-confirmed host/domain, TLS and proxy configuration, encrypted
 persistent storage, secret manager, backup/restore drill, retention decision,

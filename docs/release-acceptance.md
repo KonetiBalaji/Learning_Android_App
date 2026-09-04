@@ -86,7 +86,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
-| AUTH-01 | Email registration and login | Partial | Invalid/expired/deleted sessions, account switching, encrypted device tokens, automated Android tests |
+| AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and AndroidKeyStore provider-failure exercise |
 | AUTH-02 | Google login | Partial | Backend exchange and Android Credential Manager wiring implemented; disabled-build device QA passes. OAuth configuration, real sign-in, lifecycle recovery and user acceptance remain missing |
 | CUR-01 | Grade 1–12, subject and chapter selection | Partial | User-confirmed curriculum/board; authoritative chapter coverage and grade isolation |
 | ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
@@ -123,10 +123,17 @@ backend, UAT candidate or deployment. See `private-apk-release.md`.
 Backend production mode now fails startup without an explicit absolute runtime
 volume, strong non-default JWT secret, full Git revision, reviewed OpenAI mode and
 server-side provider key. Health reports safe environment/revision/provider identity
-for APK-to-backend reconciliation. Seven configuration tests pass. This prevents
+for APK-to-backend reconciliation. Nine configuration tests pass. This prevents
 accidental development configuration but does not provide the still-unconfirmed
 host, TLS proxy, durable volume, secret manager, quotas, monitoring or recovery
 evidence. See `production-configuration.md`.
+
+AUTH-01 now has API 36 evidence for two-account switching and a genuine timed token
+expiry. Distinct server interests survived sign-out/sign-in and restart without
+cross-account bleed. A one-minute server token then expired naturally; the real
+401 cleared encrypted credentials, survived restart signed out, and allowed password
+reauthentication before disposable-account deletion. This advances AUTH-01 to QA
+verified, not physical-device UAT. See `authentication-recovery.md`.
 
 ## Delivery stages and exit gates
 
