@@ -14,6 +14,12 @@ fun restoredDocumentDifficulty(value: String?): String = value?.takeIf { it in d
 fun requestedDifficultyLabel(value: String?): String =
     documentDifficulties[value]?.let { "Requested difficulty: $it" } ?: "Requested difficulty: unspecified"
 
+fun nextDocumentDifficulty(value: String?): String? = when (restoredDocumentDifficulty(value)) {
+    "easy" -> "medium"
+    "medium" -> "hard"
+    else -> null
+}
+
 val documentQuestionTypes = linkedMapOf(
     "multiple_choice" to "Multiple choice",
     "true_false" to "True / False",

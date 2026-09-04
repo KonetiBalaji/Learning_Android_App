@@ -740,6 +740,21 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             question = retry.question, feedback = null, results = null, screen = Screen.Question,
             canResumeDocumentQuiz = true)
     }
+    fun configureAnotherDocumentQuiz(increaseDifficulty: Boolean = false) = perform(Screen.Chapters) {
+        val current = mutableState.value
+        val documentId = requireNotNull(current.document).id
+        if (increaseDifficulty) {
+            val difficulty = requireNotNull(nextDocumentDifficulty(current.savedQuizDifficulty)) {
+                "This quiz is already at the highest fixed difficulty"
+            }
+            check(preferences.edit().putString(documentDifficultyKey(), difficulty).commit()) {
+                "Could not save the increased difficulty"
+            }
+        }
+        // Revalidate the document and require explicit scope review. The source
+        // quiz remains in history, while only the active-quiz pointer is replaced.
+        rememberUploadedDocument(api.getDocument(documentId))
+    }
     fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, sourceQuery = "", documentSearch = null, pdfPageDraft = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 

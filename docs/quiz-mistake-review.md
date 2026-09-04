@@ -29,5 +29,12 @@ Automated tests cover the exact feedback-to-results teaching payload, binary
 question-type preservation, malformed client results, incorrect-only copying,
 owner denial, unfinished/perfect-result rejection and idempotent replay. This
 implements the original results-screen mistake-review and retry-incorrect actions.
-API 36 visual/restart QA, accessibility review, another-quiz configuration and
-user UAT remain open.
+
+The results screen also offers **Configure another quiz**, which revalidates the
+same document and returns to its selection/configuration screen, and a bounded
+**Increase to Medium/Hard** action. These actions deliberately require the learner
+to review the new source selection instead of silently reusing scope that may have
+changed or been lost across process restoration. The completed quiz remains in
+server history. Mixed and Hard have no automatic next level.
+
+API 36 visual/restart QA, accessibility review and user UAT remain open.
