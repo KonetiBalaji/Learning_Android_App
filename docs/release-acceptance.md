@@ -65,11 +65,14 @@ See `docs/practice-answer-matching.md` for scope and limitations.
 
 Provider-backed non-Fractions lessons can now request fresh practice without a
 fixed round cap. Every candidate is independently solved without its proposed key
-or hint, fail-closed on repetition/ambiguity/topic/grade/key/hint checks, and
+or hint, then its hint is separately reviewed for accuracy, relevance and answer
+leakage. Candidates fail closed on repetition/ambiguity/topic/grade/key/hint checks and are
 atomically persisted only after the learning-state guard. Fractions retain their
 deterministic variants; provider failure keeps the current question. Two live
-Grade 8 Cells/English samples passed after one earlier disagreement was rejected.
-Backend regression: 418 passed with one existing Windows skip. Broad curriculum,
+Grade 8 Cells/English samples passed after one earlier disagreement was rejected;
+a later four-subject Grade 8 evaluation accepted Math, Science, English and Social
+Studies samples while safely rejecting two additional candidates. Backend
+regression: 498 passed with one existing Windows skip. Broad curriculum,
 cost/latency limits, holdout quality, device coverage and UAT remain open; TUT-02
 is partial. See `shared/contracts/fresh-practice.md`.
 
@@ -103,7 +106,7 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | CUR-01 | Grade 1–12, subject and chapter selection | Partial | Versioned server catalog and pre-provider allowlisting are API 36 verified; user-confirmed board, authoritative grade-specific coverage and UAT remain open |
 | ASM-01 | Diagnostic and correct-answer progression | QA verified | Transactional response replay, conflicting/stale rejection, owner scope, restart recovery, undisclosed-answer protection and correct/wrong/remediation/all-question transitions are backend tested and API 36 verified; live curriculum/UAT remain |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | QA verified | Independent fail-closed lesson and diagnostic-teaching review, safe checked fallback, strict rejection tests and bounded Grade 8 live checks across four subjects; broader ages, educator calibration and UAT remain |
-| TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
+| TUT-02 | Fresh practice, hints and repeated coaching | Partial | Blind answer solving plus separate fail-closed hint review, repeated deterministic and general practice persistence, four-subject Grade 8 live sampling and no automatic chapter mastery after one remediated concept; broader curriculum, latency/cost, device breadth, educator review and UAT remain |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
 | TUT-04 | Written explanation assessment | QA verified | Strict four-point rubric, server-owned feedback, persistence/failure tests and two 20/20 live synthetic runs across Math, Science, English and Geography cover false-pass patterns; calibration, educator review and UAT remain |
 | TUT-05 | Interactive examples and visible AI teacher | Partial | Math Fractions plus Grade 8 Science Cells, English Grammar and Social Geography have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |

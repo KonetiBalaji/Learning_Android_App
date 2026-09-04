@@ -12,6 +12,14 @@ from app.tutor_provider import OpenAITutorProvider
 
 
 CASES = (
+    ('math', 'linear-equations', DiagnosticItem(
+        prompt='Solve 3x + 5 = 20.', options=('3', '5', '8', '15'),
+        correct_option='5', concept='One-variable linear equations',
+        explanation='Undo addition, then division, using the same operation on both sides.',
+        worked_example='For 2x + 4 = 12, subtract 4 to get 2x = 8, then divide by 2 to get x = 4.',
+        hint='Undo the added constant before dividing by the coefficient.',
+        practice_prompt='Solve 4x + 3 = 19.', practice_answers=('4',),
+    )),
     ('science', 'cells', DiagnosticItem(
         prompt="Which organelle stores the cell's genetic information?",
         options=('Cell membrane', 'Nucleus', 'Ribosome', 'Cytoplasm'),
@@ -42,6 +50,15 @@ CASES = (
         practice_prompt='Complete with the agreeing verb: The group of students ___ quietly. (work/works)',
         practice_answers=('works',),
     )),
+    ('social', 'geography', DiagnosticItem(
+        prompt='Which imaginary line divides Earth into Northern and Southern Hemispheres?',
+        options=('Equator', 'Prime Meridian', 'Tropic of Cancer', 'International Date Line'),
+        correct_option='Equator', concept='Latitude and the Equator',
+        explanation='The Equator is zero degrees latitude and divides Earth into Northern and Southern Hemispheres.',
+        worked_example='A place north of the Equator has a northern latitude.',
+        hint='Think about the zero-degree line of latitude.',
+        practice_prompt='What is the latitude of the Equator?', practice_answers=('0 degrees', '0°'),
+    )),
 )
 
 
@@ -68,6 +85,7 @@ def main():
         except Exception as failure:
             generated_output = captured[0] if captured else {}
             review_output = captured[1] if len(captured) > 1 else {}
+            hint_review_output = captured[2] if len(captured) > 2 else {}
             results.append({
                 'subject': subject, 'chapter': chapter, 'concept': item.concept,
                 'accepted': False, 'reason': str(failure),
@@ -77,6 +95,9 @@ def main():
                 'review_valid': review_output.get('valid'),
                 'review_answers': review_output.get('answers', []),
                 'review_format': review_output.get('format_constraint'),
+                'hint_accurate': hint_review_output.get('accurate'),
+                'hint_relevant': hint_review_output.get('relevant'),
+                'hint_useful_without_answer': hint_review_output.get('useful_without_answer'),
                 'elapsed_seconds': round(time.monotonic() - started, 2),
             })
             provider.client.responses = delegate

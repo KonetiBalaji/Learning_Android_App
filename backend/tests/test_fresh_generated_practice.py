@@ -43,20 +43,24 @@ def provider_with(*payloads):
     return provider, responses
 
 
+SAFE_HINT_REVIEW = {'accurate': True, 'relevant': True, 'useful_without_answer': True}
+
+
 def test_general_variant_requires_blind_agreement_and_returns_reviewed_key():
     provider, responses = provider_with(
         {'practice_prompt': 'Which cell structure is the main site of cellular respiration?',
          'practice_answer': 'mitochondrion', 'hint': 'Recall where cells release usable energy.'},
         {'answers': ['Mitochondrion', 'Mitochondria'], 'valid': True, 'topic_matches': True,
-         'grade_suitable': True, 'format_constraint': 'exact'},
+         'grade_suitable': True, 'format_constraint': 'exact'}, SAFE_HINT_REVIEW,
     )
     item = provider.fresh_practice(8, 'science', 'cells', SCIENCE, 2, (SCIENCE.practice_prompt,))
     assert item.practice_prompt != SCIENCE.practice_prompt
     assert item.practice_answers == ('Mitochondrion', 'Mitochondria') and item.answer_mode == 'exact'
-    generated_input, review_input = (json.loads(call['input']) for call in responses.calls)
+    generated_input, review_input, hint_input = (json.loads(call['input']) for call in responses.calls)
     assert generated_input['optional_interests'] == ['sports']
     assert set(review_input) == {'grade', 'subject', 'chapter', 'concept', 'practice_prompt'}
     assert 'practice_answer' not in responses.calls[1]['input'] and 'hint' not in responses.calls[1]['input']
+    assert hint_input['reviewed_answers'] == ['Mitochondrion', 'Mitochondria']
 
 
 def test_numeric_review_accepts_equivalent_key_and_sets_number_mode():
@@ -66,7 +70,7 @@ def test_numeric_review_accepts_equivalent_key_and_sets_number_mode():
         {'practice_prompt': 'Calculate 3 divided by 6.', 'practice_answer': '0.5',
          'hint': 'Reduce the fraction by a common factor.'},
         {'answers': ['1/2', '0.5'], 'valid': True, 'topic_matches': True,
-         'grade_suitable': True, 'format_constraint': 'none'},
+         'grade_suitable': True, 'format_constraint': 'none'}, SAFE_HINT_REVIEW,
     )
     generated = provider.fresh_practice(8, 'math', 'ratios', item, 1, (item.practice_prompt,))
     assert generated.practice_answers == ('1/2', '0.5') and generated.answer_mode == 'number'
@@ -78,12 +82,25 @@ def test_blind_agreement_allows_only_harmless_short_answer_decoration():
          'practice_answer': 'Nucleus.', 'hint': 'Think about chromosomes.'},
         {'answers': ['The nucleus.', 'The nucleus (inside the nuclear envelope).'],
          'valid': True, 'topic_matches': True, 'grade_suitable': True,
-         'format_constraint': 'exact'},
+         'format_constraint': 'exact'}, SAFE_HINT_REVIEW,
     )
     generated = provider.fresh_practice(8, 'science', 'cells', SCIENCE, 1,
                                         (SCIENCE.practice_prompt,))
     assert generated.practice_answers == (
         'The nucleus.', 'The nucleus (inside the nuclear envelope).', 'Nucleus')
+
+
+def test_blind_agreement_allows_harmless_location_phrase():
+    provider, _ = provider_with(
+        {'practice_prompt': "Where are most of a eukaryotic cell's chromosomes located?",
+         'practice_answer': 'Nucleus', 'hint': 'Think about chromosome storage.'},
+        {'answers': ['In the nucleus.', "Inside the cell's nucleus."], 'valid': True,
+         'topic_matches': True, 'grade_suitable': True, 'format_constraint': 'exact'},
+        SAFE_HINT_REVIEW,
+    )
+    generated = provider.fresh_practice(8, 'science', 'cells', SCIENCE, 1,
+                                        (SCIENCE.practice_prompt,))
+    assert generated.practice_answers[-1] == 'Nucleus'
 
 
 def test_blind_agreement_does_not_enable_substring_or_semantic_matching():
@@ -106,6 +123,23 @@ def test_decorated_review_answer_cannot_hide_an_answer_leaking_hint():
          'grade_suitable': True, 'format_constraint': 'exact'},
     )
     with pytest.raises(FreshPracticeRejected, match='hint_reveals_answer'):
+        provider.fresh_practice(8, 'science', 'cells', SCIENCE, 1,
+                                (SCIENCE.practice_prompt,))
+
+
+@pytest.mark.parametrize('hint_review', [
+    {'accurate': False, 'relevant': True, 'useful_without_answer': True},
+    {'accurate': True, 'relevant': False, 'useful_without_answer': True},
+    {'accurate': True, 'relevant': True, 'useful_without_answer': False},
+])
+def test_independent_hint_review_rejects_unsafe_coaching(hint_review):
+    provider, _ = provider_with(
+        {'practice_prompt': 'Which organelle is the main site of cellular respiration?',
+         'practice_answer': 'mitochondrion', 'hint': 'Use the lesson method.'},
+        {'answers': ['mitochondrion'], 'valid': True, 'topic_matches': True,
+         'grade_suitable': True, 'format_constraint': 'exact'}, hint_review,
+    )
+    with pytest.raises(FreshPracticeRejected, match='hint_review_invalid'):
         provider.fresh_practice(8, 'science', 'cells', SCIENCE, 1,
                                 (SCIENCE.practice_prompt,))
 

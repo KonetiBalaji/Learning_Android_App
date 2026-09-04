@@ -12,7 +12,10 @@ A separate model call independently solves the question without receiving the
 generator's proposed answer or hint. It returns a bounded set of justified answer
 variants and checks ambiguity, topic and grade suitability. The server rejects
 repeated prompts, failed review, generator/reviewer key disagreement and hints
-that contain a reviewed textual answer. Numeric equivalence is enabled only when
+that contain a reviewed textual answer. After the blind answer review, a separate
+fail-closed review checks that the hint is accurate against the verified lesson,
+relevant to the exact question and useful without effectively completing the
+answer. Numeric equivalence is enabled only when
 the blind reviewer finds no requested representation; explicit format wording
 still forces exact matching. Only the blind reviewer's accepted answers are saved.
 When the blind answer differs only by a leading article, terminal punctuation or
@@ -36,6 +39,15 @@ earlier disagreement was rejected. This is narrow development evidence, not an
 unlimited-content guarantee, curriculum-board alignment, broad factual accuracy,
 educator review, UAT or production availability. Provider cost/latency controls
 and larger holdout evaluation remain open.
+
+On 2026-09-05, the live evaluator was expanded to Grade 8 Math linear
+equations, Science cells, English grammar and Social Studies geography. One
+reviewed item in each subject was accepted. An additional Science item was
+rejected for strict key disagreement, and a targeted retry was rejected by the
+new hint-quality gate. These are safe fail-closed outcomes: rejected content was
+not returned for learner use. The three-call generation, blind answer review and
+hint review took roughly 16 to 22 seconds for accepted samples, so latency and
+cost remain explicit production-readiness gaps.
 
 ## API 36 live general-practice evidence
 
