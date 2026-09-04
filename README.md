@@ -16,6 +16,12 @@ The MVP implementation is in progress on `agent/mvp-implementation`:
 
 The backend test suite passes. Android APK compilation requires a locally accepted Android SDK license; see `android/README.md`.
 
+## Backend entry points
+
+Opening the backend origin returns a small service landing response. Use
+`/health` for runtime health and `/docs` for the interactive API reference; the
+Android client uses the authenticated `/v1/*` routes.
+
 ## MVP goal
 
 The first release should support:

@@ -143,6 +143,16 @@ app.add_middleware(RequestBodyLimitMiddleware)
 app.add_middleware(OperationalLoggingMiddleware)
 
 
+@app.get("/")
+def service_root() -> dict[str, str]:
+    return {
+        "service": "Learning API",
+        "status": "ok",
+        "health": "/health",
+        "documentation": "/docs",
+    }
+
+
 def now() -> str:
     return datetime.now(UTC).isoformat()
 

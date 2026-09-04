@@ -1066,3 +1066,8 @@ curriculum review, physical-device QA and UAT remain open.
   passed on the dedicated API 36 AVD. This is service-active hierarchy evidence,
   not manual spoken traversal, physical-device usability, curriculum-board approval
   or UAT; see `chapter-explorer-device-qa.md`.
+- Replaced the backend origin's confusing framework 404 with a non-sensitive
+  service landing response that points operators to `/health` and `/docs`. A live
+  localhost restart returned 200 for the root and health routes, the root appeared
+  in OpenAPI, and the complete backend regression passed 602 tests with one existing
+  Windows skip. This does not supply the still-missing public production origin.
