@@ -79,17 +79,27 @@ failures preserve the typed answer and offer an explicit typed-input fallback.
 Accepted text is bounded and the learner is prompted to review it before submission.
 The UI discloses that the device speech service may process audio online.
 
+API 36 follow-up ran the real recognition activity from a tutor-question draft and
+cancelled it with Android Back. The exact typed question remained and the cancellation
+message rendered. The harness then temporarily disabled only the emulator speech
+package, verified the explicit unavailable-service fallback and unchanged draft,
+restored the package in a `finally` block, confirmed that no question was sent, and
+deleted the disposable account. The inspected
+`artifacts/qa-voice-input-recovery.png` is untracked QA evidence. This proves cancel
+and missing-activity recovery, not successful microphone recognition or transcript
+quality.
+
 Read-aloud is disabled until engine initialization and English language availability
 are confirmed. It displays failure messages, offers Stop, and splits long text into
 engine-sized chunks without breaking surrogate pairs. Navigating away stops and
 releases the engine. The manifest declares TTS service visibility.
 
-Android build/lint and **22 JVM tests passed** on 2026-09-03. Three new policy tests
+The current Android gate passes **134 JVM tests**, lint and debug assembly. Policy tests
 cover cancellation/empty results, trimming/length bounds and Unicode-safe chunks.
-These are not speech-engine, microphone or acoustic-quality tests. Hardware/service
-availability, real recognition, playback, stop/navigation, background lifecycle,
-accessibility and animation remain to be verified. This does not implement the
-separate free-form conversational teacher requirement.
+Successful microphone recognition and transcript quality, acoustic quality, TalkBack
+navigation and physical-device/user acceptance remain open. Read-aloud playback,
+stop, completion and background lifecycle plus lesson-scoped conversational teaching
+have separate API 36 evidence in this record and the tutor-conversation contract.
 
 Official references: [TTS initialization and lifecycle](https://developer.android.com/reference/android/speech/tts/TextToSpeech)
 and [recognition activity availability](https://developer.android.com/reference/android/speech/RecognizerIntent).

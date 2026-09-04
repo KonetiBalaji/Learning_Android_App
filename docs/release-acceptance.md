@@ -95,7 +95,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
 | TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
 | TUT-05 | Interactive examples and visible AI teacher | Partial | Math Fractions plus Grade 8 Science Cells, English Grammar and Social Geography have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
-| TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
+| TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversation, read-aloud lifecycle/animation and voice-input cancel/unavailable recovery are API 36 verified; successful microphone transcription, acoustic quality, TalkBack, physical device and UAT remain |
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
 | PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
 | PROG-02 | Weak concepts and personalized learning path | QA verified | Independent recurring-error counts, remediation clearing, account/grade scope, active-session continuation and prerequisite-aware next diagnostic are backend tested and API 36 verified; educator/UAT review remains |
@@ -831,6 +831,12 @@ curriculum review, physical-device QA and UAT remain open.
   explicit stop and completion. Android build/lint and 124 JVM tests passed.
   This is not phoneme lip-sync, acoustic-quality, TalkBack, UAT or production
   evidence; TUT-05 and TUT-06 remain partial. See `voice-recovery.md`.
+- API 36 voice-input recovery launched the real recognition activity from a typed
+  tutor-question draft, cancelled it, and preserved the exact text with explicit
+  feedback. Disabling the emulator speech package exercised the missing-activity
+  fallback; a `finally` block restored the package, the draft remained unchanged,
+  and no tutor question was sent. Screenshot inspected. Successful recognition,
+  transcript/acoustic quality, physical-device accessibility and UAT remain open.
 - Generalized opt-in fresh practice beyond Fractions for provider-backed Grade 8
   lessons. A second blind call independently solves each candidate without its
   proposed key or hint; repetition, unsafe review, disagreement and answer-leaking

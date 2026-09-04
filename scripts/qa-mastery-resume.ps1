@@ -13,6 +13,7 @@ param(
     [switch]$VerifyFreshPractice,
     [switch]$VerifyRejectedRewrite,
     [switch]$VerifyReadAloud,
+    [switch]$VerifyVoiceInput,
     [switch]$VerifyTutorConversation,
     [switch]$VerifyTutorResponseLoss
 )
@@ -106,6 +107,7 @@ if ($VerifyUnlocks -and ($health.ai_provider -ne 'scripted-qa' -or $VerifyWeekly
 if ($VerifyStudyTime -and -not $VerifyWeeklyReport) { throw 'Study time QA requires -VerifyWeeklyReport to verify the displayed total' }
 if ($VerifyRejectedRewrite -and -not $VerifyFreshPractice) { throw 'Rejected rewrite QA requires -VerifyFreshPractice' }
 if ($VerifyTutorConversation -and ($health.ai_provider -ne 'scripted-qa' -or $VerifyReadAloud)) { throw 'Conversation QA requires scripted-qa and runs separately from read-aloud QA.' }
+if ($VerifyVoiceInput -and $VerifyTutorConversation) { throw 'Voice-input recovery runs separately from the tutor-conversation journey.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
 Adb shell pm clear $package | Out-Null
 RestartApp
@@ -202,6 +204,34 @@ if ($savedNames -contains 'token' -or $sealedSession.Count -ne 1 -or -not $seale
     throw 'Session is not stored exclusively as a versioned encrypted envelope'
 }
 Write-Output 'PASS: restarted session uses encrypted storage with no legacy plaintext token (secret values omitted)'
+if ($VerifyVoiceInput) {
+    TapText 'Ask the tutor a question'
+    TextNode 'Talk with your tutor' | Out-Null
+    $draft = 'Keep my typed question'
+    EnterField 0 $draft
+    TapText '🎙 Speak my tutor question'
+    Start-Sleep -Seconds 2
+    Adb shell input keyevent 4 | Out-Null
+    TextNode 'Voice input cancelled. Your typed answer is unchanged.' | Out-Null
+    $field = @((Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' })[0]
+    if ($field.text -ne $draft) { throw 'Cancelling speech replaced the typed tutor question.' }
+    try {
+        Adb shell pm disable-user --user 0 com.google.android.tts | Out-Null
+        TapText '🎙 Speak my tutor question'
+        TextNode 'Voice input is unavailable on this device. Please type your answer.' | Out-Null
+        $field = @((Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' })[0]
+        if ($field.text -ne $draft) { throw 'Unavailable speech service replaced the typed tutor question.' }
+        Adb shell screencap -p /sdcard/qa-voice-input-recovery.png | Out-Null
+        Adb pull /sdcard/qa-voice-input-recovery.png (Join-Path $repo 'artifacts\qa-voice-input-recovery.png') | Out-Null
+    } finally {
+        Adb shell pm enable com.google.android.tts | Out-Null
+    }
+    $auth = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+    Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers @{Authorization="Bearer $($auth.access_token)"} | Out-Null
+    Adb shell pm clear $package | Out-Null
+    Write-Output 'PASS: speech cancellation and unavailable service preserve the exact typed tutor question; no question was sent.'
+    return
+}
 if ($VerifyTutorConversation) {
     TapText 'Ask the tutor a question'
     TextNode 'Talk with your tutor' | Out-Null
