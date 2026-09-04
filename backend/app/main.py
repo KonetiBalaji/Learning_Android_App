@@ -71,6 +71,7 @@ from .schemas import (
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
 from .mastery_transactions import lock_mastery_snapshot, mastery_state_token, check_expected_state
+from .mastery_idempotency import request_fingerprint, replay as replay_mastery_mutation, save as save_mastery_mutation
 from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload
 from .learner_preferences import InterestPreferences
 from .tutor_conversation import TutorQuestionRequest, TutorTurn, answer_question as answer_tutor_follow_up, conversation_history
@@ -589,6 +590,10 @@ def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(cur
 @app.post("/v1/mastery/sessions/{session_id}/diagnostic-answer", response_model=DiagnosticOutcome)
 def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DiagnosticOutcome:
     session = owned_mastery_session(session_id, user_id, settings)
+    fingerprint = request_fingerprint(request)
+    if prior := replay_mastery_mutation(settings, session_id, 'diagnostic-answer', request.expected_state,
+                                        fingerprint, DiagnosticOutcome):
+        return prior
     check_expected_state(session, request.expected_state)
     if session["status"] != "diagnostic":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The diagnostic phase is already complete")
@@ -610,19 +615,9 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
         interests = account_profile(user_id, settings).interests
         provider = tutor_provider(settings, interests=tuple(interests)) if interests else tutor_provider(settings)
         lesson = provider.explain(session["grade"], item, request.selected_option)
-    with connection(settings.database_path) as db:
-        lock_mastery_snapshot(db, session)
-        db.execute(
-            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (str(uuid.uuid4()), session_id, "diagnostic", item.prompt, request.selected_option, int(correct), item.concept, now()),
-        )
-        db.execute(
-            "UPDATE mastery_sessions SET current_question = ?, correct_answers = ?, status = ?, completed_at = ?, tutor_json = ? WHERE id = ?",
-            (next_index, new_correct, next_status, now() if next_status == "mastered" else None, lesson.model_dump_json() if lesson else None, session_id),
-        )
     score = next_index / len(bank)
     next_question = public_question(bank[next_index], next_index, len(bank)) if correct and next_index < len(bank) else None
-    return DiagnosticOutcome(
+    outcome = DiagnosticOutcome(
         state_token=mastery_state_token(session, current_question=next_index, correct_answers=new_correct, status=next_status),
         correct=correct,
         selected_option=request.selected_option,
@@ -632,6 +627,24 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
         next_question=next_question,
         tutor=lesson,
     )
+    try:
+        with connection(settings.database_path) as db:
+            lock_mastery_snapshot(db, session)
+            db.execute(
+                "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), session_id, "diagnostic", item.prompt, request.selected_option, int(correct), item.concept, now()),
+            )
+            db.execute(
+                "UPDATE mastery_sessions SET current_question = ?, correct_answers = ?, status = ?, completed_at = ?, tutor_json = ? WHERE id = ?",
+                (next_index, new_correct, next_status, now() if next_status == "mastered" else None, lesson.model_dump_json() if lesson else None, session_id),
+            )
+            save_mastery_mutation(db, session_id, 'diagnostic-answer', request.expected_state, fingerprint, outcome)
+    except HTTPException as error:
+        if error.status_code == 409 and (prior := replay_mastery_mutation(
+                settings, session_id, 'diagnostic-answer', request.expected_state, fingerprint, DiagnosticOutcome)):
+            return prior
+        raise
+    return outcome
 
 
 @app.get('/v1/mastery/sessions/{session_id}/tutor-questions', response_model=list[TutorTurn])
@@ -652,6 +665,10 @@ def ask_tutor_question(session_id: str, request: TutorQuestionRequest, user_id: 
 @app.post("/v1/mastery/sessions/{session_id}/practice", response_model=PracticeOutcome)
 def submit_practice(session_id: str, request: PracticeRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> PracticeOutcome:
     session = owned_mastery_session(session_id, user_id, settings)
+    fingerprint = request_fingerprint(request)
+    if prior := replay_mastery_mutation(settings, session_id, 'practice', request.expected_state,
+                                        fingerprint, PracticeOutcome):
+        return prior
     check_expected_state(session, request.expected_state)
     if session["status"] not in {"tutor", "practice"}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Guided practice is not available in the current phase")
@@ -673,19 +690,7 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
         if next_item is not None:
             lesson = TutorIntervention.model_validate_json(session['tutor_json']) if session['tutor_json'] else tutor_for(item)
             next_lesson = lesson.model_copy(update={'practice_prompt': next_item.practice_prompt, 'hint': next_item.hint})
-    with connection(settings.database_path) as db:
-        lock_mastery_snapshot(db, session)
-        db.execute(
-            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (str(uuid.uuid4()), session_id, "practice", item.practice_prompt, request.response, int(correct), item.concept, now()),
-        )
-        db.execute("UPDATE mastery_sessions SET status = ?, coaching_rounds = coaching_rounds + ? WHERE id = ?", ("rewrite" if correct else "practice", 0 if correct else 1, session_id))
-        if next_item is not None:
-            updated_bank = list(bank)
-            updated_bank[session['current_question']] = next_item
-            db.execute('UPDATE mastery_sessions SET questions_json = ?, tutor_json = ? WHERE id = ?',
-                       (serialize_diagnostic_bank(tuple(updated_bank)), next_lesson.model_dump_json(), session_id))
-    return PracticeOutcome(
+    outcome = PracticeOutcome(
         state_token=mastery_state_token(session, status='rewrite' if correct else 'practice', coaching_rounds=session['coaching_rounds'] + int(not correct)),
         correct=correct,
         normalized_answer=normalized,
@@ -693,11 +698,35 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
         next_practice=next_lesson,
         next_action="rewrite" if correct else "more_practice",
     )
+    try:
+        with connection(settings.database_path) as db:
+            lock_mastery_snapshot(db, session)
+            db.execute(
+                "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), session_id, "practice", item.practice_prompt, request.response, int(correct), item.concept, now()),
+            )
+            db.execute("UPDATE mastery_sessions SET status = ?, coaching_rounds = coaching_rounds + ? WHERE id = ?", ("rewrite" if correct else "practice", 0 if correct else 1, session_id))
+            if next_item is not None:
+                updated_bank = list(bank)
+                updated_bank[session['current_question']] = next_item
+                db.execute('UPDATE mastery_sessions SET questions_json = ?, tutor_json = ? WHERE id = ?',
+                           (serialize_diagnostic_bank(tuple(updated_bank)), next_lesson.model_dump_json(), session_id))
+            save_mastery_mutation(db, session_id, 'practice', request.expected_state, fingerprint, outcome)
+    except HTTPException as error:
+        if error.status_code == 409 and (prior := replay_mastery_mutation(
+                settings, session_id, 'practice', request.expected_state, fingerprint, PracticeOutcome)):
+            return prior
+        raise
+    return outcome
 
 
 @app.post("/v1/mastery/sessions/{session_id}/rewrite", response_model=RewriteOutcome)
 def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> RewriteOutcome:
     session = owned_mastery_session(session_id, user_id, settings)
+    fingerprint = request_fingerprint(request)
+    if prior := replay_mastery_mutation(settings, session_id, 'rewrite', request.expected_state,
+                                        fingerprint, RewriteOutcome):
+        return prior
     check_expected_state(session, request.expected_state)
     if session["status"] != "rewrite":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A concept rewrite is not pending")
@@ -729,22 +758,7 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
             session['coaching_rounds'] + 1, previous_prompts)
         if next_item is not None:
             lesson = lesson.model_copy(update={'practice_prompt': next_item.practice_prompt, 'hint': next_item.hint})
-    with connection(settings.database_path) as db:
-        lock_mastery_snapshot(db, session)
-        db.execute(
-            "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at, assessment_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (str(uuid.uuid4()), session_id, "rewrite", f"Explain {item.concept} in your own words", request.response, int(understood), item.concept, now(), assessment.model_dump_json()),
-        )
-        db.execute(
-            "UPDATE mastery_sessions SET status = ?, current_question = ?, coaching_rounds = coaching_rounds + ?, completed_at = ?, tutor_json = ? WHERE id = ?",
-            (next_status, next_index, 0 if understood else 1, now() if mastered else None, None if understood else lesson.model_dump_json(), session_id),
-        )
-        if next_item is not None:
-            updated_bank = list(bank)
-            updated_bank[session['current_question']] = next_item
-            db.execute('UPDATE mastery_sessions SET questions_json = ? WHERE id = ?',
-                       (serialize_diagnostic_bank(tuple(updated_bank)), session_id))
-    return RewriteOutcome(
+    outcome = RewriteOutcome(
         next_practice=lesson if next_item is not None else None,
         state_token=mastery_state_token(session, status=next_status, current_question=next_index, coaching_rounds=session['coaching_rounds'] + int(not understood)),
         understood=understood,
@@ -759,6 +773,29 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
         assessment_max_points=4 if assessment.score is not None else None,
         assessment_feedback=assessment.feedback,
     )
+    try:
+        with connection(settings.database_path) as db:
+            lock_mastery_snapshot(db, session)
+            db.execute(
+                "INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at, assessment_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), session_id, "rewrite", f"Explain {item.concept} in your own words", request.response, int(understood), item.concept, now(), assessment.model_dump_json()),
+            )
+            db.execute(
+                "UPDATE mastery_sessions SET status = ?, current_question = ?, coaching_rounds = coaching_rounds + ?, completed_at = ?, tutor_json = ? WHERE id = ?",
+                (next_status, next_index, 0 if understood else 1, now() if mastered else None, None if understood else lesson.model_dump_json(), session_id),
+            )
+            if next_item is not None:
+                updated_bank = list(bank)
+                updated_bank[session['current_question']] = next_item
+                db.execute('UPDATE mastery_sessions SET questions_json = ? WHERE id = ?',
+                           (serialize_diagnostic_bank(tuple(updated_bank)), session_id))
+            save_mastery_mutation(db, session_id, 'rewrite', request.expected_state, fingerprint, outcome)
+    except HTTPException as error:
+        if error.status_code == 409 and (prior := replay_mastery_mutation(
+                settings, session_id, 'rewrite', request.expected_state, fingerprint, RewriteOutcome)):
+            return prior
+        raise
+    return outcome
 
 
 @app.get("/v1/mastery/sessions/{session_id}", response_model=MasterySessionState)

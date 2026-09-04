@@ -69,9 +69,18 @@ attempt insertion. Concurrent requests that initially match still compete under
 the existing transactional snapshot check; only one may commit.
 
 On an unknown response outcome, retain the original token. A retry must not fetch
-a fresh token and silently reapply the old answer. On 409, GET the session and
-present its saved state. This is stale-write prevention, not replay of the original
-response. A new intentional attempt requires the newly observed state token.
+a fresh token and silently reapply the old answer. The backend durably keys each
+diagnostic-answer, practice and rewrite result by session, operation and the
+pre-transition token. An identical retry returns the exact saved response without
+another attempt or provider call. Reusing that token with different content returns
+409. A genuinely stale token with no matching saved result also returns 409, after
+which the client GETs the session and presents its current state. A new intentional
+attempt requires the newly observed state token.
+
+The replay row stores a SHA-256 request fingerprint and the learner-visible result
+inside the same transaction as the attempt and session update. It is owner-reachable
+only through the owning session and cascades on account/session deletion. It belongs
+in the same protected backup and retention boundary as learner attempts.
 
 The field is optional for legacy-client migration. Requests omitting it (or
 explicitly sending null) retain prior behavior and are NOT protected against
@@ -79,6 +88,8 @@ delayed retries. Current Android always requires a cached token from start/resum
 before submitting; it clears the cache on sign-out. Deploy the updated backend
 before the updated APK. Removing legacy support remains a release migration gate.
 
-Still outstanding: full mutation idempotency and legacy precondition enforcement,
-full account-scoped profile/preferences and device security failure tests,
-server-enforced curriculum prerequisites and evaluation calibration.
+Simultaneous identical requests commit one attempt and both receive the winning
+saved response, but both may begin provider computation before one transaction
+wins; provider-work coalescing remains an operational optimization. Legacy
+precondition enforcement, broader device security failure tests and evaluation
+calibration remain outstanding.

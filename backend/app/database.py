@@ -88,6 +88,14 @@ CREATE TABLE IF NOT EXISTS mastery_attempts (
   phase TEXT NOT NULL, prompt TEXT NOT NULL, response TEXT NOT NULL,
   correct INTEGER NOT NULL, concept TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS mastery_mutation_results (
+  session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
+  operation TEXT NOT NULL CHECK(operation IN ('diagnostic-answer', 'practice', 'rewrite')),
+  expected_state TEXT NOT NULL CHECK(length(expected_state) BETWEEN 1 AND 200),
+  fingerprint TEXT NOT NULL CHECK(length(fingerprint) = 64),
+  response_json TEXT NOT NULL,
+  PRIMARY KEY(session_id, operation, expected_state)
+);
 CREATE TABLE IF NOT EXISTS tutor_turns (
   session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
   request_id TEXT NOT NULL, context_token TEXT NOT NULL, question TEXT NOT NULL,

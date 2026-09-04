@@ -202,7 +202,7 @@ def test_weekly_report_and_account_deletion_cover_owned_data(monkeypatch, tmp_pa
         assert client.get("/v1/account", headers=other_headers).status_code == 200
         assert not stored_path.exists()
         with connection(get_settings().database_path) as db:
-            for table in ("documents", "quizzes", "questions", "mastery_sessions", "mastery_attempts"):
+            for table in ("documents", "quizzes", "questions", "mastery_sessions", "mastery_attempts", "mastery_mutation_results"):
                 assert db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
             assert db.execute("SELECT count(*) FROM users").fetchone()[0] == 1
     finally:

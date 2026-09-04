@@ -34,9 +34,10 @@ def test_overlapping_submissions_commit_only_one_transition(monkeypatch, tmp_pat
         monkeypatch.setattr(api, 'owned_mastery_session', read_same_snapshot)
         with ThreadPoolExecutor(max_workers=2) as workers:
             futures = [workers.submit(client.post, path + '/' + phase, headers=headers, json=payload) for _ in range(2)]
-            statuses = sorted(future.result(timeout=15).status_code for future in futures)
+            responses = [future.result(timeout=15) for future in futures]
         monkeypatch.setattr(api, 'owned_mastery_session', original)
-        assert statuses == [200, 409]
+        assert [response.status_code for response in responses] == [200, 200]
+        assert responses[0].json() == responses[1].json()
         with connection(get_settings().database_path) as db:
             assert db.execute('SELECT COUNT(*) FROM mastery_attempts WHERE session_id = ?', (session['id'],)).fetchone()[0] == setup_attempts + 1
             row = db.execute('SELECT * FROM mastery_sessions WHERE id = ?', (session['id'],)).fetchone()

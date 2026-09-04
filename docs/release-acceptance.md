@@ -89,7 +89,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
 | AUTH-02 | Google login | Partial | Backend exchange and Android Credential Manager wiring implemented; disabled-build device QA passes. OAuth configuration, real sign-in, lifecycle recovery and user acceptance remain missing |
 | CUR-01 | Grade 1–12, subject and chapter selection | Partial | Versioned server catalog and pre-provider allowlisting are API 36 verified; user-confirmed board, authoritative grade-specific coverage and UAT remain open |
-| ASM-01 | Diagnostic and correct-answer progression | Partial | Exactly-once submissions, restart recovery, no answer leakage, all question transitions |
+| ASM-01 | Diagnostic and correct-answer progression | QA verified | Transactional response replay, conflicting/stale rejection, owner scope, restart recovery, undisclosed-answer protection and correct/wrong/remediation/all-question transitions are backend tested and API 36 verified; live curriculum/UAT remain |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
@@ -542,6 +542,16 @@ curriculum review, physical-device QA and UAT remain open.
   This is deterministic workflow QA, not provider-quality evaluation, full Grade 8
   curriculum verification, or user UAT acceptance. Existing legacy prematurely
   mastered sessions still need a data-repair strategy before production migration.
+- Adaptive mutation replay now stores the winning diagnostic-answer, practice or
+  rewrite outcome atomically with its attempt, keyed by the pre-transition state.
+  Identical delayed and overlapping submissions return the same outcome with one
+  committed attempt; different content fails 409, ownership is checked first and
+  account deletion cascades replay rows. Fourteen focused tests passed. API 36 then
+  passed a post-commit 503, directly replayed question 3, finished every question
+  before mastery and retained exactly five weekly learning responses. This advances
+  ASM-01 to QA verified; tokenless legacy clients, simultaneous provider-work
+  coalescing, physical-device and UAT gates remain. See
+  `docs/adaptive-submission-preconditions.md`.
 - Progress account-isolation QA: the extended `scripts/qa-account-switch.ps1`
   scenario created two synthetic accounts, seeded assessed progress only for the
   first, verified the second displayed no assessment rather than leaked progress,

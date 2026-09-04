@@ -24,7 +24,8 @@ def test_rejected_rewrite_preserves_coaching_and_optionally_rotates_practice(mon
         result = rejected.json()
         assert result['understood'] is False and result['next_action'] == 'tutor'
         assert result['mastery_achieved'] is False and result['mastery_score'] == 0
-        assert client.post(path + '/rewrite', headers=headers, json=body).status_code == 409
+        replay = client.post(path + '/rewrite', headers=headers, json=body)
+        assert replay.status_code == 200 and replay.json() == result
         resumed = client.get(path, headers=headers).json()
         assert resumed['tutor']['explanation'] == result['coaching']
         if fresh:
@@ -73,7 +74,8 @@ def test_wrong_practice_rotates_atomically_and_resume_preserves_variant(monkeypa
         assert first.status_code == 200
         result = first.json()
         assert result['correct'] is False and result['next_practice']['practice_prompt'] != original_prompt
-        assert client.post(path + '/practice', headers=headers, json=body).status_code == 409
+        replay = client.post(path + '/practice', headers=headers, json=body)
+        assert replay.status_code == 200 and replay.json() == result
         resumed = client.get(path, headers=headers).json()
         assert resumed['tutor']['practice_prompt'] == result['next_practice']['practice_prompt']
         with connection(get_settings().database_path) as db:

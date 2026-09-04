@@ -50,6 +50,15 @@ function TextNode([string]$text) {
     }
     throw "UI text not found: $text"
 }
+function TextPattern([string]$pattern) {
+    for ($attempt=0; $attempt -lt 5; $attempt++) {
+        $node = (Ui).SelectNodes('//node') | Where-Object { $_.text -match $pattern } | Select-Object -First 1
+        if ($node) { return $node }
+        Adb shell input swipe 540 1850 540 750 400 | Out-Null
+        Start-Sleep -Milliseconds 500
+    }
+    throw "UI text pattern not found: $pattern"
+}
 function TapText([string]$text) {
     $point = Center (TextNode $text)
     Adb shell input tap $point[0] $point[1] | Out-Null
@@ -443,7 +452,8 @@ TapText '3/6'
 TapText 'Submit answer'
 if ($VerifyFailedResponse) {
     $expectedError = if ($MalformedResponse) { 'Something went wrong. Please try again.' } else { 'The learning service is temporarily unavailable. Please try again.' }
-    TextNode $expectedError | Out-Null
+    if ($MalformedResponse) { TextNode $expectedError | Out-Null }
+    else { TextPattern '^The learning service is temporarily unavailable\. Please try again\.\s+Support ID: [0-9a-f-]{36}$' | Out-Null }
     $committed = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
     if ($committed.question.ordinal -ne 3 -or $committed.state_token -eq $beforeStale.state_token) { throw 'Failed response did not follow a committed answer' }
     TapText 'Try again'
@@ -456,7 +466,7 @@ if ($VerifyFailedResponse) {
     if ($recovered.state_token -ne $committed.state_token) { throw 'Retry after failed response changed server state' }
     RestartApp
     TextNode 'Question 3 of 3' | Out-Null
-    Write-Output "PASS: post-commit $faultMode response retains old submission state; retry resumes Q3 without another answer"
+    Write-Output "PASS: post-commit $faultMode response retains old submission state; identical retry replays Q3 without another answer"
 }
 if ($VerifyStaleSubmission) {
     $afterStale = Invoke-RestMethod $sessionUrl -Headers $qaHeaders
@@ -477,7 +487,7 @@ Adb pull /sdcard/qa-mastery-progress.png (Join-Path $repo 'artifacts\qa-mastery-
 Write-Output 'PASS: all questions are completed before mastery; chapter progress is 100% from backend evidence'
 if ($VerifyWeeklyReport) {
     TapText '‹ All subjects'
-    TapText 'View parent & teacher progress'
+    TapText 'View my progress report'
     TextNode 'Uncalibrated heuristic, not a prediction of exam performance.' | Out-Null
     TextNode 'Learning responses' | Out-Null
     TextNode 'Unique chapters mastered' | Out-Null
@@ -511,7 +521,7 @@ if ($VerifyDeletedSession) {
     $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body $loginBody
     Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers @{Authorization = "Bearer $($login.access_token)"} | Out-Null
     TapText '‹ All subjects'
-    TapText 'View parent & teacher progress'
+    TapText 'View my progress report'
     TextNode 'Your session has expired or is no longer valid. Please sign in again.' | Out-Null
     TapText 'Try again'
     TextNode 'Sign in' | Out-Null

@@ -27,10 +27,16 @@ and no provider call on rejection. Fresh repeated practice remains permitted.
 Additional tests cover session-scoped tokens and malformed values. Existing
 three concurrent-submission tests now send preconditions as well.
 
-Limitations: this is conditional mutation, not idempotent response replay. Legacy
-requests without a token remain accepted and lack delayed-retry protection.
+Follow-up implementation now persists the successful result for each session,
+operation and pre-transition token in the same transaction as the attempt. An
+identical delayed retry receives that exact result with no second attempt or
+provider call; different content under the consumed token receives 409. Concurrent
+identical submissions both receive the winning response and commit once, although
+provider computations can overlap before the transaction winner is known.
+
+Legacy requests without a token remain accepted and lack delayed-retry protection.
 Mandatory enforcement needs a coordinated client/QA-script migration. A real
-Android network-response-loss test and account-switch test remain pending.
+Android TCP-response-loss test remains pending.
 No physical-device, UAT or production completion is claimed. No live AI calls
 or credential changes were made in this slice.
 
@@ -81,18 +87,20 @@ paths. It substitutes a single 503 for a successful diagnostic answer response
 after the endpoint has committed. It does not simulate a TCP disconnect, timeout
 or partial JSON payload. No live AI calls were made.
 
-Android submitted question 2, displayed its safe service-unavailable message,
-and retained the old question and answer. A separate GET confirmed that question
-3 was already pending on the server. After dismissing the error and resubmitting,
-Android received 409 and automatically resumed question 3. The server token did
-not change during that retry, and a process restart retained question 3.
-Server logs confirmed the 503 -> 409 -> GET 200 sequence. The run then completed
+Android submitted question 2, displayed its safe service-unavailable message and
+canonical Support ID, and retained the old question and answer. A separate GET
+confirmed that question 3 was already pending on the server. After dismissing the
+error and resubmitting, the 2026-09-04 rerun received the saved 200 outcome
+directly. The server token did not change during that replay, and a process restart
+retained question 3. The run then completed
 mastery and verified exactly five weekly learning responses and one mastered
 chapter, demonstrating no duplicate response credit in this scenario.
 
-93 backend tests passed, including a test that the fault acts after success,
-fires once, rejects another session and is not installed in the production app.
-Android code was unchanged from the prior build/lint/40-test verification.
+Focused idempotency, transition and concurrency tests passed 14/14, including all
+three adaptive operations, different-content conflicts, owner scope and cascade
+cleanup. Earlier tests also prove the fault acts after success, fires once, rejects
+another session and is not installed in the production app. Android code was
+unchanged from the current 135-test/lint/build verification.
 TCP loss, malformed successful responses, practice/rewrite failure injection,
 physical-device coverage and user acceptance remain unverified.
 
