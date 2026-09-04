@@ -1,4 +1,39 @@
-# Fresh Fractions practice
+# Fresh practice
+
+## Reviewed general generation
+
+For provider-backed Grade 8 lessons outside the deterministic Fractions path,
+fresh practice now has no fixed round limit. The server asks for one new,
+objective, age-suitable question grounded in the current verified concept and
+method. It supplies up to the last 20 practice prompts to discourage repetition
+and may use saved learner interests only as an optional hypothetical context.
+
+A separate model call independently solves the question without receiving the
+generator's proposed answer or hint. It returns a bounded set of justified answer
+variants and checks ambiguity, topic and grade suitability. The server rejects
+repeated prompts, failed review, generator/reviewer key disagreement and hints
+that contain a reviewed textual answer. Numeric equivalence is enabled only when
+the blind reviewer finds no requested representation; explicit format wording
+still forces exact matching. Only the blind reviewer's accepted answers are saved.
+
+Generation and review happen before the existing transactional state check. The
+new prompt, private key, hint and public lesson are committed together only if
+the learner is still on that practice state. Resume returns the same prompt and
+a stale retry cannot rotate again. If generation, parsing or review fails, the
+resilient provider returns no replacement and the existing question remains;
+Fractions continue to use their deterministic arithmetic generator.
+
+Backend regression includes blind-payload isolation, exact and numeric agreement,
+singular/plural variants, repetition, invalid review, key disagreement,
+answer-leaking hints, outage behavior and a non-Fractions HTTP/database flow.
+A 2026-09-04 live smoke with the approved existing key accepted one Cells variant
+and one English subject-verb-agreement variant after independent review. An
+earlier disagreement was rejected. This is narrow development evidence, not an
+unlimited-content guarantee, curriculum-board alignment, broad factual accuracy,
+educator review, UAT or production availability. Provider cost/latency controls
+and larger holdout evaluation remain open.
+
+## Deterministic Fractions generation
 
 Android now opts into fresh practice with `fresh_practice: true` on practice
 submission, alongside its existing expected-state token. On an incorrect answer

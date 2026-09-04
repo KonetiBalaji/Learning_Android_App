@@ -575,9 +575,15 @@ def submit_practice(session_id: str, request: PracticeRequest, user_id: str = De
     correct, normalized = response_matches(request.response, item.practice_answers, item.answer_mode)
     next_item = None
     next_lesson = None
-    if not correct and request.fresh_practice and session['subject_id'] == 'math' and session['chapter_id'] == 'fractions':
-        from .fraction_practice import next_fraction_practice
-        next_item = next_fraction_practice(item, session['coaching_rounds'] + 1)
+    if not correct and request.fresh_practice:
+        with connection(settings.database_path) as db:
+            previous_prompts = tuple(row['prompt'] for row in db.execute(
+                "SELECT prompt FROM mastery_attempts WHERE session_id = ? AND phase = 'practice' ORDER BY created_at",
+                (session_id,))) + (item.practice_prompt,)
+        interests = tuple(account_profile(user_id, settings).interests)
+        next_item = tutor_provider(settings, interests).fresh_practice(
+            session['grade'], session['subject_id'], session['chapter_id'], item,
+            session['coaching_rounds'] + 1, previous_prompts)
         if next_item is not None:
             lesson = TutorIntervention.model_validate_json(session['tutor_json']) if session['tutor_json'] else tutor_for(item)
             next_lesson = lesson.model_copy(update={'practice_prompt': next_item.practice_prompt, 'hint': next_item.hint})
@@ -611,7 +617,9 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A concept rewrite is not pending")
     bank = session_diagnostic_bank(session)
     item = bank[session["current_question"]]
-    assessment = tutor_provider(settings).assess_rewrite(session["grade"], item, request.response)
+    interests = tuple(account_profile(user_id, settings).interests)
+    provider = tutor_provider(settings, interests)
+    assessment = provider.assess_rewrite(session["grade"], item, request.response)
     if not assessment.available:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Assessment is temporarily unavailable. Your explanation has not been graded; please retry.")
     understood, coaching = assessment.understood, assessment.coaching
@@ -623,9 +631,14 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
     if coaching:
         lesson = lesson.model_copy(update={"explanation": coaching})
     next_item = None
-    if not understood and request.fresh_practice and session['subject_id'] == 'math' and session['chapter_id'] == 'fractions':
-        from .fraction_practice import next_fraction_practice
-        next_item = next_fraction_practice(item, session['coaching_rounds'] + 1)
+    if not understood and request.fresh_practice:
+        with connection(settings.database_path) as db:
+            previous_prompts = tuple(row['prompt'] for row in db.execute(
+                "SELECT prompt FROM mastery_attempts WHERE session_id = ? AND phase = 'practice' ORDER BY created_at",
+                (session_id,))) + (item.practice_prompt,)
+        next_item = provider.fresh_practice(
+            session['grade'], session['subject_id'], session['chapter_id'], item,
+            session['coaching_rounds'] + 1, previous_prompts)
         if next_item is not None:
             lesson = lesson.model_copy(update={'practice_prompt': next_item.practice_prompt, 'hint': next_item.hint})
     with connection(settings.database_path) as db:

@@ -63,6 +63,16 @@ before persistence. Regression and HTTP tests cover accepted/rejected transition
 broad grading-quality evaluation, on-device verification and UAT remain open.
 See `docs/practice-answer-matching.md` for scope and limitations.
 
+Provider-backed non-Fractions lessons can now request fresh practice without a
+fixed round cap. Every candidate is independently solved without its proposed key
+or hint, fail-closed on repetition/ambiguity/topic/grade/key/hint checks, and
+atomically persisted only after the learning-state guard. Fractions retain their
+deterministic variants; provider failure keeps the current question. Two live
+Grade 8 Cells/English samples passed after one earlier disagreement was rejected.
+Backend regression: 418 passed with one existing Windows skip. Broad curriculum,
+cost/latency limits, holdout quality, device coverage and UAT remain open; TUT-02
+is partial. See `shared/contracts/fresh-practice.md`.
+
 Format-policy repair: explicit review constraint categories plus a limited English
 server safeguard now preserve recognized requested formats while allowing numeric
 equivalence for unconstrained arithmetic. The controlled live division/denominator/
@@ -771,3 +781,11 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
   explicit stop and completion. Android build/lint and 124 JVM tests passed.
   This is not phoneme lip-sync, acoustic-quality, TalkBack, UAT or production
   evidence; TUT-05 and TUT-06 remain partial. See `voice-recovery.md`.
+- Generalized opt-in fresh practice beyond Fractions for provider-backed Grade 8
+  lessons. A second blind call independently solves each candidate without its
+  proposed key or hint; repetition, unsafe review, disagreement and answer-leaking
+  hints fail closed, while the saved question/key/hint remain atomic with state.
+  Two narrow live Cells/English samples passed and one disagreement was rejected.
+  Fractions remain deterministic and outages preserve the current prompt. This
+  is not curriculum, educator, UAT, cost/latency or production acceptance; see
+  `shared/contracts/fresh-practice.md`.
