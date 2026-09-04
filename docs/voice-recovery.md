@@ -78,6 +78,10 @@ Cancellation, empty results, missing recognition activities and service permissi
 failures preserve the typed answer and offer an explicit typed-input fallback.
 Accepted text is bounded and the learner is prompted to review it before submission.
 The UI discloses that the device speech service may process audio online.
+Successful result admission also removes non-whitespace control characters,
+normalizes whitespace, skips unusable alternatives and truncates without splitting
+a UTF-16 surrogate pair. JVM regression tests cover these boundaries. This is input
+hardening only; it does not establish microphone or recognition accuracy.
 
 API 36 follow-up ran the real recognition activity from a tutor-question draft and
 cancelled it with Android Back. The exact typed question remained and the cancellation
@@ -94,8 +98,9 @@ are confirmed. It displays failure messages, offers Stop, and splits long text i
 engine-sized chunks without breaking surrogate pairs. Navigating away stops and
 releases the engine. The manifest declares TTS service visibility.
 
-The current Android gate passes **134 JVM tests**, lint and debug assembly. Policy tests
-cover cancellation/empty results, trimming/length bounds and Unicode-safe chunks.
+The current Android gate covers cancellation/empty results, control-character and
+whitespace normalization, safe length bounds, alternative selection and Unicode-safe
+recognized text/read-aloud chunks.
 Successful microphone recognition and transcript quality, acoustic quality, TalkBack
 navigation and physical-device/user acceptance remain open. Read-aloud playback,
 stop, completion and background lifecycle plus lesson-scoped conversational teaching
