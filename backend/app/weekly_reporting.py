@@ -18,9 +18,48 @@ def utc_timestamp(value: str | None) -> datetime | None:
         return None
 
 
-def build_weekly_report(sessions, attempts, as_of: datetime, bank_sizes: dict[str, int]) -> WeeklyReport:
+def weekly_window(as_of: datetime) -> tuple[datetime, datetime]:
     end = as_of.astimezone(UTC)
-    start = end - timedelta(days=7)
+    return end - timedelta(days=7), end
+
+
+def load_weekly_rows(db, owner_id: str, grade: int | None, as_of: datetime):
+    """Load only sessions and attempts that can contribute to this UTC window."""
+    start, end = weekly_window(as_of)
+    # Stored timestamps are ISO text and may contain an offset. A one-day margin
+    # on both UTC boundaries covers every valid civil offset; exact instant
+    # filtering remains in build_weekly_report. The extra end date keeps legacy
+    # date-only values inside the coarse candidate window.
+    coarse_start = (start - timedelta(days=1)).date().isoformat()
+    coarse_end = (end + timedelta(days=2)).date().isoformat()
+    scope = (owner_id, grade, grade)
+    attempts = db.execute(
+        """SELECT mastery_attempts.* FROM mastery_attempts
+           JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
+           WHERE mastery_sessions.owner_id = ?
+             AND (? IS NULL OR mastery_sessions.grade = ?)
+             AND mastery_attempts.created_at >= ?
+             AND mastery_attempts.created_at < ?""",
+        (*scope, coarse_start, coarse_end),
+    ).fetchall()
+    sessions = db.execute(
+        """SELECT * FROM mastery_sessions
+           WHERE owner_id = ? AND (? IS NULL OR grade = ?)
+             AND (started_at >= ? AND started_at < ?
+                  OR completed_at >= ? AND completed_at < ?
+                  OR EXISTS (
+                      SELECT 1 FROM mastery_attempts
+                      WHERE mastery_attempts.session_id = mastery_sessions.id
+                        AND mastery_attempts.created_at >= ?
+                        AND mastery_attempts.created_at < ?))""",
+        (*scope, coarse_start, coarse_end, coarse_start, coarse_end,
+         coarse_start, coarse_end),
+    ).fetchall()
+    return sessions, attempts
+
+
+def build_weekly_report(sessions, attempts, as_of: datetime, bank_sizes: dict[str, int]) -> WeeklyReport:
+    start, end = weekly_window(as_of)
 
     def in_window(value):
         stamp = utc_timestamp(value)

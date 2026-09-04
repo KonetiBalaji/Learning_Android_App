@@ -45,8 +45,15 @@ lower a score derived from ten correct independent assessments, while the public
 all-response accuracy remains one third. Android unit coverage proves the numeric
 placeholder is hidden whenever the server label is `insufficient_evidence`.
 
+Weekly row loading is now bounded at the database boundary. Both learner and
+consent-linked guardian routes select attempts and sessions through a conservative
+timezone-safe candidate interval. Exact offset-aware filtering still occurs before
+aggregation, so the coarse database bound cannot admit out-of-window evidence.
+Lexical timestamp indexes cover session/attempt access, and regression verifies the
+attempt query plan uses `mastery_attempts_created_idx`. Old inactive sessions no
+longer enter report construction; near-boundary and future candidates are discarded
+by the existing exact UTC filter. This removes unbounded application-memory growth;
+it is not a production-scale latency benchmark or multi-instance database proof.
+
 Remaining: real-world parent identity/consent policy, calibrated prediction data,
-report performance
-with large histories, and user acceptance. The report currently loads scoped
-history before exact timestamp filtering; load testing/indexed timestamp migration
-is required before claiming production scalability.
+large-history production latency measurement, and user acceptance.

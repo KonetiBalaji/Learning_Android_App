@@ -81,7 +81,7 @@ from .schemas import (
     RetentionPolicy,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
-from .weekly_reporting import build_weekly_report
+from .weekly_reporting import build_weekly_report, load_weekly_rows
 from .mastery_transactions import lock_mastery_snapshot, mastery_state_token, check_expected_state
 from .mastery_idempotency import request_fingerprint, replay as replay_mastery_mutation, save as save_mastery_mutation
 from .file_cleanup import (queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload,
@@ -1224,17 +1224,7 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
 def weekly_report(grade: int | None = Query(default=None, ge=1, le=12), user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> WeeklyReport:
     as_of = datetime.fromisoformat(now())
     with connection(settings.database_path) as db:
-        attempts = db.execute(
-            """SELECT mastery_attempts.* FROM mastery_attempts
-               JOIN mastery_sessions ON mastery_sessions.id = mastery_attempts.session_id
-               WHERE mastery_sessions.owner_id = ?
-                 AND (? IS NULL OR mastery_sessions.grade = ?)""",
-            (user_id, grade, grade),
-        ).fetchall()
-        sessions = db.execute(
-            "SELECT * FROM mastery_sessions WHERE owner_id = ? AND (? IS NULL OR grade = ?)",
-            (user_id, grade, grade),
-        ).fetchall()
+        sessions, attempts = load_weekly_rows(db, user_id, grade, as_of)
     report = build_weekly_report(sessions, attempts, as_of,
                                  {row['id']: len(session_diagnostic_bank(row)) for row in sessions})
     from .study_time import observed_seconds

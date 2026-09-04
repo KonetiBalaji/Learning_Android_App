@@ -145,6 +145,12 @@ CREATE INDEX IF NOT EXISTS mastery_sessions_owner_idx
   ON mastery_sessions(owner_id, subject_id, chapter_id, started_at);
 CREATE INDEX IF NOT EXISTS mastery_attempts_session_idx
   ON mastery_attempts(session_id, created_at);
+CREATE INDEX IF NOT EXISTS mastery_attempts_created_idx
+  ON mastery_attempts(created_at, session_id);
+CREATE INDEX IF NOT EXISTS mastery_sessions_owner_started_idx
+  ON mastery_sessions(owner_id, grade, started_at);
+CREATE INDEX IF NOT EXISTS mastery_sessions_owner_completed_idx
+  ON mastery_sessions(owner_id, grade, completed_at);
 """
 
 

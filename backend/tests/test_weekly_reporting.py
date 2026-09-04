@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
+
 from test_mastery_loop import registered_client
 from app.database import connection
 from app.config import get_settings
 from app.mastery_service import diagnostic_bank, serialize_diagnostic_bank
+from app.weekly_reporting import load_weekly_rows
 
 
 def test_weekly_window_and_distinct_completion_use_activity_not_session_start(monkeypatch, tmp_path):
@@ -15,6 +18,7 @@ def test_weekly_window_and_distinct_completion_use_activity_not_session_start(mo
                 ('repeat', 'fractions', '2026-09-01T00:00:00+00:00', '2026-09-02T12:00:00+00:00', 3),
                 ('legacy-false-mastery', 'decimals', '2026-09-01T00:00:00+00:00', '2026-09-02T12:00:00+00:00', 1),
                 ('future', 'algebra', '2026-09-04T00:00:00+00:00', '2026-09-04T12:00:00+00:00', 3),
+                ('stale', 'geometry', '2026-01-01T00:00:00+00:00', None, 0),
             ]:
                 db.execute('INSERT INTO mastery_sessions (id, owner_id, grade, subject_id, chapter_id, started_at, completed_at, status, current_question, questions_json) VALUES (?, ?, 8, ?, ?, ?, ?, ?, ?, ?)',
                            (sid, owner, 'math', chapter, started, completed, 'mastered', index,
@@ -26,9 +30,21 @@ def test_weekly_window_and_distinct_completion_use_activity_not_session_start(mo
                 ('before-end', '2026-09-03T11:59:59.999999+00:00', 0),
                 ('at-end', '2026-09-03T12:00:00+00:00', 1),
                 ('future', '2026-09-04T00:00:00+00:00', 1),
+                ('stale', '2026-01-02T00:00:00+00:00', 1),
             ]:
+                session_id = 'stale' if aid == 'stale' else 'old-completed-now'
                 db.execute('INSERT INTO mastery_attempts (id, session_id, phase, prompt, response, correct, concept, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                           (aid, 'old-completed-now', 'diagnostic', 'synthetic', 'synthetic', correct, 'Fractions', timestamp))
+                           (aid, session_id, 'diagnostic', 'synthetic', 'synthetic', correct, 'Fractions', timestamp))
+            sessions, attempts = load_weekly_rows(
+                db, owner, 8, datetime(2026, 9, 3, 12, tzinfo=UTC))
+            assert 'stale' not in {row['id'] for row in sessions}
+            assert {row['id'] for row in attempts} == {
+                'before-start', 'at-start', 'inside-offset', 'before-end', 'at-end', 'future'}
+            plan = db.execute(
+                "EXPLAIN QUERY PLAN SELECT * FROM mastery_attempts WHERE created_at >= ? AND created_at < ?",
+                ('2026-08-26', '2026-09-05'),
+            ).fetchall()
+            assert 'mastery_attempts_created_idx' in ' '.join(row['detail'] for row in plan)
         report = client.get('/v1/progress/weekly-report?grade=8', headers=headers).json()
         assert report['questions_answered'] == 3
         assert report['correct_answers'] == 2
