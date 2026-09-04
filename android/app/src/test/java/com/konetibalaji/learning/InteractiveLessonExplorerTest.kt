@@ -20,6 +20,9 @@ class InteractiveLessonExplorerTest {
     }
 
     @Test fun routesOnlySupportedSubjectChapterPairs() {
+        assertEquals(17, explorerRoutes.size)
+        assertEquals(mapOf("math" to 5, "science" to 4, "english" to 4, "social" to 4),
+            explorerRoutes.keys.groupingBy { it.first }.eachCount())
         assertEquals(ExplorerKind.FRACTIONS, explorerKind("math", "fractions"))
         assertEquals(ExplorerKind.DECIMAL_PLACE_VALUE, explorerKind("math", "decimals"))
         assertEquals(ExplorerKind.PERCENT_GRID, explorerKind("math", "percentages"))
@@ -34,6 +37,9 @@ class InteractiveLessonExplorerTest {
         assertEquals(ExplorerKind.WORD_PARTS, explorerKind("english", "vocabulary"))
         assertEquals(ExplorerKind.PARAGRAPH_STRUCTURE, explorerKind("english", "writing"))
         assertEquals(ExplorerKind.MAP_COORDINATES, explorerKind("social", "geography"))
+        assertEquals(ExplorerKind.HISTORICAL_SOURCES, explorerKind("social", "history"))
+        assertEquals(ExplorerKind.CIVIC_PROCESS, explorerKind("social", "civics"))
+        assertEquals(ExplorerKind.MARKET_BALANCE, explorerKind("social", "economics"))
         assertNull(explorerKind("science", "fractions"))
         assertNull(explorerKind("science", "decimals"))
         assertNull(explorerKind("science", "percentages"))
