@@ -107,7 +107,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | Both themes, large text, small screens, TalkBack, loading/empty/offline/retry states |
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
-| SEC-02 | Production hardening | Partial | HTTPS release guard, offline backup checks, persistent authentication peer throttle and atomic per-account daily AI-operation caps implemented; production proxy/capacity, provider project budgets/alerts, operational logs and deployment recovery still need verification |
+| SEC-02 | Production hardening | Partial | HTTPS release guard, offline backup checks, persistent authentication peer throttle, atomic per-account daily AI-operation caps and privacy-safe correlated request events implemented; production proxy/capacity, provider budgets, deployed log sink/alerts and deployment recovery still need verification |
 | UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading, OA-02 owner-material quotas and OA-03 bounded native action/highlight patterns are pinned, licensed and tested; this is selective adaptation, not a port |
 | QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |

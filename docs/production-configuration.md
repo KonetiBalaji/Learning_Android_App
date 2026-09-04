@@ -38,6 +38,12 @@ Deterministic QA does not consume this quota. Account deletion cascades its coun
 This bounds request count, not tokens or currency; host-level spend alerts and a
 provider project budget remain production requirements.
 
+Each HTTP completion also emits a privacy-safe structured event with a bounded
+correlation UUID, route template, method, status and duration. The same request ID
+is returned to the caller. Raw paths, queries, headers, bodies, identities, content
+and exception text are excluded; see `operational-observability.md`. The production
+host must still provide a protected log sink, retention, metrics and alerts.
+
 `GET /health` returns only safe deployment identity: status, environment, revision,
 provider name and model. A deployment verifier must compare its revision to the
 private APK candidate manifest and expected Git commit before testing. A healthy

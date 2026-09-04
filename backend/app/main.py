@@ -80,6 +80,7 @@ from .guardian_access import (
 )
 from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter
 from .ai_usage import consume_ai_operation
+from .operational_logging import OperationalLoggingMiddleware
 
 
 async def retry_file_cleanup(settings: Settings):
@@ -113,8 +114,10 @@ app.add_middleware(
     allow_origins=["http://10.0.2.2", "http://localhost", "http://127.0.0.1"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
+app.add_middleware(OperationalLoggingMiddleware)
 
 
 def now() -> str:
