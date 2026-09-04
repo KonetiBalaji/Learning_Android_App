@@ -1090,3 +1090,11 @@ curriculum review, physical-device QA and UAT remain open.
   Hosted CI boots it with a disposable certificate and verifies readiness through
   HTTPS plus absence of a published API port. This is deployment-package evidence,
   not a trusted certificate, real domain, durable host or production acceptance.
+- Hosted quality run 33927404992 passed repository hygiene, all 608 backend tests
+  (with one platform skip), Android JVM/lint/debug assembly, and the locked
+  production image/HTTPS Compose smoke at commit `d89b8f7`. The production smoke
+  first reproduced concurrent Uvicorn workers racing to migrate the same legacy
+  SQLite schema; startup now holds an exclusive migration transaction with a
+  bounded busy timeout, and an eight-caller legacy-schema regression verifies the
+  repair. This proves same-host concurrent startup for the tested stack, not a
+  public deployment, trusted certificate, production migration rehearsal or UAT.
