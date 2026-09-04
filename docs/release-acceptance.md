@@ -84,13 +84,25 @@ corrupted-key evaluations require disagreement at the corrupted item rather than
 counting unrelated review rejection as success. This strengthens evaluation
 evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-review.md`.
 
+Tutor explanations now pass a separate strict runtime review for accuracy, verified
+method, worked example, grade suitability, concept, tone, hint quality, unsupported
+claims and source-boundedness. Diagnostic teaching support is reviewed before storage,
+so a rejected personalized lesson can use checked fallback content; legacy generated
+support is re-reviewed or returns retryable `503` without committing the answer.
+Backend 494 tests passed with one existing Windows skip. In the final live
+four-subject run, Math,
+English and Geography passed; Science added an unsupported fact and was correctly
+rejected. A new live Fractions diagnostic bank passed teaching review and manual
+arithmetic inspection. This advances TUT-01 to QA verified, not educator/UAT or
+Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
 | AUTH-02 | Google login | Partial | Backend exchange and Android Credential Manager wiring implemented; disabled-build device QA passes. OAuth configuration, real sign-in, lifecycle recovery and user acceptance remain missing |
 | CUR-01 | Grade 1–12, subject and chapter selection | Partial | Versioned server catalog and pre-provider allowlisting are API 36 verified; user-confirmed board, authoritative grade-specific coverage and UAT remain open |
 | ASM-01 | Diagnostic and correct-answer progression | QA verified | Transactional response replay, conflicting/stale rejection, owner scope, restart recovery, undisclosed-answer protection and correct/wrong/remediation/all-question transitions are backend tested and API 36 verified; live curriculum/UAT remain |
-| TUT-01 | Age-appropriate tutor explanations and worked examples | Partial | Grounding, factual evaluation, age suitability, provider failure and retry tests |
+| TUT-01 | Age-appropriate tutor explanations and worked examples | QA verified | Independent fail-closed lesson and diagnostic-teaching review, safe checked fallback, strict rejection tests and bounded Grade 8 live checks across four subjects; broader ages, educator calibration and UAT remain |
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
 | TUT-04 | Written explanation assessment | QA verified | Strict four-point rubric, server-owned feedback, persistence/failure tests and two 20/20 live synthetic runs across Math, Science, English and Geography cover false-pass patterns; calibration, educator review and UAT remain |

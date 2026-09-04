@@ -54,21 +54,31 @@ def test_personalized_prompt_preserves_practice_question_and_disables_response_s
     provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
     provider.model = 'test-model'
     provider.interests = ('sports',)
-    captured = {}
+    captured = []
     def create(**kwargs):
-        captured.update(kwargs)
-        payload = tutor_for(item).model_dump()
-        payload['practice_prompt'] = 'A changed question would invalidate the saved answer key.'
+        captured.append(kwargs)
+        if len(captured) == 1:
+            payload = tutor_for(item).model_dump()
+            payload['practice_prompt'] = 'A changed question would invalidate the saved answer key.'
+        else:
+            payload = {key: True for key in (
+                'accurate', 'method_consistent', 'example_correct', 'grade_suitable',
+                'concept_matches', 'neutral_tone', 'hint_actionable', 'no_unsupported_claims',
+                'source_bounded')}
         return SimpleNamespace(output_text=json.dumps(payload))
     provider.client = SimpleNamespace(responses=SimpleNamespace(create=create))
     lesson = provider.explain(8, item, '1/2')
-    assert 'sports' in captured['input']
-    assert 'Do not force an analogy' in captured['instructions']
-    assert 'explain the next step neutrally' in captured['instructions']
-    assert 'Do not assume how they made the error' in captured['instructions']
-    assert 'same whole and equal-sized parts' in captured['instructions']
-    assert 'Keep units consistent' in captured['instructions']
-    assert 'changes part size, not necessarily the whole' in captured['instructions']
-    assert 'not note values, time signatures or beat definitions' in captured['instructions']
-    assert captured['store'] is False
+    generated, reviewed = captured
+    assert 'sports' in generated['input']
+    assert 'Do not force an analogy' in generated['instructions']
+    assert 'explain the next step neutrally' in generated['instructions']
+    assert 'Do not assume how they made the error' in generated['instructions']
+    assert 'directly entailed by the verified method' in generated['instructions']
+    assert 'omit it if that would add a fact' in generated['instructions']
+    assert 'same whole and equal-sized parts' in generated['instructions']
+    assert 'Keep units consistent' in generated['instructions']
+    assert 'changes part size, not necessarily the whole' in generated['instructions']
+    assert 'not note values, time signatures or beat definitions' in generated['instructions']
+    assert generated['store'] is reviewed['store'] is False
+    assert 'Independently audit' in reviewed['instructions']
     assert lesson.practice_prompt == item.practice_prompt

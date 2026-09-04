@@ -32,7 +32,7 @@ from .mastery_service import (
     serialize_diagnostic_bank,
     tutor_for,
 )
-from .tutor_provider import DiagnosticUnavailable, tutor_provider
+from .tutor_provider import DiagnosticUnavailable, TutorLessonUnavailable, tutor_provider
 from .schemas import (
     AdaptiveQuestion,
     AnswerRequest,
@@ -646,7 +646,11 @@ def answer_diagnostic(session_id: str, request: DiagnosticAnswerRequest, user_id
         consume_ai_operation(settings, user_id)
         interests = account_profile(user_id, settings).interests
         provider = tutor_provider(settings, interests=tuple(interests)) if interests else tutor_provider(settings)
-        lesson = provider.explain(session["grade"], item, request.selected_option)
+        try:
+            lesson = provider.explain(session["grade"], item, request.selected_option)
+        except TutorLessonUnavailable as error:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                                detail='A reviewed tutor lesson is temporarily unavailable. Your answer was not saved; please retry.') from error
     score = next_index / len(bank)
     next_question = public_question(bank[next_index], next_index, len(bank)) if correct and next_index < len(bank) else None
     outcome = DiagnosticOutcome(

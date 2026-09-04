@@ -10,7 +10,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .config import Settings
-from .mastery_service import DiagnosticItem, diagnostic_bank, evaluate_rewrite, tutor_for, validate_diagnostic_bank
+from .mastery_service import DiagnosticItem, FRACTION_DIAGNOSTIC, diagnostic_bank, evaluate_rewrite, tutor_for, validate_diagnostic_bank
 from .schemas import TutorIntervention
 from .rewrite_grading import FULL_MARKS, GradeResult, grading_prompts, learner_feedback
 from .diagnostic_quality import DiagnosticReviewRejected, review_diagnostic_answers
@@ -30,6 +30,10 @@ class RewriteAssessment(BaseModel):
 
 class DiagnosticUnavailable(ValueError):
     """A valid topic could not get a reviewed bank from primary or fallback."""
+
+
+class TutorLessonUnavailable(RuntimeError):
+    """No reviewed learner-visible lesson is currently available."""
 
 
 class FreshPracticeRejected(ValueError):
@@ -167,8 +171,14 @@ class OpenAITutorProvider:
                 "Address the learner directly and explain the next step neutrally; avoid verdicts such as "
                 "'You added wrong' or referring to 'the student'. Do not assume how they made the error. "
                 "Do not introduce facts beyond the supplied concept and verified correct method. "
+                "Every factual or causal statement must be directly entailed by the verified method or "
+                "verified example, even if extra background knowledge would normally be true. Rephrase "
+                "those supplied facts; do not enrich them with outside biological, historical, geographic, "
+                "cultural, grammar, sports, music, nature, or travel facts. The worked example must preserve "
+                "the verified example's reasoning, quantities and conclusion. "
                 "When relevant, frame the worked example using one supplied interest. Do not force an analogy, "
                 "infer personal traits, change the mathematical method, or change the practice question. "
+                "An interest may only neutrally relabel an existing quantity; omit it if that would add a fact. "
                 "In fraction examples explicitly identify the same whole and equal-sized parts throughout. "
                 "Keep units consistent: an area fraction cannot become a fraction of a count of flowers. "
                 "A changed denominator changes part size, not necessarily the whole. "
@@ -185,7 +195,9 @@ class OpenAITutorProvider:
             ),
             text={"format": {"type": "json_schema", "name": "tutor_intervention", "strict": True, "schema": schema}},
         )
-        return TutorIntervention.model_validate(json.loads(response.output_text)).model_copy(update={'practice_prompt': item.practice_prompt})
+        lesson = TutorIntervention.model_validate(json.loads(response.output_text)).model_copy(update={'practice_prompt': item.practice_prompt})
+        from .tutor_lesson_review import review_tutor_lesson
+        return review_tutor_lesson(self.client, self.model, grade, item, selected_option, lesson)
 
     def assess_rewrite(self, grade: int, item: DiagnosticItem, response_text: str) -> RewriteAssessment:
         schema = GradeResult.model_json_schema()
@@ -311,8 +323,25 @@ class ResilientTutorProvider:
     def explain(self, grade: int, item: DiagnosticItem, selected_option: str) -> TutorIntervention:
         try:
             return self.primary.explain(grade, item, selected_option)
-        except Exception:
-            return self.fallback.explain(grade, item, selected_option)
+        except Exception as primary_error:
+            from .tutor_lesson_review import TutorLessonRejected
+            safe_reason = (primary_error.safe_report() if isinstance(primary_error, TutorLessonRejected)
+                           else [type(primary_error).__name__])
+            logging.getLogger(__name__).warning('Primary tutor lesson unavailable: %s', safe_reason)
+            fallback = self.fallback.explain(grade, item, selected_option)
+            if item in FRACTION_DIAGNOSTIC:
+                return fallback
+            # Existing generated sessions may predate the teaching-review gate.
+            # Re-review stored support now instead of assuming legacy content is safe.
+            try:
+                from .tutor_lesson_review import review_tutor_lesson
+                return review_tutor_lesson(self.primary.client, self.primary.model, grade,
+                                           item, selected_option, fallback)
+            except Exception as fallback_error:
+                reason = (fallback_error.safe_report() if isinstance(fallback_error, TutorLessonRejected)
+                          else [type(fallback_error).__name__])
+                logging.getLogger(__name__).warning('Stored tutor fallback unavailable: %s', reason)
+                raise TutorLessonUnavailable('A reviewed tutor lesson is temporarily unavailable') from primary_error
 
     def assess_rewrite(self, grade: int, item: DiagnosticItem, response: str) -> RewriteAssessment:
         try:

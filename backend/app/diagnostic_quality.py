@@ -19,6 +19,11 @@ class ReviewFailure(str, Enum):
     PRACTICE_INVALID = 'practice_invalid'
     PRACTICE_NUMBER = 'practice_numeric_parse'
     PRACTICE_KEY = 'practice_key_disagreement'
+    EXPLANATION = 'teaching_explanation'
+    EXAMPLE = 'teaching_example'
+    HINT = 'teaching_hint'
+    TEACHING_GRADE = 'teaching_grade'
+    TEACHING_SOURCE = 'teaching_source'
 
 
 @dataclass(frozen=True)
@@ -51,6 +56,11 @@ class DiagnosticReviewItem(BaseModel):
     grade_suitable: StrictBool
     practice_answers: list[str] = Field(min_length=1, max_length=5)
     practice_valid: StrictBool
+    explanation_accurate: StrictBool
+    worked_example_accurate: StrictBool
+    hint_valid: StrictBool
+    teaching_grade_suitable: StrictBool
+    teaching_source_bounded: StrictBool
     practice_format_constraint: Literal[
         'none', 'simplest_terms', 'denominator', 'representation',
         'units_or_percent', 'named_choice', 'text', 'other']
@@ -76,6 +86,12 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
             'Return one to five concise practice_answers that obey every requested representation '
             'or format, including harmless singular/plural variants only when justified. '
             'Set practice_valid false if ambiguous, unsolvable, off-topic, grade-inappropriate or uncertain. '
+            'Independently audit the proposed explanation, worked example and hint against your own '
+            'solution. Require correct reasoning and arithmetic, the requested concept, grade-suitable '
+            'neutral wording, and no unsupported factual or causal claims. Set teaching_source_bounded '
+            'false when any claim is not directly justified by the question and independently verified '
+            'solution, even if the extra claim is generally plausible. Set hint_valid false if it conflicts, '
+            'reveals the practice answer, or does not guide the requested concept. '
             'Classify practice_format_constraint separately for EACH practice prompt. '
             'Use none for a numeric calculation with no requested answer representation. '
             'Compute, calculate, find and arithmetic on fractions do NOT by themselves '
@@ -95,7 +111,8 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
             'Fail uncertain judgments. Do not claim alignment with any national curriculum or education board.'),
         input=json.dumps({'grade': grade, 'subject': subject_id, 'chapter': chapter_id,
             'questions': [{'item_index': index, 'prompt': item.prompt, 'options': item.options,
-                           'practice_prompt': item.practice_prompt}
+                           'practice_prompt': item.practice_prompt, 'explanation': item.explanation,
+                           'worked_example': item.worked_example, 'hint': item.hint}
                           for index, item in enumerate(items)]}),
         text={'format': {'type': 'json_schema', 'name': 'diagnostic_answer_review', 'strict': True,
                          'schema': DiagnosticReview.model_json_schema()}})
@@ -115,6 +132,11 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
             (result.answer_index == item.options.index(item.correct_option),
              ReviewFailure.UNSOLVED if result.answer_index == -1 else ReviewFailure.KEY),
             (result.practice_valid, ReviewFailure.PRACTICE_INVALID),
+            (result.explanation_accurate, ReviewFailure.EXPLANATION),
+            (result.worked_example_accurate, ReviewFailure.EXAMPLE),
+            (result.hint_valid, ReviewFailure.HINT),
+            (result.teaching_grade_suitable, ReviewFailure.TEACHING_GRADE),
+            (result.teaching_source_bounded, ReviewFailure.TEACHING_SOURCE),
         ):
             if not valid:
                 issues.append(ReviewIssue(code, index))

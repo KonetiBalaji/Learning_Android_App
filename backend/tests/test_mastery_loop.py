@@ -206,6 +206,29 @@ def test_failed_practice_and_rewrite_return_more_coaching(monkeypatch, tmp_path:
         client.__exit__(None, None, None)
 
 
+def test_unavailable_reviewed_lesson_keeps_wrong_answer_retryable(monkeypatch, tmp_path: Path) -> None:
+    import app.main as api
+    from app.tutor_provider import DeterministicTutorProvider, TutorLessonUnavailable
+
+    class UnavailableLessonProvider(DeterministicTutorProvider):
+        def explain(self, *args):
+            raise TutorLessonUnavailable('synthetic private provider detail')
+
+    monkeypatch.setattr(api, 'tutor_provider', lambda *args, **kwargs: UnavailableLessonProvider())
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        session = client.post('/v1/mastery/diagnostics', headers=headers,
+                              json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()
+        response = client.post(f"/v1/mastery/sessions/{session['id']}/diagnostic-answer",
+                               headers=headers, json={'selected_option': '1/2'})
+        assert response.status_code == 503
+        assert 'synthetic' not in response.text and 'private' not in response.text
+        restored = client.get(f"/v1/mastery/sessions/{session['id']}", headers=headers).json()
+        assert restored['status'] == 'diagnostic' and restored['question']['ordinal'] == 1
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_weekly_report_and_account_deletion_cover_owned_data(monkeypatch, tmp_path: Path) -> None:
     client, headers = registered_client(monkeypatch, tmp_path)
     try:

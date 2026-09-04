@@ -187,10 +187,12 @@ remaining quality concerns. This does not replace the broader evaluation gates.
 
 The same model family can make correlated mistakes in both calls. Agreement is
 a filter, not an accuracy guarantee or calibrated confidence score. Grade-fit is
-a model judgment, not alignment with an approved country's curriculum. This review
-does not verify the generated teaching explanations, worked examples or hints.
+a model judgment, not alignment with an approved country's curriculum. As of
+2026-09-04, the same blind audit also independently checks each generated explanation,
+worked example and hint for accuracy, grade suitability, concept scope and bounded
+support before the bank can be persisted; it still does not replace educator review.
 Practice review is also a model judgment: correlated errors or misunderstanding
 of answer-format constraints can still pass, and equivalent textual synonyms may
 be conservatively rejected. Human-reviewed evaluation data, live false-pass testing,
-authoritative curriculum grounding and device recovery remain open. ASM-01,
-TUT-01 and CUR-01 therefore remain partial.
+authoritative curriculum grounding and device recovery remain open. ASM-01 and
+TUT-01 have bounded QA evidence; CUR-01 remains partial.

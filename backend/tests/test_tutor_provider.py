@@ -2,7 +2,7 @@ from app.config import Settings
 import pytest
 
 from app.mastery_service import DiagnosticItem, FRACTION_DIAGNOSTIC, parse_diagnostic_bank, serialize_diagnostic_bank, validate_diagnostic_bank
-from app.tutor_provider import DeterministicTutorProvider, ResilientTutorProvider, RewriteAssessment
+from app.tutor_provider import DeterministicTutorProvider, ResilientTutorProvider, RewriteAssessment, TutorLessonUnavailable
 
 
 class BrokenProvider:
@@ -28,6 +28,32 @@ def test_teaching_falls_back_but_grading_outage_cannot_award_mastery() -> None:
     assert assessment.available is False
     assert assessment.score is None
     assert len(provider.diagnostic_bank(6, "math", "fractions")) == 3
+
+
+def test_generated_legacy_fallback_must_be_reviewed_or_remain_unavailable() -> None:
+    from dataclasses import replace
+    from types import SimpleNamespace
+    import json
+
+    item = replace(FRACTION_DIAGNOSTIC[0], concept='Legacy generated algebra support')
+
+    class RejectingPrimary(BrokenProvider):
+        name = 'openai'
+        model = 'fixture'
+
+    primary = RejectingPrimary()
+    accepted = {key: True for key in (
+        'accurate', 'method_consistent', 'example_correct', 'grade_suitable',
+        'concept_matches', 'neutral_tone', 'hint_actionable', 'no_unsupported_claims',
+        'source_bounded')}
+    primary.client = SimpleNamespace(responses=SimpleNamespace(
+        create=lambda **kwargs: SimpleNamespace(output_text=json.dumps(accepted))))
+    provider = ResilientTutorProvider(primary, DeterministicTutorProvider())
+    assert provider.explain(8, item, '1/2') == DeterministicTutorProvider().explain(8, item, '1/2')
+    primary.client = SimpleNamespace(responses=SimpleNamespace(
+        create=lambda **kwargs: (_ for _ in ()).throw(TimeoutError('review outage'))))
+    with pytest.raises(TutorLessonUnavailable):
+        provider.explain(8, item, '1/2')
 
 
 def test_settings_never_include_key_in_repr(tmp_path) -> None:
