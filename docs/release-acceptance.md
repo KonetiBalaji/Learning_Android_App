@@ -98,7 +98,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
 | PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
-| PROG-02 | Weak concepts and personalized learning path | Partial | Recurring-error evidence, remediation updates, next-step selection tests |
+| PROG-02 | Weak concepts and personalized learning path | QA verified | Independent recurring-error counts, remediation clearing, account/grade scope, active-session continuation and prerequisite-aware next diagnostic are backend tested and API 36 verified; educator/UAT review remains |
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts and read-only grade reports are device verified; identity/child-consent policy, retention, physical-device and UAT remain open |
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, source-grounding checks, deletion, interrupted-flow recovery |
@@ -904,3 +904,13 @@ curriculum review, physical-device QA and UAT remain open.
   lint and debug assembly passed. See
   `shared/contracts/curriculum-catalog.md`. This is a synchronized foundation catalog,
   not authoritative board coverage or curriculum UAT.
+- Replaced generic progress advice with deterministic evidence-based next steps.
+  Independent diagnostic/rewrite mistakes now accumulate per account, grade,
+  subject, chapter and concept until newer successful independent evidence clears
+  them; guided practice cannot create or clear a weak area. Recommendations name
+  the catalog location and unresolved count, then fall back to the latest active
+  session or first prerequisite-eligible unmastered chapter. API 36 displayed two
+  recurring mistakes, then updated to the active diagnostic after successful
+  remediation; the frame was visually inspected. See
+  `shared/contracts/personalized-next-step.md`. This is QA evidence, not educator or
+  user acceptance of the recommendation policy.

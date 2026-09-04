@@ -66,6 +66,7 @@ from .schemas import (
     TutorIntervention,
     DocumentQuizState,
     CurriculumCatalog,
+    WeakAreaEvidence,
 )
 from .security import create_token, current_user_id, hash_password, verify_password
 from .weekly_reporting import build_weekly_report
@@ -817,26 +818,56 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
         subjects.setdefault(session["subject_id"], []).append(score)
         chapters.append(ChapterProgress(grade=key[0], subject_id=key[1], chapter_id=key[2], mastery=score, attempts=sum(1 for row in attempts if row["session_id"] == session["id"]), status=session["status"]))
     by_session = {row['id']: row for row in sessions}
-    latest_assessment = {}
+    unresolved_by_concept = {}
     for attempt in attempts:
         # Guided practice alone is not evidence of independent understanding.
         if attempt['phase'] not in {'diagnostic', 'rewrite'}:
             continue
         session = by_session[attempt['session_id']]
         key = (session['grade'], session['subject_id'], session['chapter_id'], attempt['concept'].strip().casefold())
-        latest_assessment[key] = attempt
-    unresolved = sorted((row for row in latest_assessment.values() if not row['correct']),
-                        key=lambda row: row['attempt_order'], reverse=True)
-    weak_areas = list(dict.fromkeys(row['concept'] for row in unresolved))[:5]
+        if attempt['correct']:
+            unresolved_by_concept.pop(key, None)
+        else:
+            previous = unresolved_by_concept.get(key)
+            unresolved_by_concept[key] = (attempt, (previous[1] if previous else 0) + 1, session)
+    unresolved = sorted(unresolved_by_concept.values(), key=lambda value: value[0]['attempt_order'], reverse=True)
+    evidence = [WeakAreaEvidence(concept=attempt['concept'], grade=session['grade'],
+                    subject_id=session['subject_id'], chapter_id=session['chapter_id'],
+                    unresolved_independent_mistakes=count)
+                for attempt, count, session in unresolved[:5]]
+    weak_areas = list(dict.fromkeys(item.concept for item in evidence))
     subject_scores = {name: sum(values) / len(values) for name, values in subjects.items()}
-    recommendations = ([f"Practice {area} for 15 minutes" for area in weak_areas[:3]] or
-                       ["Continue your saved assessment or explore the next concept" if attempts else "Start a diagnostic to personalize your learning path"])
     from .learning_path import PREREQUISITES
     mastered = {(chapter.subject_id, chapter.chapter_id) for chapter in chapters if chapter.status == 'mastered'}
     unlocked = sorted(f'{subject}:{chapter}' for (subject, chapter), required in PREREQUISITES.items()
                       if grade is not None and (subject, required) in mastered)
+    titles = {(subject.id, chapter.id): (subject.title, chapter.title)
+              for subject in CATALOG for chapter in subject.chapters}
+    if evidence:
+        recommendations = []
+        for item in evidence[:3]:
+            subject_title, chapter_title = titles.get((item.subject_id, item.chapter_id),
+                                                       (item.subject_id, item.chapter_id))
+            count = item.unresolved_independent_mistakes
+            recommendations.append(
+                f"Review {item.concept} in {subject_title} · {chapter_title}: {count} unresolved independent mistake{'s' if count != 1 else ''}")
+    else:
+        ongoing = next((session for session in sessions if session['status'] != 'mastered'), None)
+        if ongoing is not None:
+            subject_title, chapter_title = titles.get((ongoing['subject_id'], ongoing['chapter_id']),
+                                                       (ongoing['subject_id'], ongoing['chapter_id']))
+            recommendations = [f"Continue {subject_title} · {chapter_title} from your saved {ongoing['status']} step"]
+        elif grade is not None:
+            available = next(((subject.title, chapter.title) for subject in CATALOG for chapter in subject.chapters
+                              if (subject.id, chapter.id) not in mastered
+                              and (chapter.prerequisite_id is None or (subject.id, chapter.prerequisite_id) in mastered)), None)
+            recommendations = ([f"Start {available[0]} · {available[1]} as your next diagnostic"] if available
+                               else ["All current catalog chapters are mastered. Revisit a chapter to strengthen retention."])
+        else:
+            recommendations = ["Choose a grade to get a prerequisite-aware next step."]
     return ProgressDashboard(observed_study_seconds=study_seconds, grade=grade, unlocked_chapter_ids=unlocked, subjects=subject_scores,
-                             chapters=chapters, weak_areas=weak_areas, recommendations=recommendations)
+                             chapters=chapters, weak_areas=weak_areas, weak_area_evidence=evidence,
+                             recommendations=recommendations)
 
 
 @app.get("/v1/progress/weekly-report", response_model=WeeklyReport)
