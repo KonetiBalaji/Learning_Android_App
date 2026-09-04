@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import asyncio
+import base64
 import hashlib
 import logging
 import re
@@ -51,6 +52,7 @@ from .schemas import (
     StudyPresence,
     Feedback,
     QuestionSourceEvidence,
+    OriginalPdfPageEvidence,
     QuizQuestion,
     QuizRequest,
     QuizResults,
@@ -698,7 +700,8 @@ def question_source(quiz_id: str, question_id: str, user_id: str = Depends(curre
     """Return exact source evidence only after the learner has answered the question."""
     with connection(settings.database_path) as db:
         row = db.execute(
-            """SELECT questions.source_reference, questions.answered_option, documents.extracted_text
+            """SELECT questions.source_reference, questions.answered_option, documents.extracted_text,
+                      documents.id AS document_id, documents.stored_path
                FROM questions JOIN quizzes ON quizzes.id = questions.quiz_id
                JOIN documents ON documents.id = quizzes.document_id
                WHERE questions.id = ? AND questions.quiz_id = ?
@@ -716,9 +719,31 @@ def question_source(quiz_id: str, question_id: str, user_id: str = Depends(curre
     text = row['extracted_text']
     if not 0 <= start < end <= len(text):
         raise HTTPException(status_code=409, detail="Exact source evidence is unavailable for this question")
+    original_pages = []
+    stored = Path(row['stored_path'])
+    if stored.suffix.lower() == '.pdf':
+        try:
+            _, pages = owned_pdf_pages(row['document_id'], user_id, settings)
+            page_numbers = [page.page for page in pages
+                            if start < page.end_character and end > page.start_character]
+            if not page_numbers or len(page_numbers) > 5:
+                raise ValueError('Question source spans an unsafe number of PDF pages')
+            from .pdf_page_selection import render_pdf_pages_isolated
+            rendered = render_pdf_pages_isolated(stored, settings.uploads_dir, page_numbers,
+                settings.max_upload_bytes, settings.document_parse_timeout_seconds,
+                settings.max_concurrent_document_parsers, settings.database_path)
+            original_pages = [OriginalPdfPageEvidence(page=number,
+                image_base64=base64.b64encode(image).decode('ascii')) for number, image in rendered]
+        except ParserCapacityError as error:
+            raise HTTPException(status_code=503, detail='Document processing is busy. Retry shortly.',
+                                headers={'Retry-After': '2'}) from error
+        except (OSError, TimeoutError) as error:
+            raise HTTPException(status_code=503, detail='The original PDF page is temporarily unavailable') from error
+        except (ValueError, RuntimeError) as error:
+            raise HTTPException(status_code=409, detail='The original PDF page cannot be safely displayed') from error
     return QuestionSourceEvidence(quiz_id=quiz_id, question_id=question_id,
         source_reference=row['source_reference'], start_character=start, end_character=end,
-        text=text[start:end])
+        text=text[start:end], original_pdf_pages=original_pages)
 
 
 @app.get("/v1/quizzes/{quiz_id}", response_model=DocumentQuizState)

@@ -120,7 +120,10 @@ Debug build, lint and **93 JVM tests** passed after wiring the UI. Tests cover
 confirmation with stale/missing reviews, changed document/chapter identity,
 encoded-range round trips and deletion isolation. Subsequent device evidence is
 recorded below; page-endpoint network retry, accessibility and actual UAT remain open.
-This is not a visual PDF viewer and does not implement OCR or printed page labels.
+The selection screen is not a general PDF browser and does not implement OCR or
+printed page labels. Answered-question source review now renders the bounded original
+physical page intersecting the exact persisted evidence; see
+`docs/question-source-evidence.md`.
 
 ## Device QA fixture and admission limits
 

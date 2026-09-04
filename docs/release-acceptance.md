@@ -117,7 +117,7 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | PROG-03 | Per-uploaded-document learning progress | QA verified | Owner-scoped server history plus Android display of completed quizzes, answers, chapter accuracy, grounded named concepts, attempt timestamps, retry provenance and last-two-completed-attempt trend are automated and API 36 verified; live-provider concept quality, physical-device and UAT evidence remain open |
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts, read-only reports, learner-visible grant/revocation history, and a learner-owned privacy-bounded CSV system-picker export are API 36 verified; history is atomic and minimizes deleted guardian identity; real-world identity/child-consent and notification policy, physical-device and UAT remain open |
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
-| DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, parser isolation/capacity, source-grounding checks, deletion and interrupted-flow recovery are automated. Answered-question source references now open exact owner-scoped extracted evidence and are API 36 verified; original PDF-page rendering, sustained hostile-parser load/PDF expansion, broader device paths and UAT remain |
+| DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, parser isolation/capacity, source-grounding checks, deletion and interrupted-flow recovery are automated. Answered-question sources open exact owner-scoped extracted evidence plus bounded original physical PDF pages and are API 36 verified; sustained hostile-parser load/PDF expansion, complex layouts, broader device paths and UAT remain |
 | DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Entire-document, detected chapter/section, highlighted excerpt and physical PDF-page selection are API 36 verified. Exact phrase and bounded all-important-term custom-topic retrieval are API 36 verified with explicit verbatim review, TalkBack-exposed result/action nodes, restart, retry, exact-range generation, owner and chapter isolation. Semantic synonym behavior, physical-device breadth and UAT remain open |
 
 Document quiz results now expose the learner's selected answer, correct answer,
@@ -144,8 +144,10 @@ source range after the question is answered, checks question/quiz/document owner
 and fails closed for malformed historical references. API 36 verified opening the
 correct answered question after process restart, independently reconciled the exact
 text/range with the authenticated endpoint, and captured the readable dialog. See
-`docs/question-source-evidence.md`. Original PDF-page rendering, physical-device
-accessibility and UAT remain open, so DOC-01 stays partial.
+`docs/question-source-evidence.md`. The PDF follow-up also rendered and accessibility-
+labelled the original physical page containing the exact sentence. Complex layouts,
+hostile-PDF stress, physical-device accessibility and UAT remain open, so DOC-01
+stays partial.
 | DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling, server-evidenced owner/grade-scoped learning badges, and real TalkBack exposure for dynamic topic status/source/action nodes; loading/empty/offline/retry states have targeted flows. Motivation/usability review, full-screen spoken traversal, switch access, non-text contrast, physical devices and UAT remain |
 | DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |

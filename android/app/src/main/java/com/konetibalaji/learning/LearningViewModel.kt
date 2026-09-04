@@ -19,14 +19,17 @@ import java.io.BufferedOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Base64
 import java.util.UUID
 
 data class Chapter(val id: String, val title: String, val confidence: Float)
 data class StudyDocument(val id: String, val name: String, val chapters: List<Chapter>)
 data class QuizQuestion(val id: String, val ordinal: Int, val prompt: String, val options: List<String>, val sourceReference: String)
 data class Feedback(val questionId: String, val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
+data class OriginalPdfPageEvidence(val page: Int, val mimeType: String, val imageBase64: String)
 data class QuestionSourceEvidence(val quizId: String, val questionId: String, val reference: String,
-                                  val start: Int, val end: Int, val text: String)
+                                  val start: Int, val end: Int, val text: String,
+                                  val originalPdfPages: List<OriginalPdfPageEvidence> = emptyList())
 
 fun validateQuestionSourceEvidence(evidence: QuestionSourceEvidence, quizId: String,
                                    questionId: String): QuestionSourceEvidence {
@@ -34,6 +37,15 @@ fun validateQuestionSourceEvidence(evidence: QuestionSourceEvidence, quizId: Str
     require(evidence.start >= 0 && evidence.end > evidence.start && evidence.text.isNotBlank())
     require(evidence.text.length == evidence.end - evidence.start)
     require(evidence.reference.contains("source characters ${evidence.start}-${evidence.end}"))
+    require(evidence.originalPdfPages.size <= 5)
+    require(evidence.originalPdfPages.map { it.page } == evidence.originalPdfPages.map { it.page }.distinct().sorted())
+    require(evidence.originalPdfPages.sumOf { it.imageBase64.length.toLong() } <= 8_000_000)
+    evidence.originalPdfPages.forEach { page ->
+        require(page.page in 1..1000 && page.mimeType == "image/png" && page.imageBase64.length <= 8_000_000)
+        val bytes = Base64.getDecoder().decode(page.imageBase64)
+        require(bytes.size in 8..6_000_000 && bytes.take(8).toByteArray().contentEquals(
+            byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)))
+    }
     return evidence
 }
 data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizMistake>)
@@ -1083,7 +1095,11 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val value = request("GET", "/v1/quizzes/$quizId/questions/$questionId/source", null)
         val evidence = QuestionSourceEvidence(value.getString("quiz_id"), value.getString("question_id"),
             value.getString("source_reference"), value.getInt("start_character"), value.getInt("end_character"),
-            value.getString("text"))
+            value.getString("text"), value.getJSONArray("original_pdf_pages").let { pages ->
+                (0 until pages.length()).map { index -> pages.getJSONObject(index).let { page ->
+                    OriginalPdfPageEvidence(page.getInt("page"), page.getString("mime_type"), page.getString("image_base64"))
+                } }
+            })
         return validateQuestionSourceEvidence(evidence, quizId, questionId)
     }
     fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").let { values -> (0 until values.length()).map { index -> values.getJSONObject(index).let { value -> validateQuizMistake(QuizMistake(question(value), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"))) } } }) }

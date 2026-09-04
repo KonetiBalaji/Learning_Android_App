@@ -143,6 +143,12 @@ class Feedback(BaseModel):
     next_question: QuizQuestion | None
 
 
+class OriginalPdfPageEvidence(BaseModel):
+    page: int = Field(ge=1, le=1000)
+    mime_type: Literal['image/png'] = 'image/png'
+    image_base64: str = Field(min_length=12, max_length=8_000_000)
+
+
 class QuestionSourceEvidence(BaseModel):
     quiz_id: str
     question_id: str
@@ -150,6 +156,7 @@ class QuestionSourceEvidence(BaseModel):
     start_character: int
     end_character: int
     text: str
+    original_pdf_pages: list[OriginalPdfPageEvidence] = Field(default_factory=list)
 
 
 class QuizMistake(QuizQuestion):

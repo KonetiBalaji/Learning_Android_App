@@ -1,4 +1,7 @@
 import re
+import base64
+
+import fitz
 
 from app.config import get_settings
 from app.database import connection
@@ -18,6 +21,14 @@ Cell walls provide firm support around many plant cells.
 Specialized cells have structures suited to their particular functions.
 Organ systems depend on cells working together in organized groups.
 """
+
+
+def source_pdf() -> bytes:
+    with fitz.open() as pdf:
+        page = pdf.new_page()
+        for index, line in enumerate(SOURCE.splitlines()):
+            page.insert_text((54, 54 + index * 18), line, fontsize=10)
+        return pdf.tobytes()
 
 
 def test_answered_question_exposes_exact_owned_source_and_unanswered_does_not(monkeypatch, tmp_path):
@@ -68,5 +79,29 @@ def test_invalid_historical_reference_fails_closed(monkeypatch, tmp_path):
             f"/v1/quizzes/{quiz['id']}/questions/{question['id']}/source", headers=headers)
         assert response.status_code == 409
         assert response.json()['detail'] == 'Exact source evidence is unavailable for this question'
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_answered_pdf_question_includes_bounded_original_page_image(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        document = client.post('/v1/documents', headers=headers,
+            files={'file': ('cells.pdf', source_pdf(), 'application/pdf')}).json()
+        quiz = client.post(f"/v1/documents/{document['id']}/quizzes", headers=headers,
+            json={'chapter_ids': [document['chapters'][0]['id']], 'question_count': 5}).json()
+        question = quiz['first_question']
+        client.post(f"/v1/quizzes/{quiz['id']}/questions/{question['id']}/answer",
+                    headers=headers, json={'selected_option': question['options'][0]})
+        response = client.get(
+            f"/v1/quizzes/{quiz['id']}/questions/{question['id']}/source", headers=headers)
+        assert response.status_code == 200, response.text
+        pages = response.json()['original_pdf_pages']
+        assert len(pages) == 1 and pages[0]['page'] == 1
+        assert pages[0]['mime_type'] == 'image/png'
+        image = base64.b64decode(pages[0]['image_base64'], validate=True)
+        assert image.startswith(b'\x89PNG\r\n\x1a\n') and len(image) < 6_000_000
+        with fitz.open(stream=image, filetype='png') as rendered:
+            assert rendered[0].rect.width > 0 and rendered[0].rect.height > 0
     finally:
         client.__exit__(None, None, None)

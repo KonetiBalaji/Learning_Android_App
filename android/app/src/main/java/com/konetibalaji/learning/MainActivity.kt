@@ -1,6 +1,7 @@
 package com.konetibalaji.learning
 
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
@@ -12,6 +13,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,7 +75,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -89,6 +93,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.view.WindowCompat
+import java.util.Base64
 
 class MainActivity : ComponentActivity() {
     private val learningModel: LearningViewModel get() = androidx.lifecycle.ViewModelProvider(this)[LearningViewModel::class.java]
@@ -982,6 +987,18 @@ private fun SourceEvidenceDialog(evidence: QuestionSourceEvidence, onClose: () -
             Text(evidence.reference, style = MaterialTheme.typography.bodySmall)
             Text(evidence.text)
             Text("Exact extracted source characters ${evidence.start}–${evidence.end}. This is not AI-generated.", style = MaterialTheme.typography.bodySmall)
+            evidence.originalPdfPages.forEach { page ->
+                val bitmap = remember(page.imageBase64) {
+                    Base64.getDecoder().decode(page.imageBase64).let { bytes ->
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }
+                }
+                bitmap?.let {
+                    Text("Original PDF page ${page.page}", fontWeight = FontWeight.Bold)
+                    Image(bitmap = it.asImageBitmap(), contentDescription = "Original PDF page ${page.page}",
+                        contentScale = ContentScale.FillWidth, modifier = Modifier.fillMaxWidth())
+                }
+            }
         }
     }, confirmButton = { TextButton(onClick = onClose) { Text("Close") } })
 }

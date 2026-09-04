@@ -38,7 +38,9 @@ function TextNode([string]$text) {
     # Long result screens can contain one source action per mistake. Sweep to
     # both ends so lookup does not oscillate around the middle of tall content.
     for ($attempt=0; $attempt -lt 30; $attempt++) {
-        $node = (Ui).SelectNodes('//node') | Where-Object { $_.text -eq $text } | Select-Object -First 1
+        $node = (Ui).SelectNodes('//node') | Where-Object {
+            $_.text -eq $text -or $_.text -like "$text`n`nSupport ID: *"
+        } | Select-Object -First 1
         if ($node) { return $node }
         if ($attempt -lt 15) { Adb shell input swipe 540 750 540 1850 400 | Out-Null }
         else { Adb shell input swipe 540 1850 540 750 400 | Out-Null }
@@ -535,6 +537,13 @@ $sourceEvidence = Invoke-RestMethod "$quizPath/questions/$($state.last_feedback.
 $sourceTree = Ui
 if (-not ($sourceTree.SelectNodes('//node') | Where-Object { $_.text -eq $sourceEvidence.text })) { throw 'Source dialog did not show the exact extracted evidence' }
 if (-not ($sourceTree.SelectNodes('//node') | Where-Object { $_.text -eq "Exact extracted source characters $($sourceEvidence.start_character)–$($sourceEvidence.end_character). This is not AI-generated." })) { throw 'Source dialog did not identify the exact evidence range' }
+if ($VerifyPdfPages) {
+    $renderedPages = @($sourceEvidence.original_pdf_pages)
+    if ($renderedPages.Count -ne 1 -or $renderedPages[0].page -ne 2 -or $renderedPages[0].mime_type -ne 'image/png') { throw 'Question source did not return its original physical PDF page' }
+    TextNode 'Original PDF page 2' | Out-Null
+    $sourceTree = Ui
+    if (-not ($sourceTree.SelectNodes('//node') | Where-Object { $_.'content-desc' -eq 'Original PDF page 2' })) { throw 'Original PDF page image is not exposed to accessibility' }
+}
 Adb shell screencap -p /sdcard/qa-question-source.png | Out-Null
 Adb pull /sdcard/qa-question-source.png (Join-Path $repo 'artifacts\qa-question-source.png') | Out-Null
 TapText 'Close'
@@ -587,8 +596,15 @@ if ($VerifyMultiChapter) {
     Write-Output "PASS: Android multi-chapter generation produced $expectedCount questions with sources from both selected chapters"
 }
 if ($VerifyExcerpts -or $VerifyPdfPages) {
-    $expectedSource = "Chapter 2 Plants (selected excerpt) (source characters $($excerptPart.start_character)-$($excerptPart.end_character))"
-    if ($sourceReferences.Count -ne $expectedCount -or @($sourceReferences | Where-Object { $_ -ne $expectedSource }).Count -ne 0) { throw 'A quiz question referenced material outside the selected excerpt' }
+    if ($sourceReferences.Count -ne $expectedCount) { throw 'Expected source evidence for every requested question' }
+    foreach ($reference in $sourceReferences) {
+        $match = [regex]::Match($reference, '^Chapter 2 Plants \(selected excerpt\) \(source characters (\d+)-(\d+)\)$')
+        if (-not $match.Success -or [int]$match.Groups[1].Value -lt $excerptPart.start_character -or
+            [int]$match.Groups[2].Value -gt $excerptPart.end_character -or
+            [int]$match.Groups[1].Value -ge [int]$match.Groups[2].Value) {
+            throw 'A quiz question referenced material outside the selected excerpt'
+        }
+    }
     Write-Output "PASS: all $expectedCount question references remain within the confirmed excerpt"
 }
 RestartApp

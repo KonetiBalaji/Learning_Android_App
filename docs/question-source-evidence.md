@@ -38,5 +38,19 @@ occurs when evidence is opened.
   TalkBack result-action exposure, mistake-only retry, configure-another and
   difficulty-increase checks.
 
-This is emulator QA for extracted text. Original PDF-page rendering, physical-device
-accessibility and user acceptance remain separate release gates.
+For PDF questions, the same authenticated response now includes only the original
+physical pages intersecting that exact source range. Rendering reuses the bounded
+owner-scoped PDF parser admission path, runs in a subprocess, allows at most five
+ordered pages and caps the combined PNG payload at 6 MB. TXT and DOCX evidence keeps
+an empty page list. Android validates page order, MIME type, PNG signature and
+payload bounds before displaying the original page beneath the extracted passage.
+
+The API 36 PDF recovery journey subsequently uploaded the three-page fixture through
+the system picker, selected physical page 2, recovered a committed quiz response,
+reconciled the exact answered source, rendered original page 2, and exposed the image
+to accessibility as `Original PDF page 2`. The capture at
+`artifacts/qa-question-source.png` was visually inspected. All five sentence-level
+references remained within the confirmed page range, and completed results restored.
+
+This is original-page emulator QA for one synthetic text PDF, not OCR, printed page
+labels, complex-layout/hostile-PDF stress, physical-device accessibility or UAT.
