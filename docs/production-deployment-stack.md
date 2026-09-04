@@ -12,6 +12,12 @@ network. Both containers use read-only root filesystems, no-new-privileges and
 bounded writable tmpfs mounts. Learner state lives only in the explicitly
 pre-created external runtime volume.
 
+The proxy is fixed to numeric UID/GID 101 and listens on unprivileged container
+port 8443; Compose maps the configured HTTPS host address to that internal port.
+The certificate and private-key files must be readable by UID 101 without being
+writable by the container. Hosted validation asserts the running container user,
+not only the YAML declaration.
+
 Copy `deploy/.env.production.example` outside the repository and replace every
 placeholder through the chosen host's secret/configuration facility. Never commit
 the populated file. The TLS directory must contain `fullchain.pem` and

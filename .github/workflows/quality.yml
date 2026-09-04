@@ -65,7 +65,10 @@ jobs:
             docker compose -f deploy/compose.production.yml down >/dev/null 2>&1 || true
             docker rm -f "$container_a" "$container_b" >/dev/null 2>&1 || true
             docker volume rm "$volume" >/dev/null 2>&1 || true
-            test -z "${tls_dir:-}" || rm -rf "$tls_dir"
+            if test -n "${tls_dir:-}"; then
+              chmod u+w "$tls_dir" 2>/dev/null || true
+              rm -rf "$tls_dir"
+            fi
           }
           trap cleanup EXIT
           docker volume create "$volume" >/dev/null
@@ -112,6 +115,8 @@ jobs:
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
             -keyout "$tls_dir/privkey.pem" -out "$tls_dir/fullchain.pem" \
             -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 >/dev/null 2>&1
+          chmod 0555 "$tls_dir"
+          chmod 0444 "$tls_dir/fullchain.pem" "$tls_dir/privkey.pem"
           export LEARNING_API_IMAGE="$image"
           export LEARNING_RELEASE_REVISION="$GITHUB_SHA"
           export LEARNING_JWT_SECRET=ci-only-random-secret-over-32-characters
@@ -129,8 +134,11 @@ jobs:
           done
           python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$tls_payload" "$GITHUB_SHA"
           api_id="$(docker compose -f deploy/compose.production.yml ps --quiet api)"
+          proxy_id="$(docker compose -f deploy/compose.production.yml ps --quiet proxy)"
           docker inspect "$api_id" | python -c 'import json,sys; host=json.load(sys.stdin)[0]["HostConfig"]; assert not host["PublishAllPorts"] and not host["PortBindings"]'
+          test "$(docker inspect --format '{{.Config.User}}' "$proxy_id")" = "101:101"
           docker compose -f deploy/compose.production.yml down
+          chmod u+w "$tls_dir"
           rm -rf "$tls_dir"
           tls_dir=""
 

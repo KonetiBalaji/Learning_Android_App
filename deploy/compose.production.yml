@@ -34,19 +34,20 @@ services:
 
   proxy:
     image: nginx:1.30.4-alpine3.24@sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c
+    user: "101:101"
     read_only: true
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "${LEARNING_HTTPS_BIND:-127.0.0.1:8443}:443"
+      - "${LEARNING_HTTPS_BIND:-127.0.0.1:8443}:8443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ${LEARNING_TLS_DIR:?Set the absolute directory containing fullchain.pem and privkey.pem}:/etc/nginx/tls:ro
     tmpfs:
-      - /var/cache/nginx:rw,noexec,nosuid,size=32m
-      - /var/run:rw,noexec,nosuid,size=1m
-      - /tmp:rw,noexec,nosuid,size=32m
+      - /var/cache/nginx:rw,noexec,nosuid,size=32m,uid=101,gid=101
+      - /var/run:rw,noexec,nosuid,size=1m,uid=101,gid=101
+      - /tmp:rw,noexec,nosuid,size=32m,uid=101,gid=101
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
