@@ -12,10 +12,8 @@ def request_fingerprint(request: BaseModel) -> str:
     return sha256(payload.encode('utf-8')).hexdigest()
 
 
-def replay(settings, session_id: str, operation: str, expected_state: str | None,
+def replay(settings, session_id: str, operation: str, expected_state: str,
            fingerprint: str, response_type: type[BaseModel]):
-    if expected_state is None:
-        return None
     with connection(settings.database_path) as db:
         row = db.execute(
             '''SELECT fingerprint, response_json FROM mastery_mutation_results
@@ -29,12 +27,11 @@ def replay(settings, session_id: str, operation: str, expected_state: str | None
     return response_type.model_validate_json(row['response_json'])
 
 
-def save(db, session_id: str, operation: str, expected_state: str | None,
+def save(db, session_id: str, operation: str, expected_state: str,
          fingerprint: str, outcome: BaseModel) -> None:
-    if expected_state is not None:
-        db.execute(
-            '''INSERT INTO mastery_mutation_results
-               (session_id, operation, expected_state, fingerprint, response_json)
-               VALUES (?, ?, ?, ?, ?)''',
-            (session_id, operation, expected_state, fingerprint, outcome.model_dump_json()),
-        )
+    db.execute(
+        '''INSERT INTO mastery_mutation_results
+           (session_id, operation, expected_state, fingerprint, response_json)
+           VALUES (?, ?, ?, ?, ?)''',
+        (session_id, operation, expected_state, fingerprint, outcome.model_dump_json()),
+    )

@@ -34,9 +34,13 @@ provider call; different content under the consumed token receives 409. Concurre
 identical submissions both receive the winning response and commit once, although
 provider computations can overlap before the transaction winner is known.
 
-Legacy requests without a token remain accepted and lack delayed-retry protection.
-Mandatory enforcement needs a coordinated client/QA-script migration. A real
-Android TCP-response-loss test remains pending.
+Tokenless compatibility has now been removed. Omitted, null, blank and oversized
+state tokens fail request validation before any adaptive mutation. The shared
+backend test client and every bundled QA caller now obtain and send the current
+token, matching Android. The full backend suite passes 469 tests with one existing
+Windows skip; API 36 personalized-next-step QA also passes diagnostic, practice and
+rewrite calls under mandatory enforcement. A real Android TCP-response-loss test
+remains pending.
 No physical-device, UAT or production completion is claimed. No live AI calls
 or credential changes were made in this slice.
 

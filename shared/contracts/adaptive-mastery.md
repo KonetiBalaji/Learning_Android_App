@@ -82,14 +82,14 @@ inside the same transaction as the attempt and session update. It is owner-reach
 only through the owning session and cascades on account/session deletion. It belongs
 in the same protected backup and retention boundary as learner attempts.
 
-The field is optional for legacy-client migration. Requests omitting it (or
-explicitly sending null) retain prior behavior and are NOT protected against
-delayed retries. Current Android always requires a cached token from start/resume
-before submitting; it clears the cache on sign-out. Deploy the updated backend
-before the updated APK. Removing legacy support remains a release migration gate.
+The field is required. Requests omitting it, explicitly sending null, or sending
+an empty/oversized value fail validation before endpoint mutation. Current Android
+always requires a cached token from start/resume before submitting and clears the
+cache on sign-out. All bundled QA callers now follow the same contract. Because an
+older APK cannot submit to this backend, distribute the current private APK as the
+only candidate when the service is deployed; no production legacy deployment exists.
 
 Simultaneous identical requests commit one attempt and both receive the winning
 saved response, but both may begin provider computation before one transaction
-wins; provider-work coalescing remains an operational optimization. Legacy
-precondition enforcement, broader device security failure tests and evaluation
-calibration remain outstanding.
+wins; provider-work coalescing remains an operational optimization. Broader device
+security failure tests and evaluation calibration remain outstanding.

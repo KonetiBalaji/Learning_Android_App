@@ -2,6 +2,7 @@ import importlib
 from dataclasses import replace
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.database import connection
@@ -80,5 +81,26 @@ def test_state_tokens_are_session_scoped_and_validated(monkeypatch, tmp_path):
                 json={'selected_option': '1', 'expected_state': token}).status_code == 422
         assert client.post(path, headers=headers, json={'selected_option': '1',
             'expected_state': sessions[1]['state_token']}).status_code == 200
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_all_adaptive_mutations_require_nonempty_state_token(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    api = importlib.import_module('app.main')
+    try:
+        started = client.post('/v1/mastery/diagnostics', headers=headers,
+                              json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()
+        path = f"/v1/mastery/sessions/{started['id']}"
+        with TestClient(api.app) as raw:
+            cases = (
+                ('diagnostic-answer', {'selected_option': '1'}),
+                ('practice', {'response': '6/8'}),
+                ('rewrite', {'response': 'A sufficiently long explanation'}),
+            )
+            for operation, payload in cases:
+                for body in (payload, {**payload, 'expected_state': None}, {**payload, 'expected_state': ''}):
+                    assert raw.post(path + '/' + operation, headers=headers, json=body).status_code == 422
+        assert client.get(path, headers=headers).json()['state_token'] == started['state_token']
     finally:
         client.__exit__(None, None, None)

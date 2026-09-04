@@ -17,8 +17,8 @@ $email='next-'+[Guid]::NewGuid().ToString('N')+'@example.com'
 $password='qa-password-long-enough'
 $account=Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/register' -Method Post -ContentType 'application/json' -Body (@{email=$email;password=$password}|ConvertTo-Json)
 $headers=@{Authorization="Bearer $($account.access_token)"}
-$paths=@()
-foreach($round in 1..2){$started=Invoke-RestMethod 'http://127.0.0.1:8000/v1/mastery/diagnostics' -Method Post -Headers $headers -ContentType 'application/json' -Body (@{grade=8;subject_id='math';chapter_id='fractions'}|ConvertTo-Json);$path="http://127.0.0.1:8000/v1/mastery/sessions/$($started.id)";$paths+=$path;Invoke-RestMethod ($path+'/diagnostic-answer') -Method Post -Headers $headers -ContentType 'application/json' -Body (@{selected_option='1/2'}|ConvertTo-Json)|Out-Null}
+$paths=@();$states=@{}
+foreach($round in 1..2){$started=Invoke-RestMethod 'http://127.0.0.1:8000/v1/mastery/diagnostics' -Method Post -Headers $headers -ContentType 'application/json' -Body (@{grade=8;subject_id='math';chapter_id='fractions'}|ConvertTo-Json);$path="http://127.0.0.1:8000/v1/mastery/sessions/$($started.id)";$paths+=$path;$outcome=Invoke-RestMethod ($path+'/diagnostic-answer') -Method Post -Headers $headers -ContentType 'application/json' -Body (@{selected_option='1/2';expected_state=$started.state_token}|ConvertTo-Json);$states[$path]=$outcome.state_token}
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk')|Out-Null
 Adb shell pm clear $package|Out-Null
 Adb shell am start -n "$package/.MainActivity"|Out-Null
@@ -35,8 +35,8 @@ FindText $rec 30 -Scroll|Out-Null
 Adb shell screencap -p /sdcard/qa-personalized-next-step.png|Out-Null
 Adb pull /sdcard/qa-personalized-next-step.png (Join-Path $repo 'artifacts\qa-personalized-next-step.png')|Out-Null
 $latest=$paths[-1]
-Invoke-RestMethod ($latest+'/practice') -Method Post -Headers $headers -ContentType 'application/json' -Body (@{response='6/8'}|ConvertTo-Json)|Out-Null
-Invoke-RestMethod ($latest+'/rewrite') -Method Post -Headers $headers -ContentType 'application/json' -Body (@{response='We add numerator parts with the same denominator to make one whole.'}|ConvertTo-Json)|Out-Null
+$practice=Invoke-RestMethod ($latest+'/practice') -Method Post -Headers $headers -ContentType 'application/json' -Body (@{response='6/8';expected_state=$states[$latest]}|ConvertTo-Json)
+Invoke-RestMethod ($latest+'/rewrite') -Method Post -Headers $headers -ContentType 'application/json' -Body (@{response='We add numerator parts with the same denominator to make one whole.';expected_state=$practice.state_token}|ConvertTo-Json)|Out-Null
 foreach($i in 1..5){Adb shell input swipe 540 650 540 1900 300|Out-Null;Start-Sleep -Milliseconds 250}
 TapText '‹ Back to subjects'
 FindText 'View my progress report' 30 -Scroll|Out-Null

@@ -552,6 +552,13 @@ curriculum review, physical-device QA and UAT remain open.
   ASM-01 to QA verified; tokenless legacy clients, simultaneous provider-work
   coalescing, physical-device and UAT gates remain. See
   `docs/adaptive-submission-preconditions.md`.
+- Removed the adaptive API's tokenless compatibility path. Diagnostic-answer,
+  practice and rewrite schemas now reject missing, null, blank and oversized state
+  tokens before mutation. All first-party test/QA callers were migrated; 469 backend
+  tests and the API 36 personalized-next-step scenario pass. The release must pair
+  this backend with the current private APK because an older pre-token APK is no
+  longer compatible. This closes the legacy precondition gate without claiming
+  production deployment.
 - Cross-subject rewrite evaluation added twelve held-out Science, English and
   Geography cases to the eight-case Fractions regression. A first 20/20 live scoring
   run exposed extra model-authored facts in full-credit comments; all learner-visible

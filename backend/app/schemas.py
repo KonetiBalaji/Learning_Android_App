@@ -184,7 +184,7 @@ class DiagnosticSession(BaseModel):
 
 
 class DiagnosticAnswerRequest(BaseModel):
-    expected_state: str | None = Field(default=None, min_length=1, max_length=200)
+    expected_state: str = Field(min_length=1, max_length=200)
     selected_option: str = Field(min_length=1, max_length=400)
 
 
@@ -211,7 +211,7 @@ class DiagnosticOutcome(BaseModel):
 
 class PracticeRequest(BaseModel):
     fresh_practice: bool = False
-    expected_state: str | None = Field(default=None, min_length=1, max_length=200)
+    expected_state: str = Field(min_length=1, max_length=200)
     response: str = Field(min_length=1, max_length=400)
 
 
@@ -226,7 +226,7 @@ class PracticeOutcome(BaseModel):
 
 class RewriteRequest(BaseModel):
     fresh_practice: bool = False
-    expected_state: str | None = Field(default=None, min_length=1, max_length=200)
+    expected_state: str = Field(min_length=1, max_length=200)
     response: str = Field(min_length=1, max_length=4000)
 
 

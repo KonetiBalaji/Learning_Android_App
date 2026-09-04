@@ -3,12 +3,26 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 
+class StateAwareTestClient(TestClient):
+    """First-party test caller that follows the shipping adaptive precondition contract."""
+    def post(self, url, *args, **kwargs):
+        parts = str(url).split('?', 1)[0].rstrip('/').split('/')
+        if len(parts) >= 2 and parts[-1] in {'diagnostic-answer', 'practice', 'rewrite'}:
+            body = kwargs.get('json')
+            if isinstance(body, dict) and 'expected_state' not in body:
+                session_url = '/'.join(parts[:-1])
+                observed = self.get(session_url, headers=kwargs.get('headers'))
+                state = observed.json().get('state_token', 'unavailable-owner-state')
+                kwargs['json'] = {**body, 'expected_state': state}
+        return super().post(url, *args, **kwargs)
+
+
 def registered_client(monkeypatch, tmp_path: Path) -> tuple[TestClient, dict[str, str]]:
     monkeypatch.setenv("LEARNING_RUNTIME_DIR", str(tmp_path / "runtime"))
     monkeypatch.setenv("LEARNING_JWT_SECRET", "test-secret-that-is-long-enough-32")
     from app.main import app
 
-    client = TestClient(app)
+    client = StateAwareTestClient(app)
     client.__enter__()
     token = client.post(
         "/v1/auth/register",

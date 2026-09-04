@@ -9,9 +9,8 @@ def mastery_state_token(snapshot, **changes) -> str:
                     ('id', 'status', 'current_question', 'correct_answers', 'coaching_rounds'))
 
 
-def check_expected_state(snapshot, expected_state: str | None) -> None:
-    # Optional during client migration. Ownership is checked before this comparison.
-    if expected_state is not None and expected_state != mastery_state_token(snapshot):
+def check_expected_state(snapshot, expected_state: str) -> None:
+    if expected_state != mastery_state_token(snapshot):
         raise HTTPException(status_code=409, detail='Learning state changed. Resume the session before submitting again.')
 
 
