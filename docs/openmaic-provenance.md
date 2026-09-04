@@ -3,6 +3,9 @@
 No repository clone or upstream Git cherry-pick was performed. The original
 commits `7153b3e` and `3d50b0e` were independent implementations, not imports.
 The entries below identify actual source-informed adaptations made afterward.
+The same pins, source paths, retained license, local implementation paths and
+explicit exclusions are machine-checked from
+`shared/contracts/openmaic-adaptations.json`.
 
 ## OA-01: Short-answer scoring and feedback
 
@@ -114,9 +117,9 @@ OA-01 through OA-03 do not claim a complete port.
   `third_party/OpenMAIC-LICENSE.txt`.
 - Acquisition: inspected the listed files at the pinned commit. No cherry-pick,
   TypeScript copy, repository history, runtime package or upstream schema was added.
-- Local implementation: `InteractiveLessonExplorer.kt` routes exact supported
-  subject/chapter pairs to application-owned Compose scenes. The Cells, Grammar and
-  Geography scenes use small typed selection vocabularies, explicit button dispatch and
+- Local implementation: `InteractiveLessonExplorer.kt` routes all 17 exact Grade 8
+  catalog subject/chapter pairs to application-owned Compose scenes. Their subject
+  modules use small typed selection vocabularies, explicit button dispatch and
   separate visual highlighting state, with curated native lesson content.
 - Adapted elements: allowlisted actions instead of free-form UI mutation; a visible
   selected object; state-driven highlighting; and a stable action-to-view mapping.
@@ -126,7 +129,10 @@ OA-01 through OA-03 do not claim a complete port.
 - Rejected: generated HTML/JavaScript execution, model-controlled tool/action
   payloads, arbitrary whiteboard coordinates, full action-engine portability,
   multi-agent orchestration, course publishing and voice cloning.
-- Verification: route/content unit tests plus separate API 36 scripted Cells,
-  Grammar and Geography interactions, visual inspection and server-side
-  no-mastery-mutation assertions. This proves three bounded scenes, not general interactivity, curriculum
-  alignment or UAT.
+- Verification: route/content unit tests lock all 17 mappings and reject unsupported
+  cross-subject pairs. All 17 have Grade 8 login-to-wrong-answer-to-tutor API 36
+  journeys, changed-state checks, screenshots and server-side no-mastery-mutation
+  assertions. The newer 13 additionally have component instrumentation,
+  Accessibility Test Framework checks and service-active TalkBack hierarchy evidence.
+  This proves bounded application-owned interactivity, not generated scenes,
+  curriculum-board alignment, physical-device usability or UAT.

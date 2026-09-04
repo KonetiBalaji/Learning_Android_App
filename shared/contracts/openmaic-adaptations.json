@@ -1,0 +1,68 @@
+{
+  "upstream_repository": "https://github.com/THU-MAIC/OpenMAIC",
+  "license_file": "third_party/OpenMAIC-LICENSE.txt",
+  "adaptations": [
+    {
+      "id": "OA-01",
+      "revision": "132d01cd04af22b4b52cc36666a82b55f2ef224f",
+      "sources": [
+        "app/api/quiz-grade/route.ts"
+      ],
+      "local_implementations": [
+        "backend/app/rewrite_grading.py",
+        "backend/app/tutor_provider.py"
+      ],
+      "excluded": [
+        "regex-json-extraction",
+        "score-clamping",
+        "client-selected-model",
+        "untrusted-model-feedback"
+      ]
+    },
+    {
+      "id": "OA-02",
+      "revision": "f6cf8fd4b74ac83ea969e88b6dc2c974931b4d65",
+      "sources": [
+        "lib/server/agent-runtime/config.ts",
+        "lib/persistence/owner-materials.ts",
+        "app/api/materials/route.ts"
+      ],
+      "local_implementations": [
+        "backend/app/config.py",
+        "backend/app/database.py",
+        "backend/app/main.py"
+      ],
+      "excluded": [
+        "upstream-database-schema",
+        "generic-quota-errors",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "id": "OA-03",
+      "revision": "f6cf8fd4b74ac83ea969e88b6dc2c974931b4d65",
+      "sources": [
+        "lib/orchestration/types.ts",
+        "lib/orchestration/tool-schemas.ts",
+        "lib/store/canvas.ts",
+        "lib/action/engine.ts"
+      ],
+      "local_implementations": [
+        "android/app/src/main/java/com/konetibalaji/learning/InteractiveLessonExplorer.kt",
+        "android/app/src/main/java/com/konetibalaji/learning/FractionExplorer.kt",
+        "android/app/src/main/java/com/konetibalaji/learning/AlgebraBalanceExplorer.kt",
+        "android/app/src/main/java/com/konetibalaji/learning/TriangleAreaExplorer.kt",
+        "android/app/src/main/java/com/konetibalaji/learning/ScienceExplorers.kt",
+        "android/app/src/main/java/com/konetibalaji/learning/EnglishExplorers.kt",
+        "android/app/src/main/java/com/konetibalaji/learning/SocialExplorers.kt"
+      ],
+      "excluded": [
+        "generated-html-javascript",
+        "model-controlled-actions",
+        "arbitrary-coordinates",
+        "multi-agent-orchestration",
+        "voice-cloning"
+      ]
+    }
+  ]
+}
