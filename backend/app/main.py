@@ -74,7 +74,8 @@ from .security import create_token, current_user_id, hash_password, verify_passw
 from .weekly_reporting import build_weekly_report
 from .mastery_transactions import lock_mastery_snapshot, mastery_state_token, check_expected_state
 from .mastery_idempotency import request_fingerprint, replay as replay_mastery_mutation, save as save_mastery_mutation
-from .file_cleanup import queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload
+from .file_cleanup import (queue_file_deletion, cleanup_pending_files, discard_uncommitted_upload,
+                           reconcile_orphan_uploads)
 from .learner_preferences import InterestPreferences
 from .tutor_conversation import TutorQuestionRequest, TutorTurn, answer_question as answer_tutor_follow_up, conversation_history
 from .guardian_access import (
@@ -101,6 +102,7 @@ async def retry_file_cleanup(settings: Settings):
 async def lifespan(_: FastAPI):
     settings = get_settings()
     initialize(settings.database_path)
+    await asyncio.to_thread(reconcile_orphan_uploads, settings)
     await asyncio.to_thread(cleanup_pending_files, settings)
     await asyncio.to_thread(cleanup_invitations, settings)
     worker = asyncio.create_task(retry_file_cleanup(settings))

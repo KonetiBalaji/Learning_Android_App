@@ -1,6 +1,7 @@
 from pathlib import Path
 import asyncio
 import importlib
+import os
 import sqlite3
 
 import pytest
@@ -8,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.database import connection
-from app.file_cleanup import cleanup_pending_files, queue_file_deletion
+from app.file_cleanup import cleanup_pending_files, queue_file_deletion, reconcile_orphan_uploads
 from test_document_answer_retries import make_quiz
 from test_mastery_loop import registered_client
 
@@ -111,5 +112,44 @@ def test_cleanup_job_rolls_back_with_transaction_and_missing_file_is_success(mon
             queue_file_deletion(db, missing)
         assert cleanup_pending_files(settings) == 1
         assert cleanup_pending_files(settings) == 0
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_reconciliation_queues_only_old_unreferenced_managed_uploads(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        make_quiz(client, headers)
+        settings = get_settings()
+        with connection(settings.database_path) as db:
+            live = Path(db.execute('SELECT stored_path FROM documents').fetchone()[0])
+        old_orphan = settings.uploads_dir / '123e4567-e89b-42d3-a456-426614174000-orphan.txt'
+        recent_orphan = settings.uploads_dir / '123e4567-e89b-42d3-a456-426614174001-recent.pdf'
+        unknown = settings.uploads_dir / 'operator-note.txt'
+        directory = settings.uploads_dir / '123e4567-e89b-42d3-a456-426614174002-folder.txt'
+        old_orphan.write_text('orphan')
+        recent_orphan.write_text('recent')
+        unknown.write_text('preserve')
+        directory.mkdir()
+        reference = 2_000_000_000.0
+        old = reference - (settings.orphan_upload_grace_hours * 3600) - 1
+        for path in (old_orphan, unknown, live):
+            os.utime(path, (old, old))
+        os.utime(recent_orphan, (reference, reference))
+        assert reconcile_orphan_uploads(settings, current_time=reference) == 1
+        assert reconcile_orphan_uploads(settings, current_time=reference) == 0
+        assert cleanup_pending_files(settings) == 1
+        assert not old_orphan.exists()
+        assert recent_orphan.exists() and unknown.exists() and directory.is_dir() and live.is_file()
+    finally:
+        client.__exit__(None, None, None)
+
+
+@pytest.mark.parametrize('limit', [0, 10_001])
+def test_reconciliation_rejects_unsafe_scan_limits(monkeypatch, tmp_path, limit):
+    client, _ = registered_client(monkeypatch, tmp_path)
+    try:
+        with pytest.raises(ValueError, match='reconciliation limit'):
+            reconcile_orphan_uploads(get_settings(), limit=limit)
     finally:
         client.__exit__(None, None, None)

@@ -17,6 +17,7 @@ Set the following through the chosen host's secret/configuration facility:
 - `OPENAI_API_KEY`: server-side secret
 - `OPENAI_MODEL`: reviewed supported model, currently `gpt-5-mini`
 - `LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY`: 1 through 100000; default 200
+- `LEARNING_ORPHAN_UPLOAD_GRACE_HOURS`: 1 through 720; default 24
 
 Optional Google sign-in and throttle settings remain as documented elsewhere.
 Never place the JWT secret or provider key in Git, the Android APK, a deployment
@@ -26,6 +27,8 @@ Production startup refuses the development JWT secret, missing/relative runtime
 storage, missing or malformed release revision, deterministic AI mode, or a missing
 provider key. Staging enforces explicit storage, secret and revision but permits the
 deterministic provider for pre-provider exercises. Unknown environment names fail.
+At startup, old unreferenced files matching the service-owned upload naming contract
+are recoverably queued after this grace period; it does not expire valid documents.
 
 Provider-backed document generation, diagnostics, explanations, tutor questions,
 fresh practice and rewrite assessment share an atomic UTC-day counter per account.

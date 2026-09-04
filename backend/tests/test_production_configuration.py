@@ -81,3 +81,10 @@ def test_unsafe_guardian_invitation_retention_is_rejected(monkeypatch, days):
     monkeypatch.setenv('LEARNING_GUARDIAN_INVITATION_RETENTION_DAYS', days)
     with pytest.raises(ValueError, match='Guardian invitation retention'):
         get_settings()
+
+
+@pytest.mark.parametrize('hours', ['0', '721'])
+def test_unsafe_orphan_upload_grace_is_rejected(monkeypatch, hours):
+    monkeypatch.setenv('LEARNING_ORPHAN_UPLOAD_GRACE_HOURS', hours)
+    with pytest.raises(ValueError, match='Orphan upload grace period'):
+        get_settings()

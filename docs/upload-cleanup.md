@@ -38,8 +38,33 @@ The worker scheduling test uses a controlled clock, not a minute-long live test.
 
 Production acceptance still requires real permission/disk-failure drills, backlog
 alerting and deletion SLAs, deployment/restart checks, and backup retention policy.
-Legacy orphan files created before this queue are not automatically discovered.
 This does not erase provider records or backups, or establish a retention policy.
+
+## Crash-orphan reconciliation
+
+Application startup now performs one conservative, bounded scan of the configured
+uploads directory before draining the deletion queue. It considers only regular,
+non-link files whose names exactly match the service-generated UUID, sanitized stem
+and `.pdf`/`.docx`/`.txt` contract. A candidate must be unreferenced in the database
+and older than `LEARNING_ORPHAN_UPLOAD_GRACE_HOURS` (24 hours by default, configurable
+from 1 to 720). Eligible paths are placed into the existing durable deletion queue
+under a database write lock; cleanup rechecks both path containment and live
+references before unlinking. Recent files, live uploads, directories, links and
+unknown/operator filenames are preserved. Discovery is capped at 1,000 candidates
+per startup and repeated startups continue any larger backlog.
+
+This closes the ordinary hard-crash window between a completed file write and its
+database commit without treating arbitrary directory contents as disposable. The
+storage directory must remain service-owned; adversarial filesystem replacement,
+backup copies and pre-existing files that do not match the naming contract remain
+operator responsibilities. The grace period is crash-recovery safety, not a policy
+for deleting valid learner records.
+
+Focused cleanup/configuration QA passed 27 tests. The complete backend regression
+passed **505 tests with one Windows symlink-privilege skip**. Tests cover old versus
+recent candidates, exact managed-name admission, directories and unknown filenames,
+live-reference preservation, idempotent queueing, actual queued removal and unsafe
+grace/scan bounds. No existing workspace upload was scanned or removed by these tests.
 
 ## Failed uploads
 
