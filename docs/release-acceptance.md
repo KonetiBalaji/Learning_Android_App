@@ -114,7 +114,7 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | MAST-01 | Mastery, time spent, next chapter unlock | QA verified | All stored assessment items must resolve before durable mastery; API 36 verifies remediation/restart/completion, graph-based unlock/relock recovery, bounded foreground presence and honest weekly display; physical-device/accessibility/UAT remain |
 | PROG-01 | Real student subject/chapter progress | QA verified | Static percentages are absent; backend-derived chapter/assessed-subject values, zero state, owner isolation, sign-out/sign-in and restart restoration are backend tested and API 36 verified; physical-device/UAT remain |
 | PROG-02 | Weak concepts and personalized learning path | QA verified | Independent recurring-error counts, remediation clearing, account/grade scope, active-session continuation and prerequisite-aware next diagnostic are backend tested and API 36 verified; educator/UAT review remains |
-| PROG-03 | Per-uploaded-document learning progress | Partial | Owner-scoped server history plus Android display of completed quizzes, answers, accuracy, attempt timestamps, retry provenance, grounded source areas and last-two-completed-attempt trend are automated and API 36 verified; named concept attribution, chapter percentages, physical-device and UAT evidence remain open |
+| PROG-03 | Per-uploaded-document learning progress | QA verified | Owner-scoped server history plus Android display of completed quizzes, answers, chapter accuracy, grounded named concepts, attempt timestamps, retry provenance and last-two-completed-attempt trend are automated and API 36 verified; live-provider concept quality, physical-device and UAT evidence remain open |
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts, read-only reports, learner-visible grant/revocation history, and a learner-owned privacy-bounded CSV system-picker export are API 36 verified; history is atomic and minimizes deleted guardian identity; real-world identity/child-consent and notification policy, physical-device and UAT remain open |
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, spawned parser timeout/output isolation, Windows Job Object memory enforcement, atomic cross-worker parser admission with crash-expiring leases, source-grounding checks, deletion and interrupted-flow recovery are automated; sustained hostile-parser load/PDF expansion, broader device paths and UAT remain |
@@ -152,8 +152,11 @@ not Android counters. Fully completed attempts alone drive the improvement trend
 unfinished work remains visible in cumulative answer totals. API 36 verified three
 completed attempts, 27 answers, completion timestamps, retry provenance, 22% overall
 accuracy and a 30 percentage-point improvement, then matched those values to the
-rendered progress card. Grounded source references are honestly labelled source
-areas rather than inferred concepts. See `document-learning-progress.md`.
+rendered progress card. A later attribution pass migrated historical rows without
+guessing, persisted selected chapter IDs, rejected invented live-provider concept
+labels, preserved attribution across mistake retries, and rendered separately
+reconciled chapter accuracy plus grounded Chlorophyll/Chloroplasts concept evidence
+on API 36. See `document-learning-progress.md`.
 
 Private APK packaging now fails closed without a non-local HTTPS endpoint, a clean
 commit and all four environment-only signing inputs. The build helper verifies the

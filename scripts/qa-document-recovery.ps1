@@ -105,7 +105,7 @@ function VerifyTalkBackResultActions([string]$retryLabel) {
         $nodes = @((Ui).SelectNodes('//node'))
         if (-not ($nodes | Where-Object { $_.text -match '^Which word completes.+\nYour answer: .+\nCorrect answer: .+\nWhy: .+\nSource: .+' })) { throw 'TalkBack tree omitted the complete mistake teaching record' }
         foreach ($label in @($retryLabel, 'Configure another quiz', 'Increase to Medium', 'Study another document', 'Return to learning path')) {
-            if (-not ($nodes | Where-Object text -eq $label)) { throw "TalkBack tree omitted result action: $label" }
+            try { TextNode $label | Out-Null } catch { throw "TalkBack tree omitted result action after scrolling: $label" }
         }
     } finally {
         if ([string]::IsNullOrWhiteSpace($oldServices) -or $oldServices -eq 'null') {
@@ -653,11 +653,20 @@ if ($VerifyResultActions) {
             default { throw 'Three completed attempts produced no document improvement trend' }
         }
         TextNode $trendText | Out-Null
-        if (@($progress.weak_source_areas).Count -gt 0) { TextNode "Review next: $($progress.weak_source_areas[0])" | Out-Null }
-        if (@($progress.strong_source_areas).Count -gt 0) { TextNode "Strong source area: $($progress.strong_source_areas[0])" | Out-Null }
+        if (@($progress.chapters).Count -ne @($document.chapters).Count) { throw 'Document progress omitted a detected chapter' }
+        if (($progress.chapters | Measure-Object questions_answered -Sum).Sum -ne $progress.questions_answered) { throw 'Chapter totals do not reconcile with document totals' }
+        foreach ($chapter in $progress.chapters) {
+            $chapterText = if ($null -eq $chapter.accuracy) { "$($chapter.title) • Not started" } else {
+                "$($chapter.title) • $([int][Math]::Truncate([double]$chapter.accuracy * 100))% accuracy from $($chapter.questions_answered) answers"
+            }
+            TextNode $chapterText | Out-Null
+        }
+        if (@($progress.weak_concepts).Count -eq 0 -or @($progress.strongest_concepts).Count -eq 0) { throw 'Grounded concept evidence is missing' }
+        TextNode "Review next: $($progress.weak_concepts[0])" | Out-Null
+        TextNode "Strongest concept: $($progress.strongest_concepts[0])" | Out-Null
         Adb shell screencap -p /sdcard/qa-document-progress.png | Out-Null
         Adb pull /sdcard/qa-document-progress.png (Join-Path $repo 'artifacts\qa-document-progress.png') | Out-Null
-        Write-Output 'PASS: Android displays owner-scoped per-document totals, source areas and multi-attempt improvement evidence'
+        Write-Output 'PASS: Android displays reconciled chapter accuracy, grounded concepts and multi-attempt improvement evidence'
     }
     [xml]$difficultyPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     if (($difficultyPreferences.map.ChildNodes | Where-Object name -eq "document_difficulty:$qaEmail").InnerText -ne 'medium') { throw 'Increased difficulty was not persisted' }
