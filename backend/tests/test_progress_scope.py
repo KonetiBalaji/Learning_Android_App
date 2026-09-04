@@ -15,7 +15,9 @@ def test_weak_area_clears_after_explanation_but_not_practice_alone(monkeypatch, 
         assert client.get('/v1/progress/dashboard?grade=8', headers=headers).json()['weak_areas'] == weak
         client.post(path + '/rewrite', headers=headers,
                     json={'response': 'We add the numerator parts with the same denominator to make one whole.'})
-        assert client.get('/v1/progress/dashboard?grade=8', headers=headers).json()['weak_areas'] == []
+        recovered = client.get('/v1/progress/dashboard?grade=8', headers=headers).json()
+        assert recovered['weak_areas'] == []
+        assert [badge['id'] for badge in recovered['badges']] == ['first_answer', 'learn_from_mistakes']
         # A different grade's mistake cannot undo Grade 8 remediation.
         other_grade = f'/v1/mastery/sessions/{start(6)}'
         client.post(other_grade + '/diagnostic-answer', headers=headers, json={'selected_option': '1/2'})
@@ -43,6 +45,8 @@ def test_progress_is_grade_and_owner_scoped(monkeypatch, tmp_path):
         six = client.get("/v1/progress/dashboard?grade=6", headers=headers).json()
         assert eight["subjects"]["math"] == 1
         assert six["subjects"]["math"] == 0
+        assert [badge['id'] for badge in eight['badges']] == ['first_answer', 'chapter_master']
+        assert six['badges'] == []
         assert {row["grade"] for row in eight["chapters"]} == {8}
         assert len(client.get("/v1/progress/dashboard", headers=headers).json()["chapters"]) == 2
         assert client.get("/v1/progress/weekly-report?grade=8", headers=headers).json()["questions_answered"] == 3
@@ -50,6 +54,7 @@ def test_progress_is_grade_and_owner_scoped(monkeypatch, tmp_path):
         token = client.post("/v1/auth/register", json={"email": "fresh-progress@example.com", "password": "long-enough-password"}).json()["access_token"]
         fresh = client.get("/v1/progress/dashboard?grade=8", headers={"Authorization": f"Bearer {token}"}).json()
         assert fresh["subjects"] == {}
+        assert fresh['badges'] == []
         assert fresh['recommendations'] == ['Start Mathematics · Fractions as your next diagnostic']
         assert client.get("/v1/progress/dashboard?grade=13", headers=headers).status_code == 422
     finally:

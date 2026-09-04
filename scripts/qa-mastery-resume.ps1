@@ -15,7 +15,8 @@ param(
     [switch]$VerifyReadAloud,
     [switch]$VerifyVoiceInput,
     [switch]$VerifyTutorConversation,
-    [switch]$VerifyTutorResponseLoss
+    [switch]$VerifyTutorResponseLoss,
+    [switch]$VerifyBadges
 )
 $ErrorActionPreference = 'Stop'
 if ($VerifyTutorResponseLoss) { $VerifyTutorConversation = $true }
@@ -485,8 +486,22 @@ TextNode '100%' | Out-Null
 Adb shell screencap -p /sdcard/qa-mastery-progress.png | Out-Null
 Adb pull /sdcard/qa-mastery-progress.png (Join-Path $repo 'artifacts\qa-mastery-progress.png') | Out-Null
 Write-Output 'PASS: all questions are completed before mastery; chapter progress is 100% from backend evidence'
-if ($VerifyWeeklyReport) {
+if ($VerifyBadges) {
     TapText '‹ All subjects'
+    TextNode 'Earned badges' | Out-Null
+    foreach ($title in @('First answer', 'Learn from mistakes', 'Chapter master')) { TextNode $title | Out-Null }
+    $badgeLogin = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail; password='qa-password-long-enough'} | ConvertTo-Json)
+    $badgeDashboard = Invoke-RestMethod 'http://127.0.0.1:8000/v1/progress/dashboard?grade=8' -Headers @{Authorization="Bearer $($badgeLogin.access_token)"}
+    $badgeIds = @($badgeDashboard.badges | ForEach-Object id)
+    if (($badgeIds -join ',') -ne 'first_answer,learn_from_mistakes,chapter_master') { throw "Unexpected durable badge evidence: $($badgeIds -join ',')" }
+    Adb shell screencap -p /sdcard/qa-learning-badges.png | Out-Null
+    Adb pull /sdcard/qa-learning-badges.png (Join-Path $repo 'artifacts\qa-learning-badges.png') | Out-Null
+    RestartApp
+    foreach ($title in @('First answer', 'Learn from mistakes', 'Chapter master')) { TextNode $title | Out-Null }
+    Write-Output 'PASS: three evidence-based badges match the owner-scoped server dashboard and survive process restart'
+}
+if ($VerifyWeeklyReport) {
+    if (-not $VerifyBadges) { TapText '‹ All subjects' }
     TapText 'View my progress report'
     TextNode 'Uncalibrated heuristic, not a prediction of exam performance.' | Out-Null
     TextNode 'Learning responses' | Out-Null

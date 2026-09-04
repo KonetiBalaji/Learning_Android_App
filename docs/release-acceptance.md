@@ -147,7 +147,7 @@ text/range with the authenticated endpoint, and captured the readable dialog. Se
 `docs/question-source-evidence.md`. Original PDF-page rendering, physical-device
 accessibility and UAT remain open, so DOC-01 stays partial.
 | DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
-| UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling and real TalkBack exposure for dynamic topic status/source/action nodes; loading/empty/offline/retry states have targeted flows. Full-screen spoken traversal, switch access, non-text contrast, physical devices and UAT remain |
+| UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling, server-evidenced owner/grade-scoped learning badges, and real TalkBack exposure for dynamic topic status/source/action nodes; loading/empty/offline/retry states have targeted flows. Motivation/usability review, full-screen spoken traversal, switch access, non-text contrast, physical devices and UAT remain |
 | DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |
 | SEC-01 | Deletion and retention | Partial | Database cascade, recoverable file removal, other-owner preservation and conservative crash-orphan reconciliation are automated; valid learner-data and backup retention durations still require an explicit policy and production verification |
 | SEC-02 | Production hardening | Partial | HTTPS release guard, locked non-root/read-only-root container smoke, independent APK/hash/deployment-identity plus database/upload readiness verifier, offline backup checks, persistent authentication peer throttle, atomic per-account daily AI-operation caps, enforced per-call provider output-token ceilings, privacy-safe correlated request events, spawned parser timeout/output isolation, Windows Job Object memory caps, fail-fast atomic cross-worker parser admission with crash recovery and API 36-verified support IDs implemented; production proxy/sustained load, provider project currency budget, deployed log sink/alerts and deployment recovery still need verification |
@@ -155,6 +155,15 @@ accessibility and UAT remain open, so DOC-01 stays partial.
 | QA-01 | Automated regression suite | QA verified | GitHub run 33870965878 exposed executable-mode/action-version defects and run 33871176022 exposed SDK discovery; both were repaired. Run 33871289020 at commit 64f12b1b43d7fd9e279ddb214bfdb278e8a29f52 passed repository hygiene, the complete backend suite and Android JVM/lint/debug assembly from a clean hosted runner, then uploaded android-debug-verification. Existing API 36 emulator journeys supplement the gate; physical-device coverage and UAT remain separate |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
 | PROD-01 | Production deployment | Missing | Private APK distribution confirmed; a host-neutral locked non-root container and hosted production-mode smoke are implemented, and candidate verification requires matching health plus database/schema/write and upload-volume readiness. User-confirmed host/domain, staging deployment, rollback, secrets and remaining operational checks are still missing |
+
+Gamification badges are now earned only from persisted learning evidence. The
+backend owns four fixed achievements for a first diagnostic answer, independently
+correcting a mistake through rewrite, completing chapter mastery and starting all
+four core subjects. Guided practice alone cannot award recovery. API 36 reconciled
+three earned badges with the authenticated owner/Grade 8 dashboard and verified
+them after process restart; the capture was visually inspected. See
+`docs/learning-badges.md`. Motivation/usability, physical-device accessibility and
+user acceptance remain open, so UX-01 stays partial.
 
 Uploaded-document progress is now derived from persisted server quizzes and answers,
 not Android counters. Fully completed attempts alone drive the improvement trend;

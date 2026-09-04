@@ -51,6 +51,7 @@ data class CurriculumCatalogClient(val version: String, val grade: Int, val boar
 
 data class LearningSubject(val id: String, val title: String, val icon: String, val accent: Long)
 data class MasteryChapter(val id: String, val title: String, val locked: Boolean = false)
+data class LearningBadge(val id: String, val title: String, val description: String, val earnedAt: String)
 data class DiagnosticQuestion(val prompt: String, val options: List<String>, val correct: String)
 data class TutorLesson(val title: String, val explanation: String, val workedExample: String, val hint: String, val practicePrompt: String)
 data class ProgressSnapshot(
@@ -60,6 +61,7 @@ data class ProgressSnapshot(
     val chapterScores: Map<String, Int> = emptyMap(), val masteredChapterIds: Set<String> = emptySet(),
     val unlockedChapterIds: Set<String> = emptySet(),
     val weeklyObservedStudySeconds: Long? = null,
+    val badges: List<LearningBadge> = emptyList(),
 )
 
 sealed interface Screen {
@@ -1136,7 +1138,12 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         val mastered = (0 until chapters.length()).mapNotNull { index -> val item = chapters.getJSONObject(index); if (item.getString("status") == "mastered" && item.getDouble("mastery") >= 1.0) "${item.getString("subject_id")}:${item.getString("chapter_id")}" else null }.toSet()
         val unlocked = serverChapterUnlocks(grade, if (response.isNull("grade")) null else response.getInt("grade"),
             if (response.isNull("unlocked_chapter_ids")) null else response.getJSONArray("unlocked_chapter_ids").strings())
-        return ProgressSnapshot(subjects, response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), chapterScores = scores, masteredChapterIds = mastered, unlockedChapterIds = unlocked)
+        val badges = response.getJSONArray("badges").let { values -> (0 until values.length()).map { index ->
+            values.getJSONObject(index).let { badge -> validateLearningBadge(LearningBadge(badge.getString("id"),
+                badge.getString("title"), badge.getString("description"), badge.getString("earned_at"))) }
+        } }
+        require(badges.map { it.id }.distinct().size == badges.size)
+        return ProgressSnapshot(subjects, response.getJSONArray("weak_areas").strings(), response.getJSONArray("recommendations").strings(), chapterScores = scores, masteredChapterIds = mastered, unlockedChapterIds = unlocked, badges = badges)
     }
     fun weeklyReport(grade: Int, learnerId: String? = null): ProgressSnapshot {
         val path = learnerId?.let { "/v1/guardian/learners/$it/progress/weekly-report?grade=$grade" } ?: "/v1/progress/weekly-report?grade=$grade"

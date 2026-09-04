@@ -363,6 +363,13 @@ class WeakAreaEvidence(BaseModel):
     unresolved_independent_mistakes: int = Field(ge=1)
 
 
+class LearningBadge(BaseModel):
+    id: str
+    title: str
+    description: str
+    earned_at: str
+
+
 class ProgressDashboard(BaseModel):
     observed_study_seconds: int = Field(default=0, ge=0)
     grade: int | None = None
@@ -371,6 +378,7 @@ class ProgressDashboard(BaseModel):
     chapters: list[ChapterProgress]
     weak_areas: list[str]
     weak_area_evidence: list[WeakAreaEvidence] = Field(default_factory=list)
+    badges: list[LearningBadge] = Field(default_factory=list)
     recommendations: list[str]
 
 

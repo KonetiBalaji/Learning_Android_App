@@ -282,6 +282,20 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
         PrimaryButton("Refresh curriculum and progress", onClick = onRefresh)
     }
     state.catalogVersion?.let { Text("Catalog $it · Board alignment ${state.catalogBoard ?: "unconfirmed"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    state.progressSnapshot?.badges?.takeIf { it.isNotEmpty() }?.let { badges ->
+        Text("Earned badges", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        badges.forEach { badge ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().semantics {
+                    contentDescription = "Earned badge: ${badge.title}. ${badge.description}"
+                }) {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("★", color = Warning, style = MaterialTheme.typography.headlineSmall)
+                    Column { Text(badge.title, fontWeight = FontWeight.Bold); Text(badge.description, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+    }
     OutlinedButton(onClick = onParent, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("View my progress report") }
     OutlinedButton(onClick = onGuardian, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(16.dp)) { Text("Parent & teacher access") }
     TextButton(onClick = onDocuments, modifier = Modifier.fillMaxWidth()) { Text("Study from my own document") }

@@ -1105,6 +1105,7 @@ def mastery_session_state(session_id: str, user_id: str = Depends(current_user_i
 @app.get("/v1/progress/dashboard", response_model=ProgressDashboard)
 def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> ProgressDashboard:
     from .study_time import observed_seconds
+    from .learning_badges import learning_badges
     with connection(settings.database_path) as db:
         study_seconds = observed_seconds(db, user_id, grade)
         sessions = db.execute(
@@ -1178,6 +1179,7 @@ def progress_dashboard(grade: int | None = Query(default=None, ge=1, le=12), use
             recommendations = ["Choose a grade to get a prerequisite-aware next step."]
     return ProgressDashboard(observed_study_seconds=study_seconds, grade=grade, unlocked_chapter_ids=unlocked, subjects=subject_scores,
                              chapters=chapters, weak_areas=weak_areas, weak_area_evidence=evidence,
+                             badges=learning_badges(sessions, attempts),
                              recommendations=recommendations)
 
 
