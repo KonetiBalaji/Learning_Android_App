@@ -28,10 +28,19 @@ place `sdkmanager` on `PATH`; the workflow now invokes the executable explicitly
 under the runner-provided `ANDROID_HOME` instead of adding another deprecated
 setup action. That run is likewise failure evidence, not acceptance.
 
+GitHub Actions run `33871289020` at commit
+`64f12b1b43d7fd9e279ddb214bfdb278e8a29f52` is the first accepted remote gate.
+On 2026-09-04, repository hygiene passed in 6 seconds, the complete backend job
+passed in 1 minute 35 seconds, and the clean Android job passed in 7 minutes
+33 seconds. The Android job completed JVM tests, lint and debug APK assembly,
+then uploaded the non-expired `android-debug-verification` artifact (20,042,063
+bytes) with seven-day retention. The authoritative run is
+<https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/33871289020>.
+
 Local YAML parsing and the same backend/Android commands verify the workflow's
-structure and commands before commit. A local pass cannot prove GitHub runner SDK
-availability or a remote green check; the first pushed workflow run must be
-inspected before QA-01 can cite remote CI evidence.
+structure and commands before commit. Run `33871289020` additionally proves the
+hosted-runner SDK setup, clean-checkout commands and artifact publication. It does
+not replace the separate emulator, physical-device, live-provider or UAT gates.
 
 Pre-push local verification parsed all three YAML jobs, confirmed the installed
 SDK package name is `platforms;android-37.0`, completed the locked dependency audit,
