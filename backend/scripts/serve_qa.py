@@ -13,6 +13,26 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
+def catalog_fixture_bank(grade, subject_id, chapter_id):
+    """One reviewed, deterministic wrong-answer path for catalog UI QA only."""
+    from app.learning_path import catalog_chapter
+    from app.mastery_service import DiagnosticItem
+    chapter = catalog_chapter(subject_id, chapter_id)
+    if grade != 8 or chapter is None:
+        raise ValueError('The catalog QA fixture supports current Grade 8 chapters only')
+    return (DiagnosticItem(
+        prompt=f'Which option should open the reviewed {chapter.title} teaching example?',
+        options=('Needs another look', 'Ready for the example'),
+        correct_option='Ready for the example',
+        concept=f'{chapter.title} reviewed example',
+        explanation=f'Use the interactive {chapter.title} explorer to examine this concept.',
+        worked_example=f'Select each control in the {chapter.title} explorer and observe what changes.',
+        hint='The explorer is for investigation and does not submit an assessment answer.',
+        practice_prompt=f'Explain one observation from the {chapter.title} explorer.',
+        practice_answers=('observation',),
+    ),)
+
+
 def scripted_tutor_answer(question):
     if question == 'QA unavailable':
         raise RuntimeError('Scripted QA tutor outage')
@@ -26,10 +46,12 @@ def main():
     parser.add_argument("--science-fixture", action="store_true")
     parser.add_argument("--english-fixture", action="store_true")
     parser.add_argument("--social-fixture", action="store_true")
+    parser.add_argument("--catalog-fixture", action="store_true")
     parser.add_argument("--upload-response-delay", type=int, choices=range(0, 21), default=0)
     parser.add_argument("--fail-saved-upload-response", action="store_true")
     args = parser.parse_args()
-    if sum((args.binary_fixtures, args.science_fixture, args.english_fixture, args.social_fixture)) > 1:
+    if sum((args.binary_fixtures, args.science_fixture, args.english_fixture,
+            args.social_fixture, args.catalog_fixture)) > 1:
         parser.error('Choose only one content fixture.')
     if not args.qa_only:
         parser.error("This scripted evaluator is only for QA; supply --qa-only")
@@ -49,12 +71,15 @@ def main():
         api.generate_document_questions = generate_binary_fixture
 
     class ScriptedQAProvider(DeterministicTutorProvider):
-        name = ("scripted-social-qa" if args.social_fixture else
+        name = ("scripted-catalog-qa" if args.catalog_fixture else
+                "scripted-social-qa" if args.social_fixture else
                 "scripted-english-qa" if args.english_fixture else
                 "scripted-science-qa" if args.science_fixture else
                 "scripted-binary-qa" if args.binary_fixtures else "scripted-qa")
 
         def diagnostic_bank(self, grade, subject_id, chapter_id):
+            if args.catalog_fixture:
+                return catalog_fixture_bank(grade, subject_id, chapter_id)
             if args.science_fixture and (grade, subject_id, chapter_id) == (8, 'science', 'cells'):
                 concepts = (
                     ('Where is most DNA stored in a eukaryotic cell?', ('Cell wall', 'Nucleus', 'Ribosome', 'Cytoplasm'), 'Nucleus', 'Nucleus'),

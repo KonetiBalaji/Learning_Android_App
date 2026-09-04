@@ -40,6 +40,27 @@ def install_response_fault(app):
                  serialize_diagnostic_bank(FRACTION_DIAGNOSTIC)))
         return {'fixture_state': state}
 
+    @app.post('/__qa/learning-path/{subject_id}/{chapter_id}')
+    def seed_catalog_prerequisite(subject_id: str, chapter_id: str,
+                                  user_id=Depends(current_user_id), settings=Depends(get_settings)):
+        """Mark one validated Grade 8 catalog chapter mastered for navigation QA."""
+        from app.database import connection
+        from app.learning_path import CATALOG_VERSION, catalog_chapter
+        from app.mastery_service import FRACTION_DIAGNOSTIC, serialize_diagnostic_bank
+        from datetime import datetime, UTC
+        from uuid import uuid4
+        if catalog_chapter(subject_id, chapter_id) is None:
+            raise HTTPException(status_code=422, detail='Unknown QA catalog chapter')
+        subject_id, chapter_id = subject_id.strip().lower(), chapter_id.strip().lower()
+        with connection(settings.database_path) as db:
+            db.execute('''INSERT INTO mastery_sessions
+                (id, owner_id, grade, subject_id, chapter_id, catalog_version,
+                 started_at, status, current_question, questions_json)
+                VALUES (?, ?, 8, ?, ?, ?, ?, 'mastered', 3, ?)''',
+                (str(uuid4()), user_id, subject_id, chapter_id, CATALOG_VERSION,
+                 datetime.now(UTC).isoformat(), serialize_diagnostic_bank(FRACTION_DIAGNOSTIC)))
+        return {'fixture_state': 'mastered', 'subject_id': subject_id, 'chapter_id': chapter_id}
+
     @app.post('/__qa/mastery/latest/mark-legacy-catalog')
     def mark_latest_mastery_legacy(user_id=Depends(current_user_id), settings=Depends(get_settings)):
         from app.database import connection

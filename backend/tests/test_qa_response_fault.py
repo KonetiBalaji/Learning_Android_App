@@ -25,8 +25,15 @@ def test_learning_path_fixtures_are_owner_scoped_and_not_production_routes(monke
             assert test.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == ['math:geometry']
             assert test.get('/v1/progress/dashboard?grade=7', headers=headers).json()['unlocked_chapter_ids'] == []
             assert test.get('/v1/progress/dashboard?grade=8', headers={'Authorization': f'Bearer {other}'}).json()['unlocked_chapter_ids'] == []
+            catalog_path = '/__qa/learning-path/science/force-and-motion'
+            assert test.post(catalog_path).status_code == 401
+            assert test.post('/__qa/learning-path/science/not-a-chapter', headers=headers).status_code == 422
+            seeded = test.post(catalog_path, headers=headers)
+            assert seeded.json() == {'fixture_state': 'mastered', 'subject_id': 'science', 'chapter_id': 'force-and-motion'}
+            assert 'science:ecosystems' in test.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids']
+            assert test.get('/v1/progress/dashboard?grade=8', headers={'Authorization': f'Bearer {other}'}).json()['unlocked_chapter_ids'] == []
             assert test.post(path, params={'state': 'diagnostic'}, headers=headers).status_code == 200
-            assert test.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == []
+            assert test.get('/v1/progress/dashboard?grade=8', headers=headers).json()['unlocked_chapter_ids'] == ['science:ecosystems']
             assert test.get('/__qa/learning-path/geometry-count', headers=headers).json() == {'sessions': 0}
             marked = test.post('/__qa/mastery/latest/mark-legacy-catalog', headers=headers)
             assert marked.status_code == 200
