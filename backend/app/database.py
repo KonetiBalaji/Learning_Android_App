@@ -121,6 +121,12 @@ CREATE TABLE IF NOT EXISTS mastery_attempts (
   phase TEXT NOT NULL, prompt TEXT NOT NULL, response TEXT NOT NULL,
   correct INTEGER NOT NULL, concept TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS mastery_session_repairs (
+  session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
+  repair_kind TEXT NOT NULL, previous_status TEXT NOT NULL,
+  previous_completed_at TEXT, repaired_at TEXT NOT NULL,
+  PRIMARY KEY(session_id, repair_kind)
+);
 CREATE TABLE IF NOT EXISTS mastery_mutation_results (
   session_id TEXT NOT NULL REFERENCES mastery_sessions(id) ON DELETE CASCADE,
   operation TEXT NOT NULL CHECK(operation IN ('diagnostic-answer', 'practice', 'rewrite')),
@@ -201,6 +207,30 @@ def initialize(path: Path) -> None:
         attempt_columns = {row[1] for row in connection.execute("PRAGMA table_info(mastery_attempts)")}
         if "assessment_json" not in attempt_columns:
             connection.execute("ALTER TABLE mastery_attempts ADD COLUMN assessment_json TEXT")
+        # A pre-2026-09-03 rewrite transition could mark a session mastered after
+        # repairing only one question. A mastered session must have consumed its
+        # complete persisted bank. Reopen only states that violate that invariant,
+        # and retain a durable, idempotent repair record for migration review.
+        for row in connection.execute(
+            "SELECT id, status, completed_at, current_question, questions_json "
+            "FROM mastery_sessions WHERE status = 'mastered'"
+        ).fetchall():
+            try:
+                question_count = len(json.loads(row[4]))
+            except (TypeError, ValueError):
+                continue
+            if question_count <= 0 or row[3] >= question_count:
+                continue
+            connection.execute(
+                """INSERT OR IGNORE INTO mastery_session_repairs
+                   (session_id, repair_kind, previous_status, previous_completed_at, repaired_at)
+                   VALUES (?, 'premature-mastery-v1', ?, ?, datetime('now'))""",
+                (row[0], row[1], row[2]),
+            )
+            connection.execute(
+                "UPDATE mastery_sessions SET status = 'diagnostic', completed_at = NULL WHERE id = ? AND status = 'mastered'",
+                (row[0],),
+            )
 
 
 @contextmanager

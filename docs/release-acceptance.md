@@ -635,8 +635,9 @@ curriculum review, physical-device QA and UAT remain open.
   restart recovering question 2, remaining questions before mastery, and the
   backend-derived 100% chapter display. Inspected `artifacts/qa-mastery-progress.png`.
   This is deterministic workflow QA, not provider-quality evaluation, full Grade 8
-  curriculum verification, or user UAT acceptance. Existing legacy prematurely
-  mastered sessions still need a data-repair strategy before production migration.
+  curriculum verification, or user UAT acceptance. Legacy prematurely mastered
+  sessions now have an idempotent, audited repair rule; isolated production-data
+  rehearsal and operator review remain required. See `premature-mastery-repair.md`.
 - Adaptive mutation replay now stores the winning diagnostic-answer, practice or
   rewrite outcome atomically with its attempt, keyed by the pre-transition state.
   Identical delayed and overlapping submissions return the same outcome with one
