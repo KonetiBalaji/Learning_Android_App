@@ -42,10 +42,6 @@ async def validate_and_store(upload: UploadFile, settings: Settings) -> tuple[Pa
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The uploaded file is empty")
     stored = settings.uploads_dir / f"{uuid.uuid4()}-{os_safe_stem(filename)}{suffix}"
     try:
-        if suffix == '.docx':
-            # Keep cheap archive admission in the request worker so oversized input
-            # is rejected before paying process startup cost. The child repeats it.
-            validate_docx_archive(content)
         text = await asyncio.to_thread(
             extract_text_isolated, content, suffix, settings.document_parse_timeout_seconds)
     except (TimeoutError, DocumentProcessingLimit) as error:

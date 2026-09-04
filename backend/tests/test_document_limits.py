@@ -60,8 +60,11 @@ def test_rejects_resource_limit_breaches_before_parsing(monkeypatch, setting, li
 def test_rejected_archive_leaves_no_file_or_document_and_no_parser_details(monkeypatch, tmp_path):
     client, headers = registered_client(monkeypatch, tmp_path)
     try:
-        monkeypatch.setattr(limits, 'MAX_MEMBER_BYTES', 32)
-        content = archive([('synthetic-private-name.xml', 'x' * 100)])
+        output = BytesIO()
+        with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_BZIP2) as zipped:
+            zipped.writestr('[Content_Types].xml', 'synthetic-content-types')
+            zipped.writestr('word/document.xml', 'synthetic-private-name')
+        content = output.getvalue()
         response = client.post('/v1/documents', headers=headers, files={'file': ('notes.docx', content)})
         assert response.status_code == 422
         assert 'synthetic-private-name' not in response.text

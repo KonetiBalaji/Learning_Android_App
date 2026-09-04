@@ -43,16 +43,14 @@ Original-PDF page indexing uses the same spawned-process timeout and memory help
 when it re-extracts a stored source. A timeout returns the same fixed recovery code
 without changing the document or any saved selection.
 
-DOCX archive admission remains in the API process before spawn and is repeated in
-the child. This deliberately rejects known expansion hazards before process cost,
-but ZIP central-directory parsing itself is not isolated. Focused PDF, corruption,
+DOCX archive admission and ZIP central-directory inspection now occur only inside
+the bounded child before python-docx runs. Focused PDF, DOCX, corruption,
 output-bound, real timeout/termination, HTTP cleanup and configuration checks pass.
 The complete backend regression passes **515 tests with one Windows symlink
 privilege skip**. Android's client-owned processing-limit recovery message passes
 as part of **141 JVM tests**, lint and debug APK assembly. No live learner document
 or external provider was used.
 
-Remaining production controls: limits before ZIP central-directory parsing,
-PDF object expansion limits, Windows job-object memory caps,
+Remaining production controls: PDF object expansion limits, Windows job-object memory caps,
 reverse-proxy ingress limits, load tests and retained-data policy. Preflight is not
 a complete hostile-document sandbox or proof of production readiness.
