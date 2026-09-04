@@ -8,8 +8,9 @@ coverage. It uses the production `InteractiveLessonExplorer` dispatcher and
 production composables; there is no test-only explorer implementation.
 
 For every route below, the test renders the explorer on the dedicated API 36
-AVD, asserts the visible heading, scrolls to and taps an alternate learner
-control, and asserts the resulting selected state:
+AVD, enables Android's Accessibility Test Framework checks, asserts the visible
+heading, scrolls to and taps an alternate learner control, and asserts the
+resulting selected state:
 
 - Math: Decimals, Percentages, Algebra, Geometry
 - Science: Matter, Force and Motion, Ecosystems
@@ -34,8 +35,11 @@ Verified on 2026-09-04: 13 tests ran, 0 failures, 0 errors and 0 skipped on
 ## Evidence boundary
 
 This proves that each production route resolves to a rendered native control and
-that its learner-controlled selection changes on an API 36 emulator. It does not
-claim that these thirteen routes have full login-to-mastery navigation coverage,
-TalkBack manual review, physical-device coverage, curriculum-board approval or
-user acceptance. Those gates remain separately tracked in
+that its learner-controlled selection changes on an API 36 emulator, with no
+error-level finding from the automated Accessibility Test Framework checks
+triggered by those actions. Automated checks cannot establish traversal order,
+spoken clarity or actual assistive-technology usability. This evidence therefore
+does not claim full login-to-mastery navigation coverage, manual TalkBack review,
+physical-device coverage, curriculum-board approval or user acceptance. Those
+gates remain separately tracked in
 `release-acceptance.md`.
