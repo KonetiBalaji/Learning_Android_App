@@ -37,4 +37,27 @@ to review the new source selection instead of silently reusing scope that may ha
 changed or been lost across process restoration. The completed quiz remains in
 server history. Mixed and Hard have no automatic next level.
 
-API 36 visual/restart QA, accessibility review and user UAT remain open.
+At this stage API 36 visual/restart QA, accessibility review and user UAT remained
+open; the following journey closes the API 36 portion only.
+
+## API 36 result-action journey
+
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyResultActions`
+passed on the dedicated `LearnSmart_API36` emulator with the isolated deterministic
+QA backend. The disposable learner uploaded through Android's real document picker,
+restored selection and quiz state after process stops, and reached a completed
+ten-question result.
+
+The app displayed a complete mistake teaching record and all five actions. It
+created a seven-question mistake-only retry, persisted a different active quiz ID,
+cleared the pending retry UUID, exposed zero answered retry items, and restored its
+first question after force-stop. The QA client completed only the remaining answers
+through the public API. Android then revalidated the document through **Configure
+another quiz**, generated another ten-question quiz, returned to results, and
+persisted **Medium** after tapping **Increase to Medium**.
+
+`artifacts/qa-document-result-actions.png` and
+`artifacts/qa-document-increased-difficulty.png` were visually inspected. The
+mistake answer/explanation/source and action labels are readable; the second frame
+shows Medium selected. Generated captures remain untracked. This is deterministic
+emulator QA, not live-provider quality, physical-device accessibility or user UAT.

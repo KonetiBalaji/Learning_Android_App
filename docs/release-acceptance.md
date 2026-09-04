@@ -128,6 +128,12 @@ fresh unanswered question IDs and preserved source evidence. Automated QA is
 recorded in `quiz-mistake-review.md`. Configure-another and bounded
 increase-difficulty actions revalidate the document and return to explicit source
 selection; API 36 review and UAT remain open.
+
+The result-actions API 36 journey subsequently verified a complete mistake teaching
+record, a seven-item fresh unanswered retry, durable retry identity cleanup,
+force-stop restoration, configure-another document revalidation and persisted
+Easy-to-Medium increase. Captures were inspected. Remaining evidence is physical
+device/accessibility and user UAT; see `quiz-mistake-review.md`.
 | DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling and real TalkBack exposure for dynamic topic status/source/action nodes; loading/empty/offline/retry states have targeted flows. Full-screen spoken traversal, switch access, non-text contrast, physical devices and UAT remain |
 | DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |

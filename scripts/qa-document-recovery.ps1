@@ -1,4 +1,4 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure)
+param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure, [switch]$VerifyResultActions)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
@@ -553,6 +553,66 @@ TextNode 'Session complete' | Out-Null
 if ($VerifyQuestionType -or $BinaryFixtureType) { TextNode "Question type: $formatLabel" | Out-Null }
 if ($VerifyDifficulty) { TextNode 'Requested difficulty: Easy · recall a fact' | Out-Null }
 Write-Output 'PASS: completed quiz restores results after restart (remaining answers submitted by API fixture)'
+if ($VerifyResultActions) {
+    $completed = Invoke-RestMethod "$quizPath/results" -Headers $headers
+    $mistakes = @($completed.mistakes)
+    if ($mistakes.Count -lt 1) { throw 'Deterministic result fixture unexpectedly produced no mistakes' }
+    $mistake = $mistakes[0]
+    TextNode "Review question $($mistake.ordinal)" | Out-Null
+    $teachingRecord = "$($mistake.prompt)`nYour answer: $($mistake.selected_option)`nCorrect answer: $($mistake.correct_option)`nWhy: $($mistake.explanation)`nSource: $($mistake.source_reference)"
+    TextNode $teachingRecord | Out-Null
+    $retryLabel = "Retry $($mistakes.Count) incorrect $(if ($mistakes.Count -eq 1) { 'question' } else { 'questions' })"
+    TextNode $retryLabel | Out-Null
+    TextNode 'Configure another quiz' | Out-Null
+    TextNode 'Increase to Medium' | Out-Null
+    Adb shell screencap -p /sdcard/qa-document-result-actions.png | Out-Null
+    Adb pull /sdcard/qa-document-result-actions.png (Join-Path $repo 'artifacts\qa-document-result-actions.png') | Out-Null
+
+    TapText $retryLabel
+    TextNode "QUESTION 1 OF $($mistakes.Count)" | Out-Null
+    [xml]$retryPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $retryQuizId = ($retryPreferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail").InnerText
+    if (-not $retryQuizId -or $retryQuizId -eq $quizId) { throw 'Retry action did not persist a fresh active quiz' }
+    if ($retryPreferences.map.ChildNodes | Where-Object name -eq "pending_mistake_retry:$($quizId):$qaEmail") { throw 'Accepted retry retained its pending request identity' }
+    $retryPath = "http://127.0.0.1:8000/v1/quizzes/$retryQuizId"
+    $retryState = Invoke-RestMethod $retryPath -Headers $headers
+    if ($retryState.total -ne $mistakes.Count -or $retryState.answered -ne 0) { throw 'Retry quiz does not contain fresh unanswered mistakes only' }
+    RestartApp
+    TextNode "QUESTION 1 OF $($mistakes.Count)" | Out-Null
+    while ($retryState.question) {
+        $retryQuestion = $retryState.question
+        Invoke-RestMethod "$retryPath/questions/$($retryQuestion.id)/answer" -Method Post -Headers $headers -ContentType 'application/json' -Body (@{selected_option=$retryQuestion.options[0]} | ConvertTo-Json) | Out-Null
+        $retryState = Invoke-RestMethod $retryPath -Headers $headers
+    }
+    RestartApp
+    TextNode 'Session complete' | Out-Null
+    TapText 'Configure another quiz'
+    TextNode 'Choose chapters' | Out-Null
+    TextNode '1 of 2 chapters selected' | Out-Null
+    if ((Invoke-RestMethod $quizPath -Headers $headers).answered -ne $expectedCount) { throw 'Configuring another quiz changed the completed source quiz' }
+
+    TapText 'Generate 10 questions'
+    TextNode 'QUESTION 1 OF 10' | Out-Null
+    [xml]$nextPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $nextQuizId = ($nextPreferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail").InnerText
+    $nextPath = "http://127.0.0.1:8000/v1/quizzes/$nextQuizId"
+    $nextState = Invoke-RestMethod $nextPath -Headers $headers
+    while ($nextState.question) {
+        $nextQuestion = $nextState.question
+        Invoke-RestMethod "$nextPath/questions/$($nextQuestion.id)/answer" -Method Post -Headers $headers -ContentType 'application/json' -Body (@{selected_option=$nextQuestion.options[0]} | ConvertTo-Json) | Out-Null
+        $nextState = Invoke-RestMethod $nextPath -Headers $headers
+    }
+    RestartApp
+    TextNode 'Session complete' | Out-Null
+    TapText 'Increase to Medium'
+    TextNode 'Choose chapters' | Out-Null
+    TextNode 'Medium · apply a principle' | Out-Null
+    [xml]$difficultyPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if (($difficultyPreferences.map.ChildNodes | Where-Object name -eq "document_difficulty:$qaEmail").InnerText -ne 'medium') { throw 'Increased difficulty was not persisted' }
+    Adb shell screencap -p /sdcard/qa-document-increased-difficulty.png | Out-Null
+    Adb pull /sdcard/qa-document-increased-difficulty.png (Join-Path $repo 'artifacts\qa-document-increased-difficulty.png') | Out-Null
+    Write-Output 'PASS: result teaching record, mistake-only retry, restart, configure-another and persisted difficulty increase work through Android'
+}
 if ($VerifyLibrary) {
 TapText 'Study another document'
 TapText 'My uploaded documents'
