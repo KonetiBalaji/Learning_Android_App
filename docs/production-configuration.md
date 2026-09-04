@@ -23,6 +23,10 @@ Set the following through the chosen host's secret/configuration facility:
 - `LEARNING_BACKUP_RETENTION_DAYS`: 1 through 365; default 30; must match the scheduled verified backup-prune job
 - `LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS`: 1 through 120; default 15
 - `LEARNING_MAX_CONCURRENT_DOCUMENT_PARSERS`: 1 through 16; default 2 across API workers sharing the runtime database
+- `LEARNING_WEB_CONCURRENCY`: 1 through 8 in the Linux production container;
+  default 1. Set from measured host CPU/memory and database contention, never from
+  client input. Direct Windows development runs fail fast above one worker because
+  Uvicorn shared-socket multiprocessing is not reliable there
 
 Optional Google sign-in and throttle settings remain as documented elsewhere.
 Never place the JWT secret or provider key in Git, the Android APK, a deployment
@@ -81,12 +85,13 @@ state only below the `/runtime` volume, disables raw Uvicorn access logs, and us
 configuration or secrets. Mount a durable volume at `/runtime` and inject all
 settings through the host's protected configuration facility.
 
-The hosted `backend-container` quality job builds the image, starts it with a
-read-only root filesystem and a dedicated runtime volume, then verifies the exact
-production revision and database/upload readiness response. This is repeatable
+The hosted `backend-container` quality job builds the image, starts two validated
+API workers with a read-only root filesystem and a dedicated shared runtime volume,
+then verifies both worker processes, the exact production revision, database/upload
+readiness, and bounded concurrent traffic. This is repeatable
 packaging evidence only. It does not prove volume durability, encryption, TLS,
-trusted-proxy behavior, provider access, capacity, monitoring, or deployment on a
-user-owned host.
+trusted-proxy behavior, provider access, long-duration capacity, monitoring, or
+deployment on a user-owned host.
 
 `uv run python -m app.release_candidate <manifest> --expected-environment
 production` performs that comparison and independently rehashes the APK. It also

@@ -74,6 +74,7 @@ jobs:
             --env LEARNING_RELEASE_REVISION="$GITHUB_SHA" \
             --env LEARNING_JWT_SECRET=ci-only-random-secret-over-32-characters \
             --env LEARNING_AI_MODE=openai \
+            --env LEARNING_WEB_CONCURRENCY=2 \
             --env OPENAI_API_KEY=ci-placeholder-never-used \
             "$image" >/dev/null
           port="$(docker port "$container" 8000/tcp | sed 's/.*://')"
@@ -90,7 +91,8 @@ jobs:
           test -n "${payload:-}"
           python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$payload" "$GITHUB_SHA"
           test "$(docker inspect --format '{{.Config.User}}' "$container")" = learning
-          python backend/scripts/production_load_smoke.py "http://127.0.0.1:${port}" --requests 700 --concurrency 20
+          test "$(docker top "$container" -eo args | grep -c '[s]pawn_main')" -eq 2
+          python backend/scripts/production_load_smoke.py "http://127.0.0.1:${port}" --requests 1400 --concurrency 40
 
   android:
     runs-on: ubuntu-latest
