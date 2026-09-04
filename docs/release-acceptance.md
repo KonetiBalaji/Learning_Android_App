@@ -789,3 +789,12 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
   Fractions remain deterministic and outages preserve the current prompt. This
   is not curriculum, educator, UAT, cost/latency or production acceptance; see
   `shared/contracts/fresh-practice.md`.
+- API 36 live-provider QA passed a synthetic Grade 8 Science Cells journey:
+  generated/reviewed diagnostic, known wrong answer, independently reviewed fresh
+  practice, persisted restart, and acceptance of the saved private key. Review
+  disagreement now tolerates only harmless short-answer decoration while learner
+  matching remains strict; rejected diagnostics fail as 503 and safe logs expose
+  fixed codes only. Visual inspection corrected the general answer placeholder.
+  Backend 425 passed with one Windows skip; Android 124 JVM tests, lint and debug
+  assembly passed. This is one emulator QA path, not curriculum, physical-device,
+  educator/UAT or production acceptance; see `shared/contracts/fresh-practice.md`.

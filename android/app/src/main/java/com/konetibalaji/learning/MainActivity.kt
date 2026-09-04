@@ -461,7 +461,7 @@ private fun PracticeScreen(state: AppUiState, onHint: () -> Unit, onCheck: (Stri
     Page {
         Header("Practice with AI", "Let’s try together.", "Apply the idea from the tutor's explanation.")
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) { Text(state.tutorLesson?.practicePrompt ?: "What is 2/8 + 4/8?", modifier = Modifier.padding(22.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) }
-        OutlinedTextField(answer, { answer = it }, Modifier.fillMaxWidth(), label = { Text("Your answer") }, placeholder = { Text("Example: 6/8") }, singleLine = true, shape = RoundedCornerShape(14.dp))
+        OutlinedTextField(answer, { answer = it }, Modifier.fillMaxWidth(), label = { Text("Your answer") }, placeholder = { Text("Type a short answer") }, singleLine = true, shape = RoundedCornerShape(14.dp))
         VoiceInputButton("Speak my answer") { answer = it }
         if (state.showHint) TipCard("Hint", state.tutorLesson?.hint ?: "Review the tutor explanation, then try again.")
         when (state.practiceResult) {

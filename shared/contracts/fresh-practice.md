@@ -15,6 +15,10 @@ repeated prompts, failed review, generator/reviewer key disagreement and hints
 that contain a reviewed textual answer. Numeric equivalence is enabled only when
 the blind reviewer finds no requested representation; explicit format wording
 still forces exact matching. Only the blind reviewer's accepted answers are saved.
+When the blind answer differs only by a leading article, terminal punctuation or
+one trailing parenthetical explanation, the generator's concise form is also
+saved as an accepted variant. This narrow agreement normalization is not used to
+grade learners and does not enable substring or general semantic matching.
 
 Generation and review happen before the existing transactional state check. The
 new prompt, private key, hint and public lesson are committed together only if
@@ -32,6 +36,30 @@ earlier disagreement was rejected. This is narrow development evidence, not an
 unlimited-content guarantee, curriculum-board alignment, broad factual accuracy,
 educator review, UAT or production availability. Provider cost/latency controls
 and larger holdout evaluation remain open.
+
+## API 36 live general-practice evidence
+
+On 2026-09-04, `scripts/qa-general-fresh-practice.ps1
+-ResetTestAppData` passed on the dedicated LearnSmart_API36 emulator against an
+isolated real-provider backend using `gpt-5-mini`. Android created a private test
+account, received a generated and independently reviewed Grade 8 Science Cells
+diagnostic, submitted a known wrong choice, and entered practice. A wrong answer
+then produced a different reviewed Cells question and private answer set. The
+question and hint remained after force-stop/restart, and Android accepted the
+saved reviewed answer before advancing to rewrite.
+
+The inspected `artifacts/qa-general-fresh-practice.png` showed the new question
+and a non-answer-revealing hint. Visual review also found and corrected a
+Math-specific `Example: 6/8` placeholder on the general practice screen; the
+replacement is `Type a short answer`. Failed diagnostics now return an explicit
+503 without saving a session, and fresh-practice rejection logs contain only a
+fixed quality code or exception type, never generated lesson text.
+
+Final verification for this change passed 425 backend tests with one Windows
+skip, plus Android debug unit tests (124), lint and APK assembly. This is real
+provider/device QA for one synthetic Science journey, not curriculum-board
+coverage, educator approval, physical-device testing, UAT sign-off, provider
+availability assurance or production acceptance.
 
 ## Deterministic Fractions generation
 

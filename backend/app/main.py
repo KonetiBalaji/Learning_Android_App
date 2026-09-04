@@ -30,7 +30,7 @@ from .mastery_service import (
     serialize_diagnostic_bank,
     tutor_for,
 )
-from .tutor_provider import tutor_provider
+from .tutor_provider import DiagnosticUnavailable, tutor_provider
 from .schemas import (
     AdaptiveQuestion,
     AnswerRequest,
@@ -483,6 +483,9 @@ def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(cur
         raise HTTPException(status_code=403, detail=f'Complete {required} in this grade before starting this chapter')
     try:
         bank = tutor_provider(settings).diagnostic_bank(request.grade, request.subject_id, request.chapter_id)
+    except DiagnosticUnavailable as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail='A reviewed diagnostic is temporarily unavailable. Please retry.') from error
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     session_id = str(uuid.uuid4())

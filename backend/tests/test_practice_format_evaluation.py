@@ -8,8 +8,8 @@ from test_diagnostic_quality import fake_client, review
 
 def format_review():
     result = review()
-    result['items'][0].update(practice_answer='3/2', practice_format_constraint='none')
-    result['items'][2].update(practice_answer='3/4', practice_format_constraint='simplest_terms')
+    result['items'][0].update(practice_answers=['3/2', '1 1/2'], practice_format_constraint='none')
+    result['items'][2].update(practice_answers=['3/4'], practice_format_constraint='simplest_terms')
     return result
 
 

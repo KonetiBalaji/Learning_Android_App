@@ -5,7 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.mastery_service import DiagnosticItem, FRACTION_DIAGNOSTIC
-from app.tutor_provider import DeterministicTutorProvider, OpenAITutorProvider, ResilientTutorProvider
+from app.tutor_provider import (DeterministicTutorProvider, FreshPracticeRejected,
+                                OpenAITutorProvider, ResilientTutorProvider)
 from app.tutor_provider import RewriteAssessment
 from app.mastery_service import parse_diagnostic_bank, tutor_for
 from app.config import get_settings
@@ -71,21 +72,59 @@ def test_numeric_review_accepts_equivalent_key_and_sets_number_mode():
     assert generated.practice_answers == ('1/2', '0.5') and generated.answer_mode == 'number'
 
 
+def test_blind_agreement_allows_only_harmless_short_answer_decoration():
+    provider, _ = provider_with(
+        {'practice_prompt': "Which organelle contains most of a cell's DNA?",
+         'practice_answer': 'Nucleus.', 'hint': 'Think about chromosomes.'},
+        {'answers': ['The nucleus.', 'The nucleus (inside the nuclear envelope).'],
+         'valid': True, 'topic_matches': True, 'grade_suitable': True,
+         'format_constraint': 'exact'},
+    )
+    generated = provider.fresh_practice(8, 'science', 'cells', SCIENCE, 1,
+                                        (SCIENCE.practice_prompt,))
+    assert generated.practice_answers == (
+        'The nucleus.', 'The nucleus (inside the nuclear envelope).', 'Nucleus')
+
+
+def test_blind_agreement_does_not_enable_substring_or_semantic_matching():
+    provider, _ = provider_with(
+        {'practice_prompt': 'Which organelle makes ATP?', 'practice_answer': 'cell',
+         'hint': 'Think about respiration.'},
+        {'answers': ['cell membrane'], 'valid': True, 'topic_matches': True,
+         'grade_suitable': True, 'format_constraint': 'exact'},
+    )
+    with pytest.raises(FreshPracticeRejected, match='key_disagreement'):
+        provider.fresh_practice(8, 'science', 'cells', SCIENCE, 1,
+                                (SCIENCE.practice_prompt,))
+
+
+def test_decorated_review_answer_cannot_hide_an_answer_leaking_hint():
+    provider, _ = provider_with(
+        {'practice_prompt': "Which organelle contains most of a cell's DNA?",
+         'practice_answer': 'Nucleus', 'hint': 'The organelle is the nucleus.'},
+        {'answers': ['The nucleus.'], 'valid': True, 'topic_matches': True,
+         'grade_suitable': True, 'format_constraint': 'exact'},
+    )
+    with pytest.raises(FreshPracticeRejected, match='hint_reveals_answer'):
+        provider.fresh_practice(8, 'science', 'cells', SCIENCE, 1,
+                                (SCIENCE.practice_prompt,))
+
+
 @pytest.mark.parametrize('generated, reviewed, message', [
     ({'practice_prompt': SCIENCE.practice_prompt, 'practice_answer': 'mitochondrion',
-      'hint': 'Think about respiration.'}, None, 'repeated'),
+      'hint': 'Think about respiration.'}, None, 'repeated_prompt'),
     ({'practice_prompt': 'Which organelle is called the powerhouse?', 'practice_answer': 'mitochondrion',
       'hint': 'Think about energy.'},
      {'answers': ['mitochondrion'], 'valid': False, 'topic_matches': True,
-      'grade_suitable': True, 'format_constraint': 'exact'}, 'independent review'),
+      'grade_suitable': True, 'format_constraint': 'exact'}, 'review_invalid'),
     ({'practice_prompt': 'Which organelle is called the powerhouse?', 'practice_answer': 'nucleus',
       'hint': 'Think about energy.'},
      {'answers': ['mitochondrion'], 'valid': True, 'topic_matches': True,
-      'grade_suitable': True, 'format_constraint': 'exact'}, 'disagreed'),
+      'grade_suitable': True, 'format_constraint': 'exact'}, 'key_disagreement'),
     ({'practice_prompt': 'Which organelle is called the powerhouse?', 'practice_answer': 'mitochondrion',
       'hint': 'The answer is mitochondrion.'},
      {'answers': ['mitochondrion'], 'valid': True, 'topic_matches': True,
-      'grade_suitable': True, 'format_constraint': 'exact'}, 'revealed'),
+      'grade_suitable': True, 'format_constraint': 'exact'}, 'hint_reveals_answer'),
 ])
 def test_unsafe_generated_practice_is_rejected(generated, reviewed, message):
     provider, _ = provider_with(*([generated] if reviewed is None else [generated, reviewed]))

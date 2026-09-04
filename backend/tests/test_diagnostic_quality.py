@@ -12,15 +12,18 @@ from app.tutor_provider import OpenAITutorProvider, ResilientTutorProvider, Dete
 def review():
     return {'items': [dict(item_index=i, answer_index=item.options.index(item.correct_option),
                           unambiguous=True, topic_matches=True, grade_suitable=True,
-                          practice_answer=item.practice_answers[0], practice_valid=True,
+                          practice_answers=list(item.practice_answers), practice_valid=True,
                           practice_format_constraint='none' if item.answer_mode == 'number' else 'denominator')
                       for i, item in enumerate(FRACTION_DIAGNOSTIC)]}
 
 
 def generated_bank():
     # Matching policy belongs to trusted server content, not the model schema.
-    return {'questions': [{key: value for key, value in asdict(item).items()
-                           if key != 'answer_mode'} for item in FRACTION_DIAGNOSTIC]}
+    questions = [{key: value for key, value in asdict(item).items()
+                  if key != 'answer_mode'} for item in FRACTION_DIAGNOSTIC]
+    for question in questions:
+        question['practice_answers'] = question['practice_answers'][:1]
+    return {'questions': questions}
 
 
 def fake_client(outputs, requests):
@@ -59,9 +62,9 @@ def test_partial_review_and_outage_fail_closed():
             review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
 
 
-@pytest.mark.parametrize('field,value', [('practice_answer', '2/7'),
+@pytest.mark.parametrize('field,value', [('practice_answers', ['2/7']),
     ('practice_valid', False), ('practice_valid', 'true'), ('practice_format_constraint', 'anything'),
-    ('practice_answer', ''), ('practice_answer', 'three quarters')])
+    ('practice_answers', []), ('practice_answers', ['three quarters'])])
 def test_practice_review_rejects_disagreement_invalid_policy_and_unparseable_number(field, value):
     result = review()
     result['items'][0][field] = value
@@ -69,16 +72,17 @@ def test_practice_review_rejects_disagreement_invalid_policy_and_unparseable_num
         review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
 
 
-def test_each_proposed_answer_must_pass_not_just_one():
+def test_reviewed_answers_replace_untrusted_extra_generated_keys():
     items = (replace(FRACTION_DIAGNOSTIC[0], practice_answers=('3/4', '3+4')), *FRACTION_DIAGNOSTIC[1:])
-    with pytest.raises(ValueError, match='Practice answer review'):
-        review_diagnostic_answers(fake_client([review()], []), 'fixture', 8, 'math', 'fractions', items)
+    reviewed = review_diagnostic_answers(fake_client([review()], []), 'fixture', 8, 'math', 'fractions', items)
+    assert reviewed[0].practice_answers == FRACTION_DIAGNOSTIC[0].practice_answers
+    assert '3+4' not in reviewed[0].practice_answers
 
 
 def test_review_reports_all_fixed_reasons_without_raw_content():
     result = review()
     result['items'][0].update(answer_index=0, practice_valid=False)
-    result['items'][1].update(practice_answer='private wrong answer')
+    result['items'][1].update(practice_answers=['private wrong answer'])
     with pytest.raises(DiagnosticReviewRejected) as caught:
         review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', FRACTION_DIAGNOSTIC)
     assert caught.value.safe_report() == [
@@ -108,7 +112,7 @@ def test_requested_denominator_cannot_be_replaced_by_equivalent_simplified_key()
     'units_or_percent', 'named_choice', 'text', 'other'])
 def test_explicit_format_constraints_never_opt_into_numeric_equivalence(constraint):
     result = review()
-    result['items'][0].update(practice_answer='3/4', practice_format_constraint=constraint)
+    result['items'][0].update(practice_answers=['3/4'], practice_format_constraint=constraint)
     items = (replace(FRACTION_DIAGNOSTIC[0], practice_answers=('6/8',)), *FRACTION_DIAGNOSTIC[1:])
     with pytest.raises(DiagnosticReviewRejected):
         review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', items)
@@ -116,7 +120,7 @@ def test_explicit_format_constraints_never_opt_into_numeric_equivalence(constrai
 
 def test_observed_division_regression_accepts_both_proposed_representations():
     result = review()
-    result['items'][0].update(practice_answer='3/2', practice_format_constraint='none')
+    result['items'][0].update(practice_answers=['3/2', '1 1/2'], practice_format_constraint='none')
     items = (replace(FRACTION_DIAGNOSTIC[0], practice_prompt='Find (4/7) divided by (8/21).',
                      practice_answers=('3/2', '1 1/2')), *FRACTION_DIAGNOSTIC[1:])
     reviewed = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', items)
@@ -138,11 +142,11 @@ def test_numeric_review_accepts_mixed_answer_but_simplest_terms_remains_exact():
     items = (replace(FRACTION_DIAGNOSTIC[0], practice_prompt='Compute 3/4 + 2/5.',
                      practice_answers=('23/20',)), *FRACTION_DIAGNOSTIC[1:])
     result = review()
-    result['items'][0]['practice_answer'] = '1 3/20'
+    result['items'][0]['practice_answers'] = ['1 3/20', '23/20']
     bank = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', items)
     assert response_matches('1.15', bank[0].practice_answers, bank[0].answer_mode)[0]
     simplified = (replace(items[0], practice_prompt='Simplify 6/8 to lowest terms.', practice_answers=('3/4',)), *items[1:])
-    result['items'][0].update(practice_answer='3/4', practice_format_constraint='simplest_terms')
+    result['items'][0].update(practice_answers=['3/4'], practice_format_constraint='simplest_terms')
     bank = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'math', 'fractions', simplified)
     assert not response_matches('6/8', bank[0].practice_answers, bank[0].answer_mode)[0]
 
@@ -170,6 +174,21 @@ def test_model_cannot_opt_itself_into_numeric_grading():
     provider.client = fake_client([generated], [])
     with pytest.raises(ValueError):
         provider.diagnostic_bank(8, 'math', 'fractions')
+
+
+@pytest.mark.parametrize('prompt', [
+    'Draw and label one organelle.',
+    'Write one sentence explaining respiration.',
+    'Name any example of a cell organelle.',
+])
+def test_generated_diagnostic_rejects_non_objective_app_practice(prompt):
+    provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
+    provider.model = 'fixture'
+    generated = generated_bank()
+    generated['questions'][0]['practice_prompt'] = prompt
+    provider.client = fake_client([generated], [])
+    with pytest.raises(ValueError, match='objective text answer'):
+        provider.diagnostic_bank(8, 'science', 'cells')
 
 
 def test_rejected_off_topic_bank_cannot_fallback_to_fractions_for_another_chapter():
@@ -207,5 +226,27 @@ def test_http_start_persists_only_a_reviewed_bank(monkeypatch, tmp_path, accepte
                 assert [item.answer_mode for item in saved] == ['number', 'exact', 'number']
         if accepted:
             assert 'correct_option' not in response.text
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_reviewed_provider_failure_is_retryable_not_misreported_as_student_input(monkeypatch, tmp_path):
+    from test_mastery_loop import registered_client
+    from app.config import get_settings
+    from app.database import connection
+    provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
+    provider.model = 'fixture'
+    rejected = review()
+    rejected['items'][0]['topic_matches'] = False
+    provider.client = fake_client([generated_bank(), rejected], [])
+    resilient = ResilientTutorProvider(provider, DeterministicTutorProvider())
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        monkeypatch.setattr('app.main.tutor_provider', lambda settings: resilient)
+        response = client.post('/v1/mastery/diagnostics', headers=headers,
+            json={'grade': 8, 'subject_id': 'science', 'chapter_id': 'cells'})
+        assert response.status_code == 503
+        with connection(get_settings().database_path) as db:
+            assert db.execute('SELECT COUNT(*) FROM mastery_sessions').fetchone()[0] == 0
     finally:
         client.__exit__(None, None, None)
