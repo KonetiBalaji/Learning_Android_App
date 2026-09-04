@@ -75,7 +75,7 @@ from .tutor_conversation import TutorQuestionRequest, TutorTurn, answer_question
 from .guardian_access import (
     GuardianInvitation, GuardianInvitationRedemption, LinkedAccount,
     create_invitation, redeem_invitation, linked_learners, linked_guardians,
-    require_link, revoke_by_guardian, revoke_by_learner,
+    require_link, revoke_by_guardian, revoke_by_learner, cleanup_invitations,
 )
 
 
@@ -84,14 +84,16 @@ async def retry_file_cleanup(settings: Settings):
         await asyncio.sleep(60)
         try:
             await asyncio.to_thread(cleanup_pending_files, settings)
+            await asyncio.to_thread(cleanup_invitations, settings)
         except (sqlite3.Error, OSError):
-            logging.getLogger(__name__).warning('Upload cleanup could not run; pending jobs remain queued')
+            logging.getLogger(__name__).warning('Runtime retention cleanup could not run; pending work remains queued')
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings = get_settings()
     initialize(settings.database_path)
     await asyncio.to_thread(cleanup_pending_files, settings)
+    await asyncio.to_thread(cleanup_invitations, settings)
     worker = asyncio.create_task(retry_file_cleanup(settings))
     try:
         yield

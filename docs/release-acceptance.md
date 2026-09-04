@@ -858,7 +858,9 @@ curriculum review, physical-device QA and UAT remain open.
   aggregate dashboard/weekly routes; answers, sessions, tutor chat and documents
   remain owner-only. Either party can unlink, and account deletion cascades access.
   API 36 verified redemption, read-only report disclosure and immediate removal.
-  Backend 448 passed with one existing Windows skip; Android 128 JVM tests, lint and
+  Backend 451 passed with one existing Windows skip; Android 128 JVM tests, lint and
   debug assembly passed.
-  See `guardian-report-access.md`; identity/child-consent policy, invitation retention,
+  Invitation rows receive startup/periodic cleanup after a configurable 1–365 day
+  retention window (30 days default), with invalid configuration rejected. See
+  `guardian-report-access.md`; identity/child-consent policy, broader data retention,
   physical-device accessibility, UAT and production verification remain open.

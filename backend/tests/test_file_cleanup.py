@@ -17,6 +17,7 @@ def test_periodic_worker_retries_database_failures_and_can_be_cancelled(monkeypa
     api = importlib.import_module('app.main')
     pauses = []
     attempts = []
+    invitation_attempts = []
     async def fake_sleep(seconds):
         pauses.append(seconds)
         if len(pauses) == 3:
@@ -28,11 +29,13 @@ def test_periodic_worker_retries_database_failures_and_can_be_cancelled(monkeypa
         return 0
     monkeypatch.setattr(api.asyncio, 'sleep', fake_sleep)
     monkeypatch.setattr(api, 'cleanup_pending_files', cleanup)
+    monkeypatch.setattr(api, 'cleanup_invitations', lambda settings: invitation_attempts.append(settings))
     marker = object()
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(api.retry_file_cleanup(marker))
     assert pauses == [60, 60, 60]
     assert attempts == [marker, marker]
+    assert invitation_attempts == [marker]
 
 
 @pytest.mark.parametrize('delete_account', [False, True])

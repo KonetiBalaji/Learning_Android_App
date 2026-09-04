@@ -35,6 +35,13 @@ def _digest(code: str) -> str:
     return hashlib.sha256(code.encode('utf-8')).hexdigest()
 
 
+def cleanup_invitations(settings: Settings, current_time: datetime | None = None) -> int:
+    cutoff = (current_time or datetime.now(UTC)) - timedelta(days=settings.guardian_invitation_retention_days)
+    with connection(settings.database_path) as db:
+        return db.execute('DELETE FROM guardian_invitations WHERE expires_at < ?',
+                          (cutoff.isoformat(),)).rowcount
+
+
 def create_invitation(learner_id: str, settings: Settings) -> GuardianInvitation:
     created = datetime.now(UTC)
     expires = created + timedelta(minutes=INVITATION_MINUTES)

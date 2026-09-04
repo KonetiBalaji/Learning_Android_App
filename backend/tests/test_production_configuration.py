@@ -74,3 +74,10 @@ def test_unsafe_document_quota_is_rejected(monkeypatch, name, value, message):
     monkeypatch.setenv(name, value)
     with pytest.raises(ValueError, match=message):
         get_settings()
+
+
+@pytest.mark.parametrize('days', ['0', '366'])
+def test_unsafe_guardian_invitation_retention_is_rejected(monkeypatch, days):
+    monkeypatch.setenv('LEARNING_GUARDIAN_INVITATION_RETENTION_DAYS', days)
+    with pytest.raises(ValueError, match='Guardian invitation retention'):
+        get_settings()

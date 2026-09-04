@@ -142,3 +142,31 @@ def test_expired_self_and_deleted_account_links_fail_closed(monkeypatch, tmp_pat
             headers=guardian).status_code == 404
     finally:
         client.__exit__(None, None, None)
+
+
+def test_invitation_retention_removes_only_rows_past_policy(monkeypatch, tmp_path: Path) -> None:
+    client = configured_client(monkeypatch, tmp_path)
+    try:
+        learner = register(client, 'learner@example.com')
+        learner_id = profile(client, learner)['id']
+        reference = datetime(2026, 9, 4, tzinfo=UTC)
+        database = tmp_path / 'runtime' / 'learning.sqlite3'
+        with sqlite3.connect(database) as db:
+            db.executemany(
+                '''INSERT INTO guardian_invitations
+                   (id, learner_id, code_digest, expires_at, created_at, redeemed_at)
+                   VALUES (?, ?, ?, ?, ?, ?)''',
+                [
+                    ('old', learner_id, 'a' * 64, (reference - timedelta(days=31)).isoformat(),
+                     (reference - timedelta(days=32)).isoformat(), (reference - timedelta(days=31)).isoformat()),
+                    ('kept', learner_id, 'b' * 64, (reference - timedelta(days=29)).isoformat(),
+                     (reference - timedelta(days=30)).isoformat(), (reference - timedelta(days=29)).isoformat()),
+                ],
+            )
+        from app.config import get_settings
+        from app.guardian_access import cleanup_invitations
+        assert cleanup_invitations(get_settings(), reference) == 1
+        with sqlite3.connect(database) as db:
+            assert db.execute('SELECT id FROM guardian_invitations').fetchall() == [('kept',)]
+    finally:
+        client.__exit__(None, None, None)

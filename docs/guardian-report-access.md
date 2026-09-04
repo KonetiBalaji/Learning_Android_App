@@ -31,9 +31,10 @@ Codes contain 128 bits of randomness and use 32 lowercase hexadecimal characters
 so they can be typed reliably on a phone. Only the SHA-256 digest is stored. The raw
 code is returned once and shown in the learner's current UI state; it is not written
 to Android preferences and cannot be recovered. Regeneration deletes older
-unredeemed codes. Redeemed and expired invitation audit rows currently remain until
-the learner account is deleted; a time-based operational retention policy is still
-required before production.
+unredeemed codes. Startup and the periodic runtime worker remove invitation rows 30
+days after their expiry by default. Deployments can configure 1 to 365 days with
+`LEARNING_GUARDIAN_INVITATION_RETENTION_DAYS`; invalid values fail configuration.
+Account deletion removes its outstanding invitations immediately.
 
 The code is a possession credential. The UI tells learners to provide it directly,
 but this implementation does not verify a real-world parent/teacher identity, child
@@ -46,7 +47,8 @@ Backend tests prove hashing/no raw storage, replacement, expiry, single use,
 self-link rejection, duplicate protection, separate-account listing, linked report
 equivalence, denial to unrelated accounts, inability to read a mastery session or
 document library, immediate learner revocation, and deletion cascade.
-The full backend regression passed 448 tests with one existing Windows skip.
+The full backend regression passed 451 tests with one existing Windows skip after
+the retention worker and configuration bounds were added.
 
 On the dedicated API 36 emulator, `scripts/qa-guardian-access.ps1
 -ResetTestAppData` signed into a separate guardian account, redeemed a learner's
@@ -60,5 +62,5 @@ assembly; the PowerShell harness parsed without errors.
 
 This is development and emulator QA evidence. Parent/teacher identity policy,
 physical-device accessibility, real-user UAT, notification/consent records, audit
-export, invitation retention, and production deployment remain open. PARENT-01 is
+export, broader student-data retention, and production deployment remain open. PARENT-01 is
 therefore partial, not UAT accepted or production verified.

@@ -22,6 +22,7 @@ class Settings:
     max_upload_bytes: int = 50 * 1024 * 1024
     max_documents_per_owner: int = 100
     max_document_bytes_per_owner: int = 2 * 1024 * 1024 * 1024
+    guardian_invitation_retention_days: int = 30
     openai_api_key: str | None = field(default=None, repr=False)
     openai_model: str = "gpt-5-mini"
     ai_mode: str = "deterministic"
@@ -47,6 +48,8 @@ class Settings:
             raise ValueError('Per-document upload bytes must be between 1 byte and 1 GiB')
         if not self.max_upload_bytes <= self.max_document_bytes_per_owner <= 1024 ** 4:
             raise ValueError('Per-owner document bytes must cover one upload and not exceed 1 TiB')
+        if not 1 <= self.guardian_invitation_retention_days <= 365:
+            raise ValueError('Guardian invitation retention must be between 1 and 365 days')
         if self.environment in {'staging', 'production'}:
             if len(self.jwt_secret) < 32 or self.jwt_secret == 'local-development-secret-change-before-deployment':
                 raise ValueError('Staging and production require an explicit JWT secret of at least 32 characters')
@@ -82,6 +85,7 @@ def get_settings() -> Settings:
         token_minutes=int(os.getenv('LEARNING_TOKEN_MINUTES', str(60 * 24))),
         max_documents_per_owner=int(os.getenv('LEARNING_MAX_DOCUMENTS_PER_OWNER', '100')),
         max_document_bytes_per_owner=int(os.getenv('LEARNING_MAX_DOCUMENT_BYTES_PER_OWNER', str(2 * 1024 * 1024 * 1024))),
+        guardian_invitation_retention_days=int(os.getenv('LEARNING_GUARDIAN_INVITATION_RETENTION_DAYS', '30')),
         openai_api_key=api_key,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini",
         ai_mode=ai_mode,
