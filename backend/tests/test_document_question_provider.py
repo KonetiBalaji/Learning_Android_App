@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import document_question_provider as provider
+from app.ai_limits import DOCUMENT_GENERATION_OUTPUT_TOKENS, REVIEW_OUTPUT_TOKENS
 from app.schemas import Chapter
 
 TEXT = 'Mitochondria release usable energy for cellular work.'
@@ -41,6 +42,8 @@ def test_generation_requires_grounding_and_separate_blind_review(monkeypatch):
     reviewed = json.loads(calls[1]['input'])['questions'][0]
     assert set(reviewed) == {'prompt', 'options'}
     assert len(calls) == 3
+    assert calls[0]['max_output_tokens'] == DOCUMENT_GENERATION_OUTPUT_TOKENS
+    assert calls[1]['max_output_tokens'] == calls[2]['max_output_tokens'] == REVIEW_OUTPUT_TOKENS
     assert calls[1]['timeout'] == calls[2]['timeout'] == 30.0
     audited = json.loads(calls[2]['input'])['questions'][0]
     assert audited['quote'] == TEXT

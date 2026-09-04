@@ -41,7 +41,13 @@ the backend returns 429 with seconds-until-next-UTC-day and a fixed non-sensitiv
 error code. Android shows accurate next-day guidance and preserves existing state.
 Deterministic QA does not consume this quota. Account deletion cascades its counters.
 This bounds request count, not tokens or currency; host-level spend alerts and a
-provider project budget remain production requirements.
+provider project budget remain production requirements. Every provider response
+also has a code-owned maximum output-token ceiling: 2,048 for one tutor lesson,
+rewrite, practice item, or conversation reply; 4,096 for an independent review;
+8,192 for a three-item diagnostic bank; and 16,384 for a document quiz of up to
+twenty questions. Automated source inspection fails if any provider response call
+omits a ceiling. These are per-request safety bounds, not a substitute for the
+provider project's currency budget and alerts.
 
 Each HTTP completion also emits a privacy-safe structured event with a bounded
 correlation UUID, route template, method, status and duration. The same request ID
