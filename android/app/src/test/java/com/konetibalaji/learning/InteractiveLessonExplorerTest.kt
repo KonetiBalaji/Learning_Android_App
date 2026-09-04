@@ -22,15 +22,24 @@ class InteractiveLessonExplorerTest {
     @Test fun routesOnlySupportedSubjectChapterPairs() {
         assertEquals(ExplorerKind.FRACTIONS, explorerKind("math", "fractions"))
         assertEquals(ExplorerKind.DECIMAL_PLACE_VALUE, explorerKind("math", "decimals"))
+        assertEquals(ExplorerKind.PERCENT_GRID, explorerKind("math", "percentages"))
         assertEquals(ExplorerKind.CELL_ORGANELLES, explorerKind("science", "cells"))
         assertEquals(ExplorerKind.SENTENCE_PARTS, explorerKind("english", "grammar"))
         assertEquals(ExplorerKind.MAP_COORDINATES, explorerKind("social", "geography"))
         assertNull(explorerKind("science", "fractions"))
         assertNull(explorerKind("science", "decimals"))
+        assertNull(explorerKind("science", "percentages"))
         assertNull(explorerKind("math", "cells"))
         assertNull(explorerKind("english", "cells"))
         assertNull(explorerKind("science", "geography"))
         assertNull(explorerKind(null, null))
+    }
+
+    @Test fun percentGridModelsExactEquivalentRepresentations() {
+        assertEquals(listOf(25, 50, 75), percentLessons.map { it.percent })
+        assertEquals(listOf("0.25", "0.50", "0.75"), percentLessons.map { it.decimal })
+        assertEquals(listOf("1/4", "1/2", "3/4"), percentLessons.map { it.fraction })
+        assertTrue(percentLessons.all { it.percent in 1..100 })
     }
 
     @Test fun decimalPlacesMapEveryDigitToItsExactPositionalValue() {

@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
-enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
+enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, PERCENT_GRID, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
 enum class LessonStage(val label: String) { CONCEPT("1. Understand"), EXAMPLE("2. Worked example"), HINT("3. Try the hint") }
 
 data class LessonStageContent(val heading: String, val body: String, val guidance: String)
@@ -47,6 +47,7 @@ fun lessonStageContent(lesson: TutorLesson, stage: LessonStage): LessonStageCont
 fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "math" && chapterId == "fractions" -> ExplorerKind.FRACTIONS
     subjectId == "math" && chapterId == "decimals" -> ExplorerKind.DECIMAL_PLACE_VALUE
+    subjectId == "math" && chapterId == "percentages" -> ExplorerKind.PERCENT_GRID
     subjectId == "science" && chapterId == "cells" -> ExplorerKind.CELL_ORGANELLES
     subjectId == "english" && chapterId == "grammar" -> ExplorerKind.SENTENCE_PARTS
     subjectId == "social" && chapterId == "geography" -> ExplorerKind.MAP_COORDINATES
@@ -57,6 +58,7 @@ data class OrganelleLesson(val name: String, val function: String, val evidence:
 data class SentencePartLesson(val name: String, val words: String, val role: String, val check: String)
 data class MapLineLesson(val name: String, val value: String, val role: String, val check: String)
 data class DecimalPlaceLesson(val name: String, val digit: Char, val characterIndex: Int, val value: String, val check: String)
+data class PercentLesson(val percent: Int, val decimal: String, val fraction: String)
 
 val organelleLessons = listOf(
     OrganelleLesson("Nucleus", "Stores most of the cell's DNA and helps direct cell activities.",
@@ -93,6 +95,12 @@ val decimalPlaceLessons = listOf(
     DecimalPlaceLesson("Thousandths", '5', 5, "0.005", "Five thousandths means 5 × 0.001 = 0.005."),
 )
 
+val percentLessons = listOf(
+    PercentLesson(25, "0.25", "1/4"),
+    PercentLesson(50, "0.50", "1/2"),
+    PercentLesson(75, "0.75", "3/4"),
+)
+
 @Composable
 fun LessonWalkthrough(lesson: TutorLesson) {
     var selected by rememberSaveable(lesson.title, lesson.explanation, lesson.workedExample, lesson.hint) {
@@ -124,10 +132,52 @@ fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {
     when (explorerKind(subjectId, chapterId)) {
         ExplorerKind.FRACTIONS -> FractionExplorer()
         ExplorerKind.DECIMAL_PLACE_VALUE -> DecimalPlaceValueExplorer()
+        ExplorerKind.PERCENT_GRID -> PercentGridExplorer()
         ExplorerKind.CELL_ORGANELLES -> CellOrganelleExplorer()
         ExplorerKind.SENTENCE_PARTS -> SentencePartExplorer()
         ExplorerKind.MAP_COORDINATES -> MapCoordinateExplorer()
         null -> Unit
+    }
+}
+
+@Composable
+private fun PercentGridExplorer() {
+    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val lesson = percentLessons[selected]
+    val fill = MaterialTheme.colorScheme.primary
+    val empty = MaterialTheme.colorScheme.surface
+    val outline = MaterialTheme.colorScheme.outline
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Explore percentages", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Each square is one part out of 100. Select an amount to compare three equivalent forms.")
+            percentLessons.forEachIndexed { index, item ->
+                OutlinedButton(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (selected == index) "Selected: ${item.percent}%" else "Show ${item.percent}%")
+                }
+            }
+            Canvas(Modifier.fillMaxWidth().size(260.dp).semantics {
+                contentDescription = "100-square grid with ${lesson.percent} squares highlighted, showing ${lesson.percent} percent"
+            }) {
+                val side = size.minDimension
+                val cell = side / 10f
+                for (index in 0 until 100) {
+                    val column = index % 10
+                    val row = index / 10
+                    drawRect(if (index < lesson.percent) fill else empty,
+                        Offset(column * cell, row * cell), Size(cell, cell))
+                    drawRect(outline, Offset(column * cell, row * cell), Size(cell, cell),
+                        style = Stroke(width = 1.5f))
+                }
+            }
+            Text("${lesson.percent}% = ${lesson.decimal} = ${lesson.fraction}",
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("${lesson.percent} highlighted squares out of 100 means ${lesson.percent} per hundred.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Exploring the grid does not submit an answer or change mastery.",
+                style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
