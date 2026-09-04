@@ -211,6 +211,18 @@ navigation, switch access, a physical device, or user acceptance.
 
 The bounded embedding fallback, fail-closed vector contract, quota behavior,
 Android response validation and one synthetic live synonym/distractor check are
-recorded in `docs/semantic-source-search-evaluation.md`. That evidence does not
-retroactively make the earlier deterministic emulator journey semantic-device QA;
-an actual device journey and a broader labeled relevance set remain open.
+recorded in `docs/semantic-source-search-evaluation.md`.
+
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifySemanticSearch` also
+passed on LearnSmart_API36 against the live OpenAI-mode backend. Android uploaded
+the disposable source, selected Chapter 2 Plants and submitted `plant food
+production`; the response used `semantic_embedding`, displayed one verbatim result
+with the required relevance warning, and exposed the status, source identity and
+explicit confirmation action to TalkBack. Selecting that action entered excerpt
+mode, and the saved source boundaries survived force-stop/restart. Transient
+UIAutomator null-root responses recovered through the bounded fresh-dump retry.
+
+This is one synthetic emulator journey. Its passage window included unrelated
+fixture prose, so it proves transport, validation, accessibility, explicit consent
+and persistence rather than optimal segmentation or broad semantic relevance.
+Physical-device QA, labeled multilingual/spelling evaluation and UAT remain open.

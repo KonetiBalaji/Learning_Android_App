@@ -1,17 +1,20 @@
-param([string]$Serial = 'emulator-5554', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure, [switch]$VerifyResultActions, [switch]$VerifyDocumentProgress)
+param([string]$Serial = 'emulator-5554', [string]$BackendUrl = 'http://127.0.0.1:8000', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifySemanticSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure, [switch]$VerifyResultActions, [switch]$VerifyDocumentProgress)
 $ErrorActionPreference = 'Stop'
+$BackendUrl = $BackendUrl.TrimEnd('/')
+if ($BackendUrl -notmatch '^http://127\.0\.0\.1:\d{2,5}$') { throw 'Document QA backend must be an explicit loopback HTTP port' }
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
 if ($VerifySavedUploadFailure) { $VerifyUploadProgress = $true }
 if ($VerifyDocumentProgress) { $VerifyResultActions = $true }
 if ($VerifyUploadProgress -and ($VerifyLibrary -or $VerifyMultiChapter -or $VerifyQuestionCount -or $VerifyDifficulty -or $VerifyQuestionType -or $BinaryFixtureType -or $VerifyCreationRetry -or $VerifyStructureRepair -or $VerifyPreview -or $VerifyExcerpts -or $VerifySourceSearch -or $VerifyPdfPages)) { throw 'Upload progress QA is a standalone check' }
+if ($VerifySemanticSearch) { $VerifySourceSearch = $true }
 if ($VerifySourceSearch) { $VerifyExcerpts = $true }
 $fixtureName = if ($VerifyPdfPages) { 'page-boundary-fixture.pdf' } elseif ($VerifyPreview -or $VerifyExcerpts) { 'qa-preview-biology.txt' } else { 'qa-biology.txt' }
 if ($VerifyPdfPages -and (-not $VerifyCreationRetry -or $VerifyExcerpts -or $VerifyPreview -or $VerifyMultiChapter -or $VerifyStructureRepair -or $VerifyQuestionCount -or $BinaryFixtureType)) { throw 'PDF page QA requires creation retry and cannot combine with other source fixture or question-count modes' }
 $fixturePath = if ($VerifyPdfPages) { Join-Path $repo 'artifacts\tmp\pdfs\page-boundary-fixture.pdf' } else { Join-Path $PSScriptRoot "fixtures\$fixtureName" }
 if (-not (Test-Path -LiteralPath $fixturePath)) { throw 'Missing QA fixture; for PDF pages run create-pdf-page-fixture.py with the documented output path first' }
-if ($VerifyExcerpts -and (-not $VerifyCreationRetry -or $VerifyPreview -or $VerifyMultiChapter -or $VerifyStructureRepair -or $BinaryFixtureType)) { throw 'Excerpt QA requires creation retry and cannot combine with preview, multi-chapter, repair or binary modes' }
+if ($VerifyExcerpts -and (-not $VerifySemanticSearch) -and (-not $VerifyCreationRetry -or $VerifyPreview -or $VerifyMultiChapter -or $VerifyStructureRepair -or $BinaryFixtureType)) { throw 'Excerpt QA requires creation retry and cannot combine with preview, multi-chapter, repair or binary modes' }
 if ($VerifyPreview -and (-not $VerifyCreationRetry -or $VerifyStructureRepair)) { throw 'Preview check requires creation retry and cannot combine with the legacy repair fixture' }
 $expectedCount = if ($VerifyPdfPages) { 5 } elseif ($VerifyQuestionCount) { 7 } else { 10 }
 $expectedFormat = if ($BinaryFixtureType) { $BinaryFixtureType } else { 'multiple_choice' }
@@ -79,10 +82,11 @@ function VerifyTalkBackSourceResult([string]$status) {
         Start-Sleep -Seconds 2
         $accessibility = (Adb shell dumpsys accessibility) -join "`n"
         if ($accessibility -notmatch 'com\.google\.android\.marvin\.talkback/.+TalkBackService') { throw 'TalkBack service did not become active' }
-        $tree = Ui
-        if (-not ($tree.SelectNodes('//node') | Where-Object text -eq $status)) { throw 'TalkBack tree omitted the topic-result status' }
-        if (-not ($tree.SelectNodes('//node') | Where-Object text -eq 'Result 1: Chapter 2 Plants')) { throw 'TalkBack tree omitted the source identity' }
-        if (-not ($tree.SelectNodes('//node') | Where-Object text -eq 'Use passage 1 as excerpt')) { throw 'TalkBack tree omitted the explicit confirmation action' }
+        # The result card can be taller than the viewport. Verify each semantic
+        # node with the same bounded two-way scroll used by the rest of this QA.
+        foreach ($label in @($status, 'Result 1: Chapter 2 Plants', 'Use passage 1 as excerpt')) {
+            try { TextNode $label | Out-Null } catch { throw "TalkBack tree omitted source-result element: $label" }
+        }
     } finally {
         if ([string]::IsNullOrWhiteSpace($oldServices) -or $oldServices -eq 'null') {
             Adb shell settings delete secure enabled_accessibility_services | Out-Null
@@ -138,8 +142,10 @@ function SelectFixtureForUpload {
 }
 if (-not $ResetTestAppData) { throw 'Supply -ResetTestAppData for the dedicated QA emulator only.' }
 if (((Adb emu avd name) -join "`n") -notmatch '^LearnSmart_API36') { throw 'Not the dedicated QA emulator.' }
-$health = Invoke-RestMethod 'http://127.0.0.1:8000/health'
-if ($BinaryFixtureType) {
+$health = Invoke-RestMethod "$BackendUrl/health"
+if ($VerifySemanticSearch) {
+    if ($health.ai_provider -ne 'openai') { throw 'Semantic-search QA requires the explicit OpenAI backend' }
+} elseif ($BinaryFixtureType) {
     if ($health.ai_provider -ne 'scripted-binary-qa') { throw 'Use the explicit isolated binary fixture backend' }
 } elseif ($health.ai_provider -notin @('deterministic','scripted-qa')) { throw 'Use the isolated QA backend.' }
 Adb install -r (Join-Path $repo 'android\app\build\outputs\apk\debug\app-debug.apk') | Out-Null
@@ -182,8 +188,8 @@ if ($VerifySavedUploadFailure) {
     $completedPreferences = [xml]((Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n")
     if ($completedPreferences.map.ChildNodes | Where-Object name -eq "pending_document_upload:$($qaEmail.ToLowerInvariant())") { throw 'Completed upload identity was not cleared' }
     # The retry must replay the committed document instead of creating a duplicate.
-    $login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
-    $saved = @(Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers @{Authorization="Bearer $($login.access_token)"})
+    $login = Invoke-RestMethod "$BackendUrl/v1/auth/login" -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+    $saved = @(Invoke-RestMethod "$BackendUrl/v1/documents" -Headers @{Authorization="Bearer $($login.access_token)"})
     if ($saved.Count -ne 1) { throw 'Uncertain response created duplicate or missing documents' }
 }
 TapText 'Entire document'
@@ -209,9 +215,9 @@ TapText 'Chapter 2 Plants'
 if ($VerifyMultiChapter) { TapText 'Chapter 1 Cells' }
 RestartApp
 TextNode 'Choose chapters' | Out-Null
-$login = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+$login = Invoke-RestMethod "$BackendUrl/v1/auth/login" -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
 $headers = @{Authorization="Bearer $($login.access_token)"}
-$documents = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers
+$documents = Invoke-RestMethod "$BackendUrl/v1/documents" -Headers $headers
 if ($documents.Count -ne 1) { throw 'Expected exactly one uploaded document' }
 $document = $documents[0]
 $selectedChapter = $document.chapters | Where-Object title -eq 'Chapter 2 Plants'
@@ -313,7 +319,7 @@ if ($VerifyPdfPages) {
     TextNode 'Generate 10 questions' | Out-Null
     if ((Ui).SelectNodes('//node') | Where-Object text -eq 'Use these PDF pages instead of current selection') { throw 'Editing page input retained stale confirmation' }
     TapText 'Review original page range'
-    $pageScope = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/pdf-pages/selection" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"first_page":2,"last_page":2}'
+    $pageScope = Invoke-RestMethod "$BackendUrl/v1/documents/$($document.id)/pdf-pages/selection" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"first_page":2,"last_page":2}'
     $excerptPart = $pageScope.source_ranges[0]
     if ($pageScope.source_ranges.Count -ne 1 -or $excerptPart.chapter_id -ne $selectedChapter.id) { throw 'PDF fixture did not resolve page 2 exclusively to Plants' }
     TextNode "Chapter 2 Plants: source characters $($excerptPart.start_character)–$($excerptPart.end_character)" | Out-Null
@@ -332,26 +338,36 @@ if ($VerifyExcerpts) {
             Adb shell input keyevent 4 | Out-Null
             TapText 'Search selected chapters'
         }
-        SearchSource 'zznomatchfixture'
-        TextNode 'No source passage contains the phrase or all important topic words. Try different words or chapters; no selection was changed.' | Out-Null
-        [xml]$searchPrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
-        $afterSearchIds = @(($searchPrefs.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail").InnerText | ConvertFrom-Json)
-        if (@(Compare-Object $selectedIds $afterSearchIds).Count -ne 0) { throw 'No-match search changed selected chapters' }
-        if ($searchPrefs.map.ChildNodes | Where-Object name -eq "document_excerpts:$($document.id):$qaEmail") { throw 'No-match search selected an excerpt' }
-        SearchSource 'light photosynthesis'
-        $expectedSearch = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/search" -Method Post -Headers $headers -ContentType 'application/json' -Body (@{chapter_ids=@($selectedChapter.id); query='light photosynthesis'; limit=20} | ConvertTo-Json)
-        if ($expectedSearch.match_mode -ne 'all_query_terms_case_insensitive') { throw 'Topic fixture did not exercise all-query-terms fallback' }
-        if ($expectedSearch.matches.Count -lt 1) { throw 'Search fixture did not return a source passage' }
-        $excerptPart = $expectedSearch.matches[0]
+        if ($VerifySemanticSearch) {
+            $query = 'plant food production'
+            SearchSource $query
+            $expectedStatus = '1 semantically related source passage found. Verify the wording before using a passage as an excerpt.'
+        } else {
+            SearchSource 'zznomatchfixture'
+            TextNode 'No relevant source passage was found. Try different words or chapters; no selection was changed.' | Out-Null
+            [xml]$searchPrefs = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+            $afterSearchIds = @(($searchPrefs.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail").InnerText | ConvertFrom-Json)
+            if (@(Compare-Object $selectedIds $afterSearchIds).Count -ne 0) { throw 'No-match search changed selected chapters' }
+            if ($searchPrefs.map.ChildNodes | Where-Object name -eq "document_excerpts:$($document.id):$qaEmail") { throw 'No-match search selected an excerpt' }
+            $query = 'light photosynthesis'
+            SearchSource $query
+            $expectedSearch = Invoke-RestMethod "$BackendUrl/v1/documents/$($document.id)/search" -Method Post -Headers $headers -ContentType 'application/json' -Body (@{chapter_ids=@($selectedChapter.id); query=$query; limit=20} | ConvertTo-Json)
+            if ($expectedSearch.match_mode -ne 'all_query_terms_case_insensitive') { throw 'Topic fixture did not exercise all-query-terms fallback' }
+            $expectedStatus = '1 source passage found by all topic words. Read a passage before using it as an excerpt.'
+        }
+        if (-not $VerifySemanticSearch -and $expectedSearch.matches.Count -lt 1) { throw 'Search fixture did not return a source passage' }
         TextNode 'Result 1: Chapter 2 Plants' | Out-Null
-        TextNode "Source characters $($excerptPart.start_character)–$($excerptPart.end_character)" | Out-Null
-        VerifyTalkBackSourceResult '1 source passage found by all topic words. Read a passage before using it as an excerpt.'
+        if (-not $VerifySemanticSearch) {
+            $excerptPart = $expectedSearch.matches[0]
+            TextNode "Source characters $($excerptPart.start_character)–$($excerptPart.end_character)" | Out-Null
+        }
+        VerifyTalkBackSourceResult $expectedStatus
         Adb shell screencap -p /sdcard/qa-source-search.png | Out-Null
         Adb pull /sdcard/qa-source-search.png (Join-Path $repo 'artifacts\qa-source-search.png') | Out-Null
         TapText 'Use passage 1 as excerpt'
         Write-Output 'PASS: no-match search preserves selection; multi-term topic passage and confirmation are exposed to TalkBack before explicit use'
     } else {
-    $excerptPart = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview" -Headers $headers
+    $excerptPart = Invoke-RestMethod "$BackendUrl/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview" -Headers $headers
     if ($excerptPart.total_pages -lt 2) { throw 'Excerpt fixture must leave some chapter text unselected' }
     TapText 'Preview: Chapter 2 Plants'
     TextNode 'Source preview' | Out-Null
@@ -379,6 +395,10 @@ if ($VerifyExcerpts -or $VerifyPdfPages) {
     Adb shell screencap -p /sdcard/qa-document-excerpt.png | Out-Null
     Adb pull /sdcard/qa-document-excerpt.png (Join-Path $repo 'artifacts\qa-document-excerpt.png') | Out-Null
     Write-Output 'PASS: Android excerpt confirmation enters excerpt mode; saved boundaries survive restart'
+    if ($VerifySemanticSearch) {
+        Write-Output 'PASS: live semantic synonym result was reviewed, TalkBack-exposed, explicitly selected and restored after process restart'
+        exit 0
+    }
 }
 if ($VerifyPdfPages) {
     # This physical page has five distinct source sentences, not ten. Verify the
@@ -396,9 +416,9 @@ if ($VerifyPdfPages) {
     Write-Output 'PASS: insufficient page material rejects ten questions; exact selection survives and five-question count restores'
 }
 if ($VerifyCreationRetry) {
-    $creationAudit = "http://127.0.0.1:8000/__qa/documents/$($document.id)/created-quizzes"
+    $creationAudit = "$BackendUrl/__qa/documents/$($document.id)/created-quizzes"
     if (@((Invoke-RestMethod $creationAudit -Headers $headers).quiz_ids).Count -ne 0) { throw 'Expected no quiz before creation fault test' }
-    Invoke-RestMethod "http://127.0.0.1:8000/__qa/documents/$($document.id)/fail-next-creation-response" -Method Post -Headers $headers | Out-Null
+    Invoke-RestMethod "$BackendUrl/__qa/documents/$($document.id)/fail-next-creation-response" -Method Post -Headers $headers | Out-Null
     TapText "Generate $expectedCount questions"
     # The error surface is intentionally transient and may disappear while slow
     # UIAutomator dumps retry. Durable state plus the server audit proves the
@@ -417,7 +437,7 @@ if ($VerifyCreationRetry) {
     Write-Output 'PASS: committed creation returns 503; pending identity survives restart without accepting the failed response'
 }
 if ($VerifyPreview) {
-    $previewPath = "http://127.0.0.1:8000/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview"
+    $previewPath = "$BackendUrl/v1/documents/$($document.id)/chapters/$($selectedChapter.id)/preview"
     $firstPart = Invoke-RestMethod $previewPath -Headers $headers
     if ($firstPart.total_pages -lt 2) { throw 'Preview fixture must exercise pagination' }
     TapText 'Preview: Chapter 2 Plants'
@@ -450,13 +470,13 @@ if ($VerifyPreview) {
     Write-Output 'PASS: exact source preview parts and boundary buttons verified; backward navigation, return and restart preserve selection and pending quiz identity'
 }
 if ($VerifyStructureRepair) {
-    $beforeRepairQuiz = Invoke-RestMethod "http://127.0.0.1:8000/v1/quizzes/$committedQuizId" -Headers $headers | ConvertTo-Json -Depth 20 -Compress
-    Invoke-RestMethod "http://127.0.0.1:8000/__qa/documents/$($document.id)/omit-tail-and-fail-repair-response" -Method Post -Headers $headers | Out-Null
+    $beforeRepairQuiz = Invoke-RestMethod "$BackendUrl/v1/quizzes/$committedQuizId" -Headers $headers | ConvertTo-Json -Depth 20 -Compress
+    Invoke-RestMethod "$BackendUrl/__qa/documents/$($document.id)/omit-tail-and-fail-repair-response" -Method Post -Headers $headers | Out-Null
     TapText 'Check for omitted text'
     TextNode 'The learning service is temporarily unavailable. Please try again.' | Out-Null
     TapText 'Try again'
     TextNode "$($selectedIds.Count) of 2 chapters selected" | Out-Null
-    $repaired = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)" -Headers $headers
+    $repaired = Invoke-RestMethod "$BackendUrl/v1/documents/$($document.id)" -Headers $headers
     if ($repaired.chapters.Count -ne 3) { throw 'Repair did not commit the omitted range behind the failed response' }
     TapText 'Check for omitted text'
     TextNode '1 omitted text ranges added, not selected. Review them before adding them to your quiz.' | Out-Null
@@ -472,7 +492,7 @@ if ($VerifyStructureRepair) {
     if (($repairPreferences.map.ChildNodes | Where-Object name -eq "pending_quiz_creation:$qaEmail").InnerText -ne $pendingCreation) { throw 'Repair changed pending quiz identity' }
     $repairSelection = @(($repairPreferences.map.ChildNodes | Where-Object name -eq "active_document_chapter:$qaEmail").InnerText | ConvertFrom-Json)
     if (@(Compare-Object $selectedIds $repairSelection).Count -ne 0) { throw 'Repair changed selected chapter IDs' }
-    $afterRepairQuiz = Invoke-RestMethod "http://127.0.0.1:8000/v1/quizzes/$committedQuizId" -Headers $headers | ConvertTo-Json -Depth 20 -Compress
+    $afterRepairQuiz = Invoke-RestMethod "$BackendUrl/v1/quizzes/$committedQuizId" -Headers $headers | ConvertTo-Json -Depth 20 -Compress
     # The quiz response embeds the current document, so compare its question and progress separately.
     $beforeQuizState = $beforeRepairQuiz | ConvertFrom-Json
     $afterQuizState = $afterRepairQuiz | ConvertFrom-Json
@@ -496,7 +516,7 @@ if ($VerifyCreationRetry) {
     Write-Output 'PASS: retry resumes the original quiz; exactly one server quiz exists and pending identity is cleared'
 }
 if ($preferences.map.ChildNodes | Where-Object name -eq "active_document:$qaEmail") { throw 'Upload pointer was not replaced by quiz pointer' }
-$quizPath = "http://127.0.0.1:8000/v1/quizzes/$quizId"
+$quizPath = "$BackendUrl/v1/quizzes/$quizId"
 $state = Invoke-RestMethod $quizPath -Headers $headers
 if ($VerifyExcerpts -or $VerifyPdfPages) {
     $ranges = @($state.source_ranges)
@@ -634,7 +654,7 @@ if ($VerifyResultActions) {
     $retryQuizId = ($retryPreferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail").InnerText
     if (-not $retryQuizId -or $retryQuizId -eq $quizId) { throw 'Retry action did not persist a fresh active quiz' }
     if ($retryPreferences.map.ChildNodes | Where-Object name -eq "pending_mistake_retry:$($quizId):$qaEmail") { throw 'Accepted retry retained its pending request identity' }
-    $retryPath = "http://127.0.0.1:8000/v1/quizzes/$retryQuizId"
+    $retryPath = "$BackendUrl/v1/quizzes/$retryQuizId"
     $retryState = Invoke-RestMethod $retryPath -Headers $headers
     if ($retryState.total -ne $mistakes.Count -or $retryState.answered -ne 0) { throw 'Retry quiz does not contain fresh unanswered mistakes only' }
     RestartApp
@@ -655,7 +675,7 @@ if ($VerifyResultActions) {
     TextNode 'QUESTION 1 OF 10' | Out-Null
     [xml]$nextPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
     $nextQuizId = ($nextPreferences.map.ChildNodes | Where-Object name -eq "active_document_quiz:$qaEmail").InnerText
-    $nextPath = "http://127.0.0.1:8000/v1/quizzes/$nextQuizId"
+    $nextPath = "$BackendUrl/v1/quizzes/$nextQuizId"
     $nextState = Invoke-RestMethod $nextPath -Headers $headers
     while ($nextState.question) {
         $nextQuestion = $nextState.question
@@ -668,7 +688,7 @@ if ($VerifyResultActions) {
     TextNode 'Choose chapters' | Out-Null
     TextNode 'Medium · apply a principle' | Out-Null
     if ($VerifyDocumentProgress) {
-        $progress = Invoke-RestMethod "http://127.0.0.1:8000/v1/documents/$($document.id)/progress" -Headers $headers
+        $progress = Invoke-RestMethod "$BackendUrl/v1/documents/$($document.id)/progress" -Headers $headers
         if ($progress.quizzes_created -ne 3 -or $progress.quizzes_completed -ne 3) { throw 'Document progress omitted completed quiz attempts' }
         if ($progress.questions_answered -ne ($expectedCount + $mistakes.Count + 10)) { throw 'Document progress answer total is incorrect' }
         if (@($progress.attempts | Where-Object { -not $_.complete -or -not $_.completed_at }).Count -ne 0) { throw 'Completed attempt history lacks completion evidence' }
@@ -714,7 +734,7 @@ TapText "Open $fixtureName"
 TextNode 'Choose chapters' | Out-Null
 RestartApp
 TextNode 'Choose chapters' | Out-Null
-$documents = Invoke-RestMethod 'http://127.0.0.1:8000/v1/documents' -Headers $headers
+$documents = Invoke-RestMethod "$BackendUrl/v1/documents" -Headers $headers
 if ($documents.Count -ne 1) { throw 'Opening the library unexpectedly duplicated the document' }
 if ((Invoke-RestMethod $quizPath -Headers $headers).answered -ne $expectedCount) { throw 'Reopening material changed the previous quiz' }
 Write-Output 'PASS: empty library is clear; saved material reopens without upload, survives restart and preserves the old quiz'
