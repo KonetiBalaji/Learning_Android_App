@@ -920,7 +920,7 @@ private fun DocumentFeedbackScreen(feedback: Feedback?, onContinue: () -> Unit) 
 @Composable
 private fun DocumentResultsScreen(results: Results?, onAgain: () -> Unit, onBack: () -> Unit, difficulty: String?, questionType: String?) {
     results ?: return
-    Page { Text(requestedDifficultyLabel(difficulty), style = MaterialTheme.typography.bodySmall); Text(documentQuestionTypeLabel(questionType), style = MaterialTheme.typography.bodySmall); Header("Session complete", "${results.correct} / ${results.total} correct", "Accuracy: ${(results.accuracy * 100).toInt()}%. Review missed concepts before moving on."); results.mistakes.forEach { mistake -> TipCard("Review question ${mistake.ordinal}", "${mistake.prompt}\nSource: ${mistake.sourceReference}") }; PrimaryButton("Study another document", onClick = onAgain); TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Return to learning path") } }
+    Page { Text(requestedDifficultyLabel(difficulty), style = MaterialTheme.typography.bodySmall); Text(documentQuestionTypeLabel(questionType), style = MaterialTheme.typography.bodySmall); Header("Session complete", "${results.correct} / ${results.total} correct", "Accuracy: ${(results.accuracy * 100).toInt()}%. Review missed concepts before moving on."); results.mistakes.forEach { mistake -> TipCard("Review question ${mistake.question.ordinal}", "${mistake.question.prompt}\nYour answer: ${mistake.selectedOption}\nCorrect answer: ${mistake.correctOption}\nWhy: ${mistake.explanation}\nSource: ${mistake.question.sourceReference}") }; PrimaryButton("Study another document", onClick = onAgain); TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Return to learning path") } }
 }
 
 @Composable

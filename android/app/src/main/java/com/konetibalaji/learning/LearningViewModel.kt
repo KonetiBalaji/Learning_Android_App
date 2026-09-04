@@ -25,7 +25,7 @@ data class Chapter(val id: String, val title: String, val confidence: Float)
 data class StudyDocument(val id: String, val name: String, val chapters: List<Chapter>)
 data class QuizQuestion(val id: String, val ordinal: Int, val prompt: String, val options: List<String>, val sourceReference: String)
 data class Feedback(val correct: Boolean, val selected: String, val answer: String, val explanation: String, val source: String, val next: QuizQuestion?)
-data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizQuestion>)
+data class Results(val answered: Int, val total: Int, val correct: Int, val accuracy: Float, val mistakes: List<QuizMistake>)
 data class GuardianAccount(val id: String, val email: String, val linkedAt: String)
 data class CurriculumCatalogClient(val version: String, val grade: Int, val board: String,
                                    val subjects: List<LearningSubject>, val chapters: Map<String, List<MasteryChapter>>)
@@ -968,7 +968,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         return ResumedDocumentQuiz(document(response.getJSONObject("document")), response.getInt("total"), pending, feedback, if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType, responseExcerpts(response))
     }
     fun answer(quizId: String, questionId: String, option: String): Feedback { val response = request("POST", "/v1/quizzes/$quizId/questions/$questionId/answer", JSONObject().put("selected_option", option).toString()); return Feedback(response.getBoolean("correct"), response.getString("selected_option"), response.getString("correct_option"), response.getString("explanation"), response.getString("source_reference"), response.optJSONObject("next_question")?.let(::question)) }
-    fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").toQuestionList()) }
+    fun results(quizId: String): Results { val response = request("GET", "/v1/quizzes/$quizId/results", null); return Results(response.getInt("answered"), response.getInt("total"), response.getInt("correct"), response.getDouble("accuracy").toFloat(), response.getJSONArray("mistakes").let { values -> (0 until values.length()).map { index -> values.getJSONObject(index).let { value -> validateQuizMistake(QuizMistake(question(value), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"))) } } }) }
     data class StartedDiagnostic(val id: String, val question: DiagnosticQuestion, val ordinal: Int, val total: Int)
     data class DiagnosticResult(val correct: Boolean, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int, val masteryScore: Int, val tutor: TutorLesson?)
     data class RewriteResult(val mastered: Boolean, val score: Int, val confidence: String, val coaching: String?, val nextAction: String, val nextQuestion: DiagnosticQuestion?, val ordinal: Int?, val assessmentPoints: Int?, val assessmentFeedback: String?, val nextLesson: TutorLesson? = null)

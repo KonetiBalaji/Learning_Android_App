@@ -118,6 +118,12 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | PARENT-02 | Exam readiness prediction | Partial | Explicitly labelled heuristic until calibrated against a supplied exam/curriculum dataset |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Partial | File limits/corruption/password cases, spawned parser timeout/output isolation, Windows Job Object memory enforcement, atomic cross-worker parser admission with crash-expiring leases, source-grounding checks, deletion and interrupted-flow recovery are automated; sustained hostile-parser load/PDF expansion, broader device paths and UAT remain |
 | DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Entire-document, detected chapter/section, highlighted excerpt and physical PDF-page selection are API 36 verified. Exact phrase and bounded all-important-term custom-topic retrieval are API 36 verified with explicit verbatim review, TalkBack-exposed result/action nodes, restart, retry, exact-range generation, owner and chapter isolation. Semantic synonym behavior, physical-device breadth and UAT remain open |
+
+Document quiz results now expose the learner's selected answer, correct answer,
+grounded explanation and source reference for each completed incorrect response;
+Android validates and renders the complete teaching record. Unanswered answers
+remain undisclosed and ownership is unchanged. Automated QA is recorded in
+`quiz-mistake-review.md`; retry actions, API 36 review and UAT remain open.
 | DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling and real TalkBack exposure for dynamic topic status/source/action nodes; loading/empty/offline/retry states have targeted flows. Full-screen spoken traversal, switch access, non-text contrast, physical devices and UAT remain |
 | DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |

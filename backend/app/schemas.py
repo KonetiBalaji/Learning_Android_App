@@ -141,13 +141,19 @@ class Feedback(BaseModel):
     next_question: QuizQuestion | None
 
 
+class QuizMistake(QuizQuestion):
+    selected_option: str
+    correct_option: str
+    explanation: str
+
+
 class QuizResults(BaseModel):
     quiz_id: str
     answered: int
     total: int
     correct: int
     accuracy: float
-    mistakes: list[QuizQuestion]
+    mistakes: list[QuizMistake]
 
 
 class DocumentQuizState(BaseModel):

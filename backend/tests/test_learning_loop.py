@@ -36,6 +36,12 @@ Cells are the basic units of life in living organisms. Mitochondria release usab
         results = client.get(f"/v1/quizzes/{quiz.json()['id']}/results", headers=headers)
         assert results.status_code == 200
         assert results.json()["answered"] == 1
+        assert results.json()['mistakes'] == [{
+            **first,
+            'selected_option': wrong_option,
+            'correct_option': feedback.json()['correct_option'],
+            'explanation': feedback.json()['explanation'],
+        }]
 
 
 def test_document_access_is_owner_scoped(monkeypatch, tmp_path: Path) -> None:

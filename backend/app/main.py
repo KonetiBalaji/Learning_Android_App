@@ -611,7 +611,10 @@ def quiz_results(quiz_id: str, user_id: str = Depends(current_user_id), settings
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz not found")
     answered = [row for row in rows if row["answered_option"] is not None]
     correct = [row for row in answered if row["answered_option"] == row["correct_option"]]
-    mistakes = [question_payload(row) for row in answered if row["answered_option"] != row["correct_option"]]
+    mistakes = [{**question_payload(row).model_dump(),
+        'selected_option': row['answered_option'], 'correct_option': row['correct_option'],
+        'explanation': row['explanation']}
+        for row in answered if row["answered_option"] != row["correct_option"]]
     return QuizResults(quiz_id=quiz_id, answered=len(answered), total=len(rows), correct=len(correct), accuracy=(len(correct) / len(answered) if answered else 0.0), mistakes=mistakes)
 
 
