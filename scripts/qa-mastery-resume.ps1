@@ -13,9 +13,11 @@ param(
     [switch]$VerifyFreshPractice,
     [switch]$VerifyRejectedRewrite,
     [switch]$VerifyReadAloud,
-    [switch]$VerifyTutorConversation
+    [switch]$VerifyTutorConversation,
+    [switch]$VerifyTutorResponseLoss
 )
 $ErrorActionPreference = 'Stop'
+if ($VerifyTutorResponseLoss) { $VerifyTutorConversation = $true }
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $package = 'com.konetibalaji.learning'
@@ -57,9 +59,26 @@ function EnterField([int]$index, [string]$value) {
     if ($fields.Count -le $index) { throw "Input field $index unavailable" }
     $point = Center $fields[$index]
     Adb shell input tap $point[0] $point[1] | Out-Null
+    Start-Sleep -Milliseconds 600
     Adb shell input keycombination 113 29 | Out-Null
-    Adb shell input text ($value.Replace(' ', '%s')) | Out-Null
+    Start-Sleep -Milliseconds 100
+    # Compose can recompose between injected key events and silently drop the
+    # tail of a bulk `input text` command. Pace individual characters instead.
+    foreach ($character in $value.ToCharArray()) {
+        switch ($character) {
+            ' ' { Adb shell input keyevent 62 | Out-Null }
+            '@' { Adb shell input keyevent 77 | Out-Null }
+            '.' { Adb shell input keyevent 56 | Out-Null }
+            '?' { Adb shell input keycombination 59 76 | Out-Null }
+            default { Adb shell input text ([string]$character) | Out-Null }
+        }
+        Start-Sleep -Milliseconds 35
+    }
     Adb shell input keyevent 4 | Out-Null
+    if ($fields[$index].password -ne 'true') {
+        $entered = @((Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' })[$index].text
+        if ($entered -ne $value) { throw "Input field $index did not receive the exact scripted value" }
+    }
 }
 function RestartApp {
     Adb shell am force-stop $package | Out-Null
@@ -176,7 +195,28 @@ if ($VerifyTutorConversation) {
     TextNode 'Talk with your tutor' | Out-Null
     TextNode 'No questions in this lesson conversation yet.' | Out-Null
     EnterField 0 'Why keep the denominator?'
+    if ($VerifyTutorResponseLoss) {
+        $auth = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
+        $chatHeaders = @{Authorization="Bearer $($auth.access_token)"}
+        $chatSession = ($savedXml.map.ChildNodes | Where-Object name -eq "active_mastery:$qaEmail").InnerText
+        $chatPath = "http://127.0.0.1:8000/v1/mastery/sessions/$chatSession"
+        Invoke-RestMethod "http://127.0.0.1:8000/__qa/mastery/$chatSession/fail-next-tutor-response" -Method Post -Headers $chatHeaders | Out-Null
+    }
     TapText 'Send question'
+    if ($VerifyTutorResponseLoss) {
+        TextNode 'We could not continue' | Out-Null
+        TapText 'Try again'
+        TextNode 'Pending question: Why keep the denominator?' | Out-Null
+        TextNode 'Check reply' | Out-Null
+        $beforeRecovery = Invoke-RestMethod "$chatPath/tutor-questions" -Headers $chatHeaders
+        if ($beforeRecovery.Count -ne 1 -or $beforeRecovery[0].status -ne 'complete') { throw 'Lost response did not leave exactly one complete server turn' }
+        Adb shell screencap -p /sdcard/qa-tutor-response-recovery.png | Out-Null
+        Adb pull /sdcard/qa-tutor-response-recovery.png (Join-Path $repo 'artifacts\qa-tutor-response-recovery.png') | Out-Null
+        TapText 'Check reply'
+        $afterRecovery = Invoke-RestMethod "$chatPath/tutor-questions" -Headers $chatHeaders
+        if ($afterRecovery.Count -ne 1 -or $afterRecovery[0].request_id -ne $beforeRecovery[0].request_id) { throw 'Check reply did not reuse the saved request identity' }
+        Write-Output 'PASS: post-commit 503 recovery reuses the single saved tutor request'
+    }
     TextNode 'Scripted QA reply: equal denominators describe equal-sized parts.' | Out-Null
     Adb shell screencap -p /sdcard/qa-tutor-conversation.png | Out-Null
     Adb pull /sdcard/qa-tutor-conversation.png (Join-Path $repo 'artifacts\qa-tutor-conversation.png') | Out-Null

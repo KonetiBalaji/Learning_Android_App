@@ -52,6 +52,11 @@ def test_qa_fault_is_one_shot_after_success_and_not_installed_in_production(monk
         committed.append(session_id)
         return {'saved': True, 'state_token': 'new-state'}
 
+    @app.post('/v1/mastery/sessions/{session_id}/tutor-questions')
+    def tutor_answer(session_id: str):
+        committed.append(f'tutor:{session_id}')
+        return {'request_id': 'saved-turn', 'status': 'complete'}
+
     @app.post('/v1/documents/{document_id}/quizzes', status_code=201)
     def create(document_id: str):
         committed.append(document_id)
@@ -72,6 +77,12 @@ def test_qa_fault_is_one_shot_after_success_and_not_installed_in_production(monk
         assert broken.json() == {'state_token': 'new-state'}
         assert len(committed) == 3
         assert client.post(path).json()['saved'] is True
+        assert client.post('/__qa/mastery/other/fail-next-tutor-response').status_code == 404
+        assert client.post('/__qa/mastery/owned/fail-next-tutor-response').status_code == 200
+        tutor_path = '/v1/mastery/sessions/owned/tutor-questions'
+        assert client.post(tutor_path).status_code == 503
+        assert committed[-1] == 'tutor:owned'
+        assert client.post(tutor_path).json() == {'request_id': 'saved-turn', 'status': 'complete'}
         assert client.post('/__qa/documents/other/fail-next-creation-response').status_code == 404
         assert client.get('/__qa/documents/other/created-quizzes').status_code == 404
         assert client.post('/__qa/documents/owned/fail-next-creation-response').status_code == 200

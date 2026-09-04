@@ -32,8 +32,11 @@ API 36 typed-conversation QA passed sending a question, restoring saved replies
 after process restart, displaying unavailability, preparing an explicit retry
 without sending, and confirming exactly two saved turns with unchanged mastery.
 Reply/failure screenshots were inspected. Scripted QA content only; real speech,
-live answer quality, pending/network-loss paths and UAT remain open. Backend
-regression: 403 passed, one existing Windows skip.
+live answer quality, actual TCP loss and UAT remain open. A separate post-commit
+503 run verified that Android retained the uncertain question and recovered the
+single already-saved turn by request ID without duplicating provider work. See
+`docs/tutor-conversation-recovery.md`. Backend regression: 409 passed, one
+existing Windows skip.
 
 Read-aloud lifecycle repair stops queued speech when backgrounded or lesson text
 changes, ignores stale callbacks, and provides completion/stop/error status with

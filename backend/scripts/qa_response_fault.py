@@ -83,6 +83,15 @@ def install_response_fault(app):
         armed[f'/v1/mastery/sessions/{session_id}/diagnostic-answer'] = mode
         return {'armed': True}
 
+    @app.post('/__qa/mastery/{session_id}/fail-next-tutor-response')
+    def arm_tutor(session_id: str, user_id=Depends(current_user_id), settings=Depends(get_settings)):
+        from app.main import owned_mastery_session
+        owned_mastery_session(session_id, user_id, settings)
+        if len(armed) >= 100:
+            raise HTTPException(status_code=429, detail='QA fault limit reached')
+        armed[f'/v1/mastery/sessions/{session_id}/tutor-questions'] = '503'
+        return {'armed': True}
+
     @app.middleware('http')
     async def replace_success(request, call_next):
         response = await call_next(request)
