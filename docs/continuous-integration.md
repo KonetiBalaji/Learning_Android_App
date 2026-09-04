@@ -18,6 +18,12 @@ APK, does not contain an OpenAI key and cannot satisfy UAT or production gates.
 Live provider evaluations and emulator/physical-device journeys are intentionally
 separate because they require protected credentials or dedicated devices.
 
+The first branch run proved backend and hygiene on GitHub, but Android failed with
+exit 126 because the Gradle wrapper lacked its executable Git mode. It also exposed
+Node 20 deprecation warnings in older action tags. The wrapper mode and official
+checkout/setup/upload action generations were updated; this failed run is retained
+as diagnostic evidence, not counted as a green quality gate.
+
 Local YAML parsing and the same backend/Android commands verify the workflow's
 structure and commands before commit. A local pass cannot prove GitHub runner SDK
 availability or a remote green check; the first pushed workflow run must be
