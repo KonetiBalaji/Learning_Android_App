@@ -1,4 +1,7 @@
 from io import BytesIO
+import os
+import subprocess
+import sys
 import time
 
 import fitz
@@ -46,6 +49,31 @@ def test_timeout_terminates_child(monkeypatch):
     with pytest.raises(TimeoutError, match='time limit'):
         document_service.extract_text_isolated(b'data', '.txt', 1)
     assert time.monotonic() - started < 4
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows Job Object enforcement')
+def test_windows_worker_can_install_fail_closed_memory_job():
+    result = subprocess.run([
+        sys.executable, '-c',
+        'from app.document_service import apply_parser_memory_limit; '
+        'apply_parser_memory_limit(); print("WINDOWS_PARSER_MEMORY_LIMIT_ACTIVE")',
+    ], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines()[-1] == 'WINDOWS_PARSER_MEMORY_LIMIT_ACTIVE'
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows Job Object enforcement')
+def test_windows_job_blocks_allocation_beyond_process_memory_limit():
+    program = (
+        'import app.document_service as service; '
+        'service.PARSER_MEMORY_BYTES = 256 * 1024 * 1024; '
+        'service.apply_parser_memory_limit(); '
+        '\ntry:\n bytearray(512 * 1024 * 1024); raise SystemExit(3)'
+        '\nexcept MemoryError:\n print("WINDOWS_PARSER_ALLOCATION_BLOCKED")'
+    )
+    result = subprocess.run([sys.executable, '-c', program], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines()[-1] == 'WINDOWS_PARSER_ALLOCATION_BLOCKED'
 
 
 def slow_worker(pipe, content, suffix):

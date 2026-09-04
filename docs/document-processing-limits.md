@@ -34,9 +34,10 @@ Upload parsing now runs in a fresh spawned process rather than the API process.
 The parent waits at most `LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS` (15 seconds by
 default, configurable from 1 to 120), then terminates and, if necessary, kills the
 child. Extracted text is capped at 2,000,000 characters before it crosses the
-process boundary. POSIX workers also request a 1 GiB address-space ceiling;
-Windows lacks Python's portable `resource` limit but still receives process,
-wall-time and output isolation. Child exceptions and parser details never cross
+process boundary. POSIX workers request a 1 GiB address-space ceiling. Windows
+workers create a private Job Object before parsing, apply a 1 GiB per-process
+memory limit, set kill-on-job-close, and assign the parser process. Failure to
+create, configure or join that job fails parsing closed. Child exceptions and parser details never cross
 the boundary. Time/output violations return stable
 `document_processing_limit` recovery guidance and save no document or upload.
 Original-PDF page indexing uses the same spawned-process timeout and memory helper
@@ -51,6 +52,13 @@ privilege skip**. Android's client-owned processing-limit recovery message passe
 as part of **141 JVM tests**, lint and debug APK assembly. No live learner document
 or external provider was used.
 
-Remaining production controls: PDF object expansion limits, Windows job-object memory caps,
-reverse-proxy ingress limits, load tests and retained-data policy. Preflight is not
+On 2026-09-04, focused Windows tests proved a spawned worker can create and join the
+configured Job Object, normal isolated PDF extraction/page selection still works,
+and a child capped at 256 MiB receives `MemoryError` instead of completing a 512 MiB
+allocation. Six isolation tests and sixteen combined isolation/PDF-page tests pass.
+The complete backend regression passes **533 tests with one existing Windows
+symlink-privilege skip** and the known Starlette/httpx deprecation warning.
+
+Remaining production controls: deeper PDF object-expansion adversarial coverage,
+reverse-proxy ingress limits, concurrent hostile-parser load tests and retained-data policy. Preflight is not
 a complete hostile-document sandbox or proof of production readiness.
