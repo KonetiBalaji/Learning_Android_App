@@ -19,4 +19,13 @@ class QuizMistakeTest {
         assertThrows(IllegalArgumentException::class.java) { validateQuizMistake(valid.copy(selectedOption = "Mitochondria")) }
         assertThrows(IllegalArgumentException::class.java) { validateQuizMistake(valid.copy(explanation = " ")) }
     }
+
+    @Test fun retryIdentitySurvivesResponseLossAndRequiresDurableStorage() {
+        val id = "12345678-1234-4234-8234-123456789012"
+        var disk: String? = null
+        assertEquals(id, prepareMistakeRetry(disk, { disk = it; true }, { id }))
+        assertEquals(id, prepareMistakeRetry(disk, { true }, { error("Must reuse saved request") }))
+        assertThrows(IllegalArgumentException::class.java) { prepareMistakeRetry("broken", { true }) }
+        assertThrows(IllegalStateException::class.java) { prepareMistakeRetry(null, { false }, { id }) }
+    }
 }

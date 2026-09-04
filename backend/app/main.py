@@ -43,6 +43,7 @@ from .schemas import (
     ChapterPreview,
     SourceSearchRequest,
     SourceSearchResults,
+    RetryMistakesRequest,
     PdfPageIndex,
     PdfPageRequest,
     PdfPageSelection,
@@ -616,6 +617,65 @@ def quiz_results(quiz_id: str, user_id: str = Depends(current_user_id), settings
         'explanation': row['explanation']}
         for row in answered if row["answered_option"] != row["correct_option"]]
     return QuizResults(quiz_id=quiz_id, answered=len(answered), total=len(rows), correct=len(correct), accuracy=(len(correct) / len(answered) if answered else 0.0), mistakes=mistakes)
+
+
+@app.post('/v1/quizzes/{quiz_id}/retry-mistakes', response_model=QuizSummary,
+          status_code=status.HTTP_201_CREATED)
+def retry_quiz_mistakes(quiz_id: str, request: RetryMistakesRequest,
+                        user_id: str = Depends(current_user_id),
+                        settings: Settings = Depends(get_settings)) -> QuizSummary:
+    request_id = str(request.request_id)
+    with connection(settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        source = db.execute('SELECT * FROM quizzes WHERE id = ? AND owner_id = ?',
+                            (quiz_id, user_id)).fetchone()
+        if source is None:
+            raise HTTPException(status_code=404, detail='Quiz not found')
+        replay = db.execute('''SELECT quizzes.* FROM quiz_retry_requests
+            JOIN quizzes ON quizzes.id = quiz_retry_requests.retry_quiz_id
+            WHERE quiz_retry_requests.owner_id = ? AND quiz_retry_requests.source_quiz_id = ?
+              AND quiz_retry_requests.request_id = ? AND quizzes.owner_id = ?''',
+            (user_id, quiz_id, request_id, user_id)).fetchone()
+        if replay is not None:
+            first = db.execute('SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal LIMIT 1',
+                               (replay['id'],)).fetchone()
+            count = db.execute('SELECT COUNT(*) FROM questions WHERE quiz_id = ?',
+                               (replay['id'],)).fetchone()[0]
+            return QuizSummary(id=replay['id'], title=replay['title'], question_count=count,
+                first_question=question_payload(first), difficulty=replay['difficulty'],
+                question_type=replay['question_type'],
+                source_ranges=parse_json(replay['source_ranges_json']) if replay['source_ranges_json'] else None)
+        if db.execute('SELECT 1 FROM questions WHERE quiz_id = ? AND answered_option IS NULL LIMIT 1',
+                      (quiz_id,)).fetchone():
+            raise HTTPException(status_code=409, detail='Finish this quiz before retrying its mistakes')
+        mistakes = db.execute('''SELECT * FROM questions WHERE quiz_id = ?
+            AND answered_option IS NOT NULL AND answered_option <> correct_option ORDER BY ordinal''',
+            (quiz_id,)).fetchall()
+        if not mistakes:
+            raise HTTPException(status_code=409, detail='This quiz has no answered mistakes to retry')
+        retry_id = str(uuid.uuid4())
+        title = f"Retry mistakes: {source['title']}"
+        db.execute('''INSERT INTO quizzes
+            (id, document_id, owner_id, title, created_at, difficulty, question_type, source_ranges_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (retry_id, source['document_id'], user_id, title, now(), source['difficulty'],
+             source['question_type'], source['source_ranges_json']))
+        for ordinal, question in enumerate(mistakes, start=1):
+            db.execute('''INSERT INTO questions
+                (id, quiz_id, ordinal, prompt, options_json, correct_option, explanation,
+                 source_reference, question_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (question_id(), retry_id, ordinal, question['prompt'], question['options_json'],
+                 question['correct_option'], question['explanation'], question['source_reference'],
+                 question['question_type']))
+        db.execute('''INSERT INTO quiz_retry_requests
+            (owner_id, source_quiz_id, request_id, retry_quiz_id) VALUES (?, ?, ?, ?)''',
+            (user_id, quiz_id, request_id, retry_id))
+        first = db.execute('SELECT * FROM questions WHERE quiz_id = ? ORDER BY ordinal LIMIT 1',
+                           (retry_id,)).fetchone()
+    return QuizSummary(id=retry_id, title=title, question_count=len(mistakes),
+        first_question=question_payload(first), difficulty=source['difficulty'],
+        question_type=source['question_type'],
+        source_ranges=parse_json(source['source_ranges_json']) if source['source_ranges_json'] else None)
 
 
 @app.post('/v1/mastery/sessions/{session_id}/presence', response_model=StudyPresence)

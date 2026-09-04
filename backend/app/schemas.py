@@ -156,6 +156,10 @@ class QuizResults(BaseModel):
     mistakes: list[QuizMistake]
 
 
+class RetryMistakesRequest(BaseModel):
+    request_id: UUID
+
+
 class DocumentQuizState(BaseModel):
     source_ranges: list[SourceRange] | None = None
     question_type: QuestionType = 'multiple_choice'

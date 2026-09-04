@@ -194,6 +194,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private fun documentDifficultyKey() = "document_difficulty:${mutableState.value.accountEmail.lowercase()}"
     private fun documentQuestionTypeKey() = "document_question_type:${mutableState.value.accountEmail.lowercase()}"
     private fun pendingQuizCreationKey() = "pending_quiz_creation:${mutableState.value.accountEmail.lowercase()}"
+    private fun pendingMistakeRetryKey(quizId: String) = "pending_mistake_retry:$quizId:${mutableState.value.accountEmail.lowercase()}"
     private fun pendingDocumentUploadKey() = "pending_document_upload:${mutableState.value.accountEmail.lowercase()}"
     private fun activeFlowKey() = "active_flow:${mutableState.value.accountEmail.lowercase()}"
 
@@ -723,6 +724,22 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     fun submitAnswer(option: String) = perform(Screen.Feedback, SubmittedFlow.DOCUMENT) { val current = mutableState.value; mutableState.value = current.copy(feedback = api.answer(requireNotNull(current.quizId), requireNotNull(current.question).id, option)) }
     fun continueAfterFeedback() { val current = mutableState.value; val feedback = current.feedback ?: return; if (feedback.next != null) mutableState.value = current.copy(screen = Screen.Question, question = feedback.next, feedback = null) else loadResults() }
     fun loadResults() = perform(Screen.Results) { mutableState.value = mutableState.value.copy(results = api.results(requireNotNull(mutableState.value.quizId))) }
+    fun retryDocumentMistakes() = perform(null) {
+        val current = mutableState.value
+        val sourceQuizId = requireNotNull(current.quizId)
+        val mistakes = requireNotNull(current.results).mistakes
+        require(mistakes.isNotEmpty()) { "This quiz has no mistakes to retry" }
+        val key = pendingMistakeRetryKey(sourceQuizId)
+        val requestId = prepareMistakeRetry(preferences.getString(key, null),
+            persist = { preferences.edit().putString(key, it).commit() })
+        val retry = api.retryMistakes(sourceQuizId, requestId)
+        require(retry.total == mistakes.size) { "Retry quiz does not match these mistakes" }
+        check(preferences.edit().putString(documentQuizKey(), retry.id).putString(activeFlowKey(), "document").remove(key).commit())
+        mutableState.value = current.copy(quizId = retry.id, documentQuestionTotal = retry.total,
+            savedQuizDifficulty = retry.difficulty, savedQuizQuestionType = retry.questionType,
+            question = retry.question, feedback = null, results = null, screen = Screen.Question,
+            canResumeDocumentQuiz = true)
+    }
     fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, sourceQuery = "", documentSearch = null, pdfPageDraft = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
 
@@ -957,6 +974,15 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
         return StartedDocumentQuiz(response.getString("id"), first, response.getInt("question_count"), if (response.isNull("difficulty")) null else response.getString("difficulty"), returnedType)
     }
     data class ResumedDocumentQuiz(val document: StudyDocument, val total: Int, val question: QuizQuestion?, val feedback: Feedback?, val difficulty: String?, val questionType: String?, val excerpts: List<DocumentExcerpt> = emptyList())
+    fun retryMistakes(quizId: String, requestId: String): StartedDocumentQuiz {
+        val response = request("POST", "/v1/quizzes/$quizId/retry-mistakes",
+            JSONObject().put("request_id", requestId).toString())
+        val type = response.getString("question_type")
+        val first = question(response.getJSONObject("first_question"))
+        validateDocumentOptions(type, first.options)
+        return StartedDocumentQuiz(response.getString("id"), first, response.getInt("question_count"),
+            if (response.isNull("difficulty")) null else response.getString("difficulty"), type)
+    }
     fun resumeDocumentQuiz(id: String): ResumedDocumentQuiz {
         val response = request("GET", "/v1/quizzes/$id", null)
         val feedback = response.optJSONObject("last_feedback")?.let { value -> Feedback(value.getBoolean("correct"), value.getString("selected_option"), value.getString("correct_option"), value.getString("explanation"), value.getString("source_reference"), value.optJSONObject("next_question")?.let(::question)) }

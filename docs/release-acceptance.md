@@ -122,8 +122,11 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 Document quiz results now expose the learner's selected answer, correct answer,
 grounded explanation and source reference for each completed incorrect response;
 Android validates and renders the complete teaching record. Unanswered answers
-remain undisclosed and ownership is unchanged. Automated QA is recorded in
-`quiz-mistake-review.md`; retry actions, API 36 review and UAT remain open.
+remain undisclosed and ownership is unchanged. The results screen can create an
+owner-scoped, idempotent new quiz containing only completed incorrect items, with
+fresh unanswered question IDs and preserved source evidence. Automated QA is
+recorded in `quiz-mistake-review.md`; API 36 review, another-quiz configuration
+and UAT remain open.
 | DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling and real TalkBack exposure for dynamic topic status/source/action nodes; loading/empty/offline/retry states have targeted flows. Full-screen spoken traversal, switch access, non-text contrast, physical devices and UAT remain |
 | DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |

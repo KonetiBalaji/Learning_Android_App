@@ -94,6 +94,13 @@ CREATE TABLE IF NOT EXISTS quiz_creation_requests (
   quiz_id TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
   PRIMARY KEY(owner_id, request_id)
 );
+CREATE TABLE IF NOT EXISTS quiz_retry_requests (
+  owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_quiz_id TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL,
+  retry_quiz_id TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  PRIMARY KEY(owner_id, source_quiz_id, request_id)
+);
 CREATE TABLE IF NOT EXISTS mastery_sessions (
   id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   grade INTEGER NOT NULL, subject_id TEXT NOT NULL, chapter_id TEXT NOT NULL,
