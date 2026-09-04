@@ -162,7 +162,11 @@ CREATE INDEX IF NOT EXISTS mastery_sessions_owner_completed_idx
 
 def initialize(path: Path) -> None:
     with sqlite3.connect(path) as connection:
-        connection.executescript(SCHEMA)
+        # Uvicorn starts multiple workers concurrently. Hold one database-wide
+        # migration lock until this connection commits so workers cannot inspect
+        # the same legacy schema and then race to add the same column.
+        connection.execute("PRAGMA busy_timeout = 30000")
+        connection.executescript("BEGIN EXCLUSIVE;\n" + SCHEMA)
         quiz_columns = {row[1] for row in connection.execute("PRAGMA table_info(quizzes)")}
         if 'source_ranges_json' not in quiz_columns:
             connection.execute('ALTER TABLE quizzes ADD COLUMN source_ranges_json TEXT')

@@ -1,8 +1,22 @@
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
 from app.database import connection, initialize
+
+
+def test_concurrent_workers_serialize_legacy_schema_migrations(tmp_path):
+    path = tmp_path / "legacy.sqlite"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE quizzes (id TEXT PRIMARY KEY)")
+
+    with ThreadPoolExecutor(max_workers=8) as workers:
+        list(workers.map(lambda _: initialize(path), range(8)))
+
+    with sqlite3.connect(path) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(quizzes)")}
+        assert {"source_ranges_json", "difficulty", "question_type"} <= columns
 
 
 def test_runtime_connections_enforce_foreign_keys(tmp_path):
