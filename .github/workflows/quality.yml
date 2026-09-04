@@ -90,6 +90,7 @@ jobs:
           test -n "${payload:-}"
           python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$payload" "$GITHUB_SHA"
           test "$(docker inspect --format '{{.Config.User}}' "$container")" = learning
+          python backend/scripts/production_load_smoke.py "http://127.0.0.1:${port}" --requests 700 --concurrency 20
 
   android:
     runs-on: ubuntu-latest
