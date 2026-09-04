@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
-enum class ExplorerKind { FRACTIONS, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
+enum class ExplorerKind { FRACTIONS, DECIMAL_PLACE_VALUE, CELL_ORGANELLES, SENTENCE_PARTS, MAP_COORDINATES }
 enum class LessonStage(val label: String) { CONCEPT("1. Understand"), EXAMPLE("2. Worked example"), HINT("3. Try the hint") }
 
 data class LessonStageContent(val heading: String, val body: String, val guidance: String)
@@ -46,6 +46,7 @@ fun lessonStageContent(lesson: TutorLesson, stage: LessonStage): LessonStageCont
 
 fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "math" && chapterId == "fractions" -> ExplorerKind.FRACTIONS
+    subjectId == "math" && chapterId == "decimals" -> ExplorerKind.DECIMAL_PLACE_VALUE
     subjectId == "science" && chapterId == "cells" -> ExplorerKind.CELL_ORGANELLES
     subjectId == "english" && chapterId == "grammar" -> ExplorerKind.SENTENCE_PARTS
     subjectId == "social" && chapterId == "geography" -> ExplorerKind.MAP_COORDINATES
@@ -55,6 +56,7 @@ fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
 data class OrganelleLesson(val name: String, val function: String, val evidence: String)
 data class SentencePartLesson(val name: String, val words: String, val role: String, val check: String)
 data class MapLineLesson(val name: String, val value: String, val role: String, val check: String)
+data class DecimalPlaceLesson(val name: String, val digit: Char, val characterIndex: Int, val value: String, val check: String)
 
 val organelleLessons = listOf(
     OrganelleLesson("Nucleus", "Stores most of the cell's DNA and helps direct cell activities.",
@@ -81,6 +83,14 @@ val mapLineLessons = listOf(
         "Longitude measures distance east or west of the Prime Meridian."),
     MapLineLesson("Coordinates", "20° N, 60° E", "Combine latitude first and longitude second to identify one location.",
         "20° N is north of the Equator; 60° E is east of the Prime Meridian."),
+)
+
+val decimalPlaceLessons = listOf(
+    DecimalPlaceLesson("Tens", '4', 0, "40", "Four tens means 4 × 10 = 40."),
+    DecimalPlaceLesson("Ones", '2', 1, "2", "Two ones means 2 × 1 = 2."),
+    DecimalPlaceLesson("Tenths", '3', 3, "0.3", "Three tenths means 3 × 0.1 = 0.3."),
+    DecimalPlaceLesson("Hundredths", '7', 4, "0.07", "Seven hundredths means 7 × 0.01 = 0.07."),
+    DecimalPlaceLesson("Thousandths", '5', 5, "0.005", "Five thousandths means 5 × 0.001 = 0.005."),
 )
 
 @Composable
@@ -113,10 +123,47 @@ fun LessonWalkthrough(lesson: TutorLesson) {
 fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {
     when (explorerKind(subjectId, chapterId)) {
         ExplorerKind.FRACTIONS -> FractionExplorer()
+        ExplorerKind.DECIMAL_PLACE_VALUE -> DecimalPlaceValueExplorer()
         ExplorerKind.CELL_ORGANELLES -> CellOrganelleExplorer()
         ExplorerKind.SENTENCE_PARTS -> SentencePartExplorer()
         ExplorerKind.MAP_COORDINATES -> MapCoordinateExplorer()
         null -> Unit
+    }
+}
+
+@Composable
+private fun DecimalPlaceValueExplorer() {
+    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val lesson = decimalPlaceLessons[selected]
+    val highlight = MaterialTheme.colorScheme.secondaryContainer
+    val number = buildAnnotatedString {
+        "42.375".forEachIndexed { index, character ->
+            withStyle(SpanStyle(
+                background = if (index == lesson.characterIndex) highlight else Color.Transparent,
+                fontWeight = if (index == lesson.characterIndex) FontWeight.Bold else FontWeight.Normal,
+            )) { append(character) }
+        }
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Explore decimal place value", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Select a place to see how its position determines the digit's value.")
+            Text(number, style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.fillMaxWidth().semantics {
+                    contentDescription = "42 point 375 with digit ${lesson.digit} in the ${lesson.name.lowercase()} place highlighted"
+                })
+            decimalPlaceLessons.forEachIndexed { index, item ->
+                OutlinedButton(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (selected == index) "Selected: ${item.name}" else "Explore ${item.name}")
+                }
+            }
+            Text("${lesson.digit} in the ${lesson.name.lowercase()} place = ${lesson.value}",
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(lesson.check, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Exploring place value does not submit an answer or change mastery.",
+                style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

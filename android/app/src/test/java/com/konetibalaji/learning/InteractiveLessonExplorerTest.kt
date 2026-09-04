@@ -21,14 +21,25 @@ class InteractiveLessonExplorerTest {
 
     @Test fun routesOnlySupportedSubjectChapterPairs() {
         assertEquals(ExplorerKind.FRACTIONS, explorerKind("math", "fractions"))
+        assertEquals(ExplorerKind.DECIMAL_PLACE_VALUE, explorerKind("math", "decimals"))
         assertEquals(ExplorerKind.CELL_ORGANELLES, explorerKind("science", "cells"))
         assertEquals(ExplorerKind.SENTENCE_PARTS, explorerKind("english", "grammar"))
         assertEquals(ExplorerKind.MAP_COORDINATES, explorerKind("social", "geography"))
         assertNull(explorerKind("science", "fractions"))
+        assertNull(explorerKind("science", "decimals"))
         assertNull(explorerKind("math", "cells"))
         assertNull(explorerKind("english", "cells"))
         assertNull(explorerKind("science", "geography"))
         assertNull(explorerKind(null, null))
+    }
+
+    @Test fun decimalPlacesMapEveryDigitToItsExactPositionalValue() {
+        assertEquals(listOf("Tens", "Ones", "Tenths", "Hundredths", "Thousandths"),
+            decimalPlaceLessons.map { it.name })
+        assertEquals(listOf('4', '2', '3', '7', '5'), decimalPlaceLessons.map { it.digit })
+        assertEquals(listOf(0, 1, 3, 4, 5), decimalPlaceLessons.map { it.characterIndex })
+        assertEquals(listOf("40", "2", "0.3", "0.07", "0.005"), decimalPlaceLessons.map { it.value })
+        assertTrue(decimalPlaceLessons.all { it.check.contains("means") && it.check.contains("=") })
     }
 
     @Test fun curatedOrganelleLessonsAreDistinctAndInstructional() {
