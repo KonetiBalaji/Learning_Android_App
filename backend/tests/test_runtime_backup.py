@@ -26,7 +26,10 @@ def runtime(tmp_path):
     with closing(sqlite3.connect(root / DATABASE)) as db, db:
         db.execute("INSERT INTO users VALUES ('owner', 'fixture@example.com', 'hashed-password', '2026-09-03')")
         db.execute("INSERT INTO users VALUES ('other', 'other@example.com', 'other-hash', '2026-09-03')")
-        db.execute("INSERT INTO documents VALUES ('document', 'owner', 'source.txt', 'text/plain', ?, 'source text', '[]', '2026-09-03')", (str(live),))
+        db.execute("""INSERT INTO documents
+            (id, owner_id, original_name, media_type, stored_path, extracted_text, chapters_json, created_at, stored_bytes)
+            VALUES ('document', 'owner', 'source.txt', 'text/plain', ?, 'source text', '[]', '2026-09-03', ?)""",
+            (str(live), live.stat().st_size))
         db.execute("INSERT INTO pending_file_deletions VALUES (?, 2, 'filesystem_error')", (str(deleted),))
         db.execute("INSERT INTO quizzes (id,document_id,owner_id,title,created_at) VALUES ('quiz','document','owner','Quiz','2026-09-03')")
         db.execute("INSERT INTO questions VALUES ('question','quiz',0,'Prompt','{}','A','Explanation','source', 'B','2026-09-03','multiple_choice')")

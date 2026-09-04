@@ -10,6 +10,9 @@ Set the following through the chosen host's secret/configuration facility:
 - `LEARNING_JWT_SECRET`: random value of at least 32 characters
 - `LEARNING_RELEASE_REVISION`: exact 40-character lowercase Git commit
 - `LEARNING_TOKEN_MINUTES`: 1 through 43200; default is 1440
+- `LEARNING_MAX_DOCUMENTS_PER_OWNER`: default 100
+- `LEARNING_MAX_DOCUMENT_BYTES_PER_OWNER`: default 2 GiB
+- `LEARNING_MAX_UPLOAD_BYTES`: default 50 MiB and never greater than owner bytes
 - `LEARNING_AI_MODE=openai`
 - `OPENAI_API_KEY`: server-side secret
 - `OPENAI_MODEL`: reviewed supported model, currently `gpt-5-mini`

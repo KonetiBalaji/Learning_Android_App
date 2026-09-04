@@ -16,7 +16,7 @@ from .google_login import google_login
 from .auth_throttle import limit_authentication
 from .database import connection, initialize, json_value, parse_json
 from .document_service import detect_chapters, validate_and_store
-from .document_errors import document_error_headers
+from .document_errors import DocumentErrorCode, DocumentValidationError, document_error_headers
 from .quiz_service import generate_grounded_questions, question_id
 from .quiz_creation import creation_fingerprint
 from .document_selection import repair_chapter_coverage, resolve_quiz_selection
@@ -213,11 +213,28 @@ async def upload_document(
         chapters = detect_chapters(extracted_text)
         document_id = str(uuid.uuid4())
         with connection(settings.database_path) as db:
+            # SQLite's write lock makes quota-read plus insert one owner-safe critical
+            # section; the temporary file is discarded on rejection or contention.
+            db.execute('BEGIN IMMEDIATE')
+            usage = db.execute(
+                'SELECT COUNT(*) AS count, COALESCE(SUM(stored_bytes), 0) AS bytes FROM documents WHERE owner_id = ?',
+                (user_id,),
+            ).fetchone()
+            if usage['count'] >= settings.max_documents_per_owner:
+                raise DocumentValidationError(DocumentErrorCode.DOCUMENT_COUNT_LIMIT,
+                                              'Delete a saved document before uploading another.')
+            incoming_bytes = stored.stat().st_size
+            if usage['bytes'] + incoming_bytes > settings.max_document_bytes_per_owner:
+                raise DocumentValidationError(DocumentErrorCode.DOCUMENT_BYTES_LIMIT,
+                                              'Delete saved documents before uploading more material.')
             db.execute(
-                """INSERT INTO documents (id, owner_id, original_name, media_type, stored_path, extracted_text, chapters_json, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (document_id, user_id, filename, file.content_type or "application/octet-stream", str(stored), extracted_text, json_value([chapter.model_dump() for chapter in chapters]), now()),
+                """INSERT INTO documents (id, owner_id, original_name, media_type, stored_path, extracted_text, chapters_json, created_at, stored_bytes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (document_id, user_id, filename, file.content_type or "application/octet-stream", str(stored), extracted_text, json_value([chapter.model_dump() for chapter in chapters]), now(), incoming_bytes),
             )
+    except DocumentValidationError as error:
+        discard_uncommitted_upload(settings, stored)
+        raise HTTPException(status_code=422, detail=str(error), headers=document_error_headers(error)) from error
     except sqlite3.Error as error:
         discard_uncommitted_upload(settings, stored)
         raise HTTPException(status_code=503, detail='Document storage is temporarily unavailable. Please retry.') from error

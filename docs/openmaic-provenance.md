@@ -52,9 +52,45 @@ The entries below identify actual source-informed adaptations made afterward.
   `artifacts/qa-rubric-feedback.png` after a forced process restart; question 2
   remained pending. The test completed the remaining questions before mastery.
 
+## OA-02: Owner-scoped learning-material quotas
+
+- Upstream repository: https://github.com/THU-MAIC/OpenMAIC
+- Pinned revision: `f6cf8fd4b74ac83ea969e88b6dc2c974931b4d65`
+- Sources:
+  - `lib/server/agent-runtime/config.ts` (`maxMaterialsPerOwner`,
+    `maxMaterialBytesPerOwner`)
+  - `lib/persistence/owner-materials.ts` (`registerOwnerMaterial` quota
+    read/check/insert under an owner-scoped transaction lock)
+  - `app/api/materials/route.ts` (quota rejection at authenticated upload)
+- License: MIT, Copyright (c) 2026 THU-MAIC. The existing full notice remains
+  in `third_party/OpenMAIC-LICENSE.txt`.
+- Acquisition: inspected only those files from the existing local checkout at the
+  pinned commit. No cherry-pick, copy of TypeScript, runtime dependency or upstream
+  database schema was introduced.
+- Local implementation: `Settings` owner count/byte ceilings, `documents.stored_bytes`
+  migration/backfill, and the authenticated `/v1/documents` transaction.
+- Adapted elements: independently configurable maximum active document count and
+  aggregate stored bytes per owner; serialized quota-read/check/insert so concurrent
+  uploads cannot both consume one remaining slot; deletion releases capacity.
+- Deliberate changes: SQLite `BEGIN IMMEDIATE` replaces PostgreSQL advisory locks;
+  the already-validated temporary file is removed when admission loses the race;
+  the existing local database/file lifecycle remains authoritative. Stable 422
+  error codes select Android-owned recovery text instead of exposing quota internals
+  or using upstream's generic 429 response.
+- Migration: existing rows gain `stored_bytes`; startup backfills it from the saved
+  file where present. A missing legacy file remains zero and is separately governed
+  by existing deletion/reconciliation work rather than inventing a byte value.
+- Verification: endpoint tests cover count and byte rejection, distinct owners,
+  deletion/retry and temporary-file cleanup; a parallel two-request regression
+  proves one-slot admission cannot overshoot; migration restores a real legacy file
+  size. Android tests verify only exact known codes can show local quota guidance.
+
 ## Remaining candidates (not integrated)
 
 OpenMAIC's teacher/classroom orchestration, whiteboard/action engine, interactive
 HTML teaching scenes, course generation, and material-grounding pipeline still
-need source inspection, compatibility/security review, scope mapping, adaptation,
-and separate evidence. This one entry does not satisfy all integration requirements.
+need separate compatibility/security decisions. Multi-agent classroom simulation and
+course publishing are not required for the learner's single-teacher Android flow;
+provider voice cloning is rejected because device TTS avoids retaining biometric
+voice material. Rich interactive scenes remain a candidate for TUT-05 rather than
+being silently counted as integrated. OA-01 and OA-02 do not claim a complete port.

@@ -31,6 +31,8 @@ private fun documentRecoveryMessage(code: String?): String? = when (code) {
     "empty_pdf_pages" -> "These PDF pages have no extracted text. Choose pages with text; scanned pages need OCR, which is not available. Your selection is unchanged."
     "pdf_coverage_gap" -> "Some text on these pages is missing from the chapter structure. Use Check for omitted text, then load and review the PDF pages again. Your selection is unchanged."
     "too_many_pdf_ranges" -> "These pages span more than 50 source ranges. Choose fewer PDF pages and review again. Your selection is unchanged."
+    "document_count_limit" -> "You reached the saved-document limit. Delete a document from My uploaded documents, then try again."
+    "document_bytes_limit" -> "Your saved documents use the available storage. Delete documents you no longer need, then try again."
     else -> null
 }
 

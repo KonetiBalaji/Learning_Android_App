@@ -7,6 +7,8 @@ class DocumentErrorCode(str, Enum):
     EMPTY_PDF_PAGES = 'empty_pdf_pages'
     PDF_COVERAGE_GAP = 'pdf_coverage_gap'
     TOO_MANY_PDF_RANGES = 'too_many_pdf_ranges'
+    DOCUMENT_COUNT_LIMIT = 'document_count_limit'
+    DOCUMENT_BYTES_LIMIT = 'document_bytes_limit'
 
 
 class DocumentValidationError(ValueError):

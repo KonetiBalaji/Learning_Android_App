@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   original_name TEXT NOT NULL, media_type TEXT NOT NULL, stored_path TEXT NOT NULL,
-  extracted_text TEXT NOT NULL, chapters_json TEXT NOT NULL, created_at TEXT NOT NULL
+  extracted_text TEXT NOT NULL, chapters_json TEXT NOT NULL, created_at TEXT NOT NULL,
+  stored_bytes INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS google_accounts (
   subject TEXT PRIMARY KEY,
@@ -101,6 +102,15 @@ def initialize(path: Path) -> None:
         question_columns = {row[1] for row in connection.execute("PRAGMA table_info(questions)")}
         if 'question_type' not in question_columns:
             connection.execute("ALTER TABLE questions ADD COLUMN question_type TEXT NOT NULL DEFAULT 'multiple_choice'")
+        document_columns = {row[1] for row in connection.execute("PRAGMA table_info(documents)")}
+        if 'stored_bytes' not in document_columns:
+            connection.execute('ALTER TABLE documents ADD COLUMN stored_bytes INTEGER NOT NULL DEFAULT 0')
+        for row in connection.execute('SELECT id, stored_path FROM documents WHERE stored_bytes = 0').fetchall():
+            try:
+                stored_bytes = Path(row[1]).stat().st_size
+            except OSError:
+                continue
+            connection.execute('UPDATE documents SET stored_bytes = ? WHERE id = ?', (stored_bytes, row[0]))
         columns = {row[1] for row in connection.execute("PRAGMA table_info(mastery_sessions)")}
         if "questions_json" not in columns:
             connection.execute("ALTER TABLE mastery_sessions ADD COLUMN questions_json TEXT NOT NULL DEFAULT ''")

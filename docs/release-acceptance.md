@@ -108,7 +108,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | DATA-01 | Durable state and account isolation | Partial | Server resume contracts, encrypted local state, account switching and forced-process-death tests |
 | SEC-01 | Deletion and retention | Partial | Database cascade assertions, file removal, other-owner preservation, retention policy |
 | SEC-02 | Production hardening | Partial | HTTPS release guard, offline backup checks and persistent authentication peer throttle implemented; production proxy/capacity, account-based abuse controls, provider-cost limits, operational logs and deployment recovery still need verification |
-| UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading adaptation pinned/licensed/tested; remaining relevant upstream capabilities still need separate evidence |
+| UP-01 | Traceable OpenMAIC adaptation | Partial | OA-01 grading and OA-02 owner-material quota adaptations are pinned/licensed/tested; rich interactive scenes still need a separate TUT-05 decision/evidence |
 | QA-01 | Automated regression suite | Partial | Backend, Android unit/instrumentation, AI evals, failure/recovery and security tests |
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
 | PROD-01 | Production deployment | Missing | User-confirmed host/domain/distribution, staging verification, rollback, secrets and operational checks |
@@ -141,6 +141,15 @@ credential fields across restart and allowed password reauthentication. The synt
 account was deleted. This covers ciphertext corruption with AndroidKeyStore but not
 OEM key invalidation, hardware-backed certification or user UAT; see
 `android-session-security.md`. Android 126 JVM tests, lint and debug assembly pass.
+
+OA-02 selectively adapts OpenMAIC's owner-scoped material count/byte quota and
+serialized admission pattern. This implementation uses SQLite `BEGIN IMMEDIATE`,
+measured file bytes, rejection cleanup and stable Android-owned recovery codes.
+Tests cover count/bytes, separate owners, deletion release, a two-request race and
+legacy size backfill. No TypeScript, database schema, agent runtime or repository
+history was copied. Backend 444 passed with one Windows skip; Android 126 JVM tests,
+lint and debug assembly passed. See `openmaic-provenance.md` and
+`document-storage-quota.md`.
 
 ## Delivery stages and exit gates
 

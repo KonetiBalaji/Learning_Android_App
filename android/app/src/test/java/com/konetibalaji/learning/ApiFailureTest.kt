@@ -68,7 +68,8 @@ class ApiFailureTest {
 
     @Test fun knownDocumentCodesUseLocalMessagesWithoutEchoingResponseBody() {
         mapOf("insufficient_quiz_material" to "Choose fewer questions", "empty_pdf_pages" to "no extracted text",
-            "pdf_coverage_gap" to "Check for omitted text", "too_many_pdf_ranges" to "50 source ranges").forEach { (code, hint) ->
+            "pdf_coverage_gap" to "Check for omitted text", "too_many_pdf_ranges" to "50 source ranges",
+            "document_count_limit" to "saved-document limit", "document_bytes_limit" to "available storage").forEach { (code, hint) ->
             val response = Response(422, "private-source-password", recovery = code)
             val failure = assertThrows(ApiFailure::class.java) { readApiResponse(response) }
             assertTrue(failure.message!!.contains(hint))

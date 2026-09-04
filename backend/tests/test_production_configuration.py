@@ -60,3 +60,17 @@ def test_unsafe_token_lifetime_is_rejected(monkeypatch, minutes):
     monkeypatch.setenv('LEARNING_TOKEN_MINUTES', minutes)
     with pytest.raises(ValueError, match='Token lifetime'):
         get_settings()
+
+
+@pytest.mark.parametrize('name,value,message', [
+    ('LEARNING_MAX_DOCUMENTS_PER_OWNER', '0', 'document count'),
+    ('LEARNING_MAX_DOCUMENTS_PER_OWNER', '10001', 'document count'),
+    ('LEARNING_MAX_UPLOAD_BYTES', '0', 'upload bytes'),
+    ('LEARNING_MAX_UPLOAD_BYTES', str(1024 ** 3 + 1), 'upload bytes'),
+    ('LEARNING_MAX_DOCUMENT_BYTES_PER_OWNER', str(1024), 'document bytes'),
+    ('LEARNING_MAX_DOCUMENT_BYTES_PER_OWNER', str(1024 ** 4 + 1), 'document bytes'),
+])
+def test_unsafe_document_quota_is_rejected(monkeypatch, name, value, message):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match=message):
+        get_settings()

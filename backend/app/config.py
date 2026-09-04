@@ -20,6 +20,8 @@ class Settings:
     jwt_issuer: str = "learning-api"
     token_minutes: int = 60 * 24
     max_upload_bytes: int = 50 * 1024 * 1024
+    max_documents_per_owner: int = 100
+    max_document_bytes_per_owner: int = 2 * 1024 * 1024 * 1024
     openai_api_key: str | None = field(default=None, repr=False)
     openai_model: str = "gpt-5-mini"
     ai_mode: str = "deterministic"
@@ -39,6 +41,12 @@ class Settings:
             raise ValueError("Authentication window must be between 1 and 3600 seconds")
         if not 1 <= self.token_minutes <= 60 * 24 * 30:
             raise ValueError('Token lifetime must be between 1 minute and 30 days')
+        if not 1 <= self.max_documents_per_owner <= 10_000:
+            raise ValueError('Per-owner document count must be between 1 and 10000')
+        if not 1 <= self.max_upload_bytes <= 1024 ** 3:
+            raise ValueError('Per-document upload bytes must be between 1 byte and 1 GiB')
+        if not self.max_upload_bytes <= self.max_document_bytes_per_owner <= 1024 ** 4:
+            raise ValueError('Per-owner document bytes must cover one upload and not exceed 1 TiB')
         if self.environment in {'staging', 'production'}:
             if len(self.jwt_secret) < 32 or self.jwt_secret == 'local-development-secret-change-before-deployment':
                 raise ValueError('Staging and production require an explicit JWT secret of at least 32 characters')
@@ -70,7 +78,10 @@ def get_settings() -> Settings:
     return Settings(
         runtime_dir=base,
         jwt_secret=secret,
+        max_upload_bytes=int(os.getenv('LEARNING_MAX_UPLOAD_BYTES', str(50 * 1024 * 1024))),
         token_minutes=int(os.getenv('LEARNING_TOKEN_MINUTES', str(60 * 24))),
+        max_documents_per_owner=int(os.getenv('LEARNING_MAX_DOCUMENTS_PER_OWNER', '100')),
+        max_document_bytes_per_owner=int(os.getenv('LEARNING_MAX_DOCUMENT_BYTES_PER_OWNER', str(2 * 1024 * 1024 * 1024))),
         openai_api_key=api_key,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini",
         ai_mode=ai_mode,
