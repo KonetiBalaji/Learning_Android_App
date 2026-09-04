@@ -9,6 +9,7 @@ class DocumentErrorCode(str, Enum):
     TOO_MANY_PDF_RANGES = 'too_many_pdf_ranges'
     DOCUMENT_COUNT_LIMIT = 'document_count_limit'
     DOCUMENT_BYTES_LIMIT = 'document_bytes_limit'
+    DOCUMENT_PROCESSING_LIMIT = 'document_processing_limit'
 
 
 class DocumentValidationError(ValueError):

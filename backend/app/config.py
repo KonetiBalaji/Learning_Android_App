@@ -24,6 +24,7 @@ class Settings:
     max_document_bytes_per_owner: int = 2 * 1024 * 1024 * 1024
     guardian_invitation_retention_days: int = 30
     orphan_upload_grace_hours: int = 24
+    document_parse_timeout_seconds: int = 15
     openai_api_key: str | None = field(default=None, repr=False)
     openai_model: str = "gpt-5-mini"
     ai_mode: str = "deterministic"
@@ -54,6 +55,8 @@ class Settings:
             raise ValueError('Guardian invitation retention must be between 1 and 365 days')
         if not 1 <= self.orphan_upload_grace_hours <= 720:
             raise ValueError('Orphan upload grace period must be between 1 and 720 hours')
+        if not 1 <= self.document_parse_timeout_seconds <= 120:
+            raise ValueError('Document parse timeout must be between 1 and 120 seconds')
         if not 1 <= self.max_ai_operations_per_owner_per_day <= 100_000:
             raise ValueError('Daily per-owner AI operation limit must be between 1 and 100000')
         if self.environment in {'staging', 'production'}:
@@ -93,6 +96,7 @@ def get_settings() -> Settings:
         max_document_bytes_per_owner=int(os.getenv('LEARNING_MAX_DOCUMENT_BYTES_PER_OWNER', str(2 * 1024 * 1024 * 1024))),
         guardian_invitation_retention_days=int(os.getenv('LEARNING_GUARDIAN_INVITATION_RETENTION_DAYS', '30')),
         orphan_upload_grace_hours=int(os.getenv('LEARNING_ORPHAN_UPLOAD_GRACE_HOURS', '24')),
+        document_parse_timeout_seconds=int(os.getenv('LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS', '15')),
         max_ai_operations_per_owner_per_day=int(os.getenv('LEARNING_MAX_AI_OPERATIONS_PER_OWNER_PER_DAY', '200')),
         openai_api_key=api_key,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini",

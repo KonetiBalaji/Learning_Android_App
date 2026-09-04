@@ -88,3 +88,10 @@ def test_unsafe_orphan_upload_grace_is_rejected(monkeypatch, hours):
     monkeypatch.setenv('LEARNING_ORPHAN_UPLOAD_GRACE_HOURS', hours)
     with pytest.raises(ValueError, match='Orphan upload grace period'):
         get_settings()
+
+
+@pytest.mark.parametrize('seconds', ['0', '121'])
+def test_unsafe_document_parse_timeout_is_rejected(monkeypatch, seconds):
+    monkeypatch.setenv('LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS', seconds)
+    with pytest.raises(ValueError, match='Document parse timeout'):
+        get_settings()

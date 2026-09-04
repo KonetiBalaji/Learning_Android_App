@@ -5,6 +5,7 @@ import pytest
 from docx import Document
 
 from app import document_limits as limits
+from app import document_service
 from app.config import get_settings
 from app.database import connection
 from test_mastery_loop import registered_client
@@ -89,3 +90,20 @@ def test_non_docx_compression_is_rejected():
         zipped.writestr('word/document.xml', 'synthetic')
     with pytest.raises(ValueError, match='Unsupported archive compression'):
         limits.validate_docx_archive(output.getvalue())
+
+
+def test_parser_timeout_returns_stable_recovery_without_saving(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        monkeypatch.setattr(document_service, 'extract_text_isolated',
+                            lambda *_: (_ for _ in ()).throw(TimeoutError('private parser detail')))
+        response = client.post('/v1/documents', headers=headers,
+                               files={'file': ('lesson.txt', b'ordinary lesson text ' * 10)})
+        assert response.status_code == 422
+        assert response.headers['X-Learning-Error'] == 'document_processing_limit'
+        assert 'private parser detail' not in response.text
+        assert list(get_settings().uploads_dir.iterdir()) == []
+        with connection(get_settings().database_path) as db:
+            assert db.execute('SELECT COUNT(*) FROM documents').fetchone()[0] == 0
+    finally:
+        client.__exit__(None, None, None)

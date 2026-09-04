@@ -28,7 +28,28 @@ An initial Windows path test exposed normalization of ZIP member names. The guar
 now also checks the original archive name, and the regression crafts that raw
 name in both ZIP headers. No weakened assertion was used to accept normalization.
 
-Remaining production controls: isolated extraction workers with time/memory caps,
-limits before ZIP central-directory parsing, PDF page/object/text expansion limits,
+## Isolated extraction
+
+Upload parsing now runs in a fresh spawned process rather than the API process.
+The parent waits at most `LEARNING_DOCUMENT_PARSE_TIMEOUT_SECONDS` (15 seconds by
+default, configurable from 1 to 120), then terminates and, if necessary, kills the
+child. Extracted text is capped at 2,000,000 characters before it crosses the
+process boundary. POSIX workers also request a 1 GiB address-space ceiling;
+Windows lacks Python's portable `resource` limit but still receives process,
+wall-time and output isolation. Child exceptions and parser details never cross
+the boundary. Time/output violations return stable
+`document_processing_limit` recovery guidance and save no document or upload.
+
+DOCX archive admission remains in the API process before spawn and is repeated in
+the child. This deliberately rejects known expansion hazards before process cost,
+but ZIP central-directory parsing itself is not isolated. Focused PDF, corruption,
+output-bound, real timeout/termination, HTTP cleanup and configuration checks pass.
+The complete backend regression passes **512 tests with one Windows symlink
+privilege skip**. Android's client-owned processing-limit recovery message passes
+as part of **141 JVM tests**, lint and debug APK assembly. No live learner document
+or external provider was used.
+
+Remaining production controls: limits before ZIP central-directory parsing,
+PDF object expansion limits, Windows job-object memory caps,
 reverse-proxy ingress limits, load tests and retained-data policy. Preflight is not
 a complete hostile-document sandbox or proof of production readiness.
