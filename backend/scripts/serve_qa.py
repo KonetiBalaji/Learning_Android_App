@@ -24,9 +24,12 @@ def main():
     parser.add_argument("--qa-only", action="store_true")
     parser.add_argument("--binary-fixtures", action="store_true")
     parser.add_argument("--science-fixture", action="store_true")
+    parser.add_argument("--english-fixture", action="store_true")
     parser.add_argument("--upload-response-delay", type=int, choices=range(0, 21), default=0)
     parser.add_argument("--fail-saved-upload-response", action="store_true")
     args = parser.parse_args()
+    if sum((args.binary_fixtures, args.science_fixture, args.english_fixture)) > 1:
+        parser.error('Choose only one content fixture.')
     if not args.qa_only:
         parser.error("This scripted evaluator is only for QA; supply --qa-only")
     if args.fail_saved_upload_response and not args.upload_response_delay:
@@ -45,7 +48,8 @@ def main():
         api.generate_document_questions = generate_binary_fixture
 
     class ScriptedQAProvider(DeterministicTutorProvider):
-        name = ("scripted-science-qa" if args.science_fixture else
+        name = ("scripted-english-qa" if args.english_fixture else
+                "scripted-science-qa" if args.science_fixture else
                 "scripted-binary-qa" if args.binary_fixtures else "scripted-qa")
 
         def diagnostic_bank(self, grade, subject_id, chapter_id):
@@ -63,6 +67,21 @@ def main():
                     hint='Match the organelle name to the function shown in the lesson.',
                     practice_prompt=f'Name the organelle described in this {concept.lower()} example.',
                     practice_answers=(answer,),
+                ) for prompt, options, answer, concept in concepts)
+            if args.english_fixture and (grade, subject_id, chapter_id) == (8, 'english', 'grammar'):
+                concepts = (
+                    ('Which sentence part names who or what performs the action?', ('Subject', 'Verb', 'Object', 'Punctuation'), 'Subject', 'Subject'),
+                    ('Which sentence part expresses the action?', ('Object', 'Adjective', 'Verb', 'Subject'), 'Verb', 'Verb'),
+                    ('Which sentence part receives the action?', ('Verb', 'Object', 'Subject', 'Adverb'), 'Object', 'Object'),
+                )
+                return tuple(DiagnosticItem(
+                    prompt=prompt, options=options, correct_option=answer,
+                    concept=f'Sentence parts — {concept.lower()}',
+                    explanation=f'The {concept.lower()} has a distinct grammatical job in a complete sentence.',
+                    worked_example=f'Use the sentence explorer to locate the {concept.lower()} and connect it to its role.',
+                    hint='Ask who acts, what action happens, and what receives that action.',
+                    practice_prompt=f'Identify the {concept.lower()} in: The curious student solved the puzzle.',
+                    practice_answers=("The curious student" if answer == 'Subject' else "solved" if answer == 'Verb' else "the puzzle",),
                 ) for prompt, options, answer, concept in concepts)
             return super().diagnostic_bank(grade, subject_id, chapter_id)
 

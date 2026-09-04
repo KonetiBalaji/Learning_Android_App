@@ -9,9 +9,10 @@ class InteractiveLessonExplorerTest {
     @Test fun routesOnlySupportedSubjectChapterPairs() {
         assertEquals(ExplorerKind.FRACTIONS, explorerKind("math", "fractions"))
         assertEquals(ExplorerKind.CELL_ORGANELLES, explorerKind("science", "cells"))
+        assertEquals(ExplorerKind.SENTENCE_PARTS, explorerKind("english", "grammar"))
         assertNull(explorerKind("science", "fractions"))
         assertNull(explorerKind("math", "cells"))
-        assertNull(explorerKind("english", "grammar"))
+        assertNull(explorerKind("english", "cells"))
         assertNull(explorerKind(null, null))
     }
 
@@ -21,6 +22,15 @@ class InteractiveLessonExplorerTest {
         organelleLessons.forEach {
             assertTrue(it.function.length >= 40)
             assertTrue(it.evidence.length >= 40)
+        }
+    }
+
+    @Test fun sentencePartsMapOneCompleteSentenceWithoutOverlap() {
+        assertEquals(listOf("Subject", "Verb", "Object"), sentencePartLessons.map { it.name })
+        assertEquals("The curious student solved the puzzle", sentencePartLessons.joinToString(" ") { it.words })
+        sentencePartLessons.forEach {
+            assertTrue(it.role.length >= 35)
+            assertTrue(it.check.startsWith("Ask:"))
         }
     }
 }

@@ -24,18 +24,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
-enum class ExplorerKind { FRACTIONS, CELL_ORGANELLES }
+enum class ExplorerKind { FRACTIONS, CELL_ORGANELLES, SENTENCE_PARTS }
 
 fun explorerKind(subjectId: String?, chapterId: String?): ExplorerKind? = when {
     subjectId == "math" && chapterId == "fractions" -> ExplorerKind.FRACTIONS
     subjectId == "science" && chapterId == "cells" -> ExplorerKind.CELL_ORGANELLES
+    subjectId == "english" && chapterId == "grammar" -> ExplorerKind.SENTENCE_PARTS
     else -> null
 }
 
 data class OrganelleLesson(val name: String, val function: String, val evidence: String)
+data class SentencePartLesson(val name: String, val words: String, val role: String, val check: String)
 
 val organelleLessons = listOf(
     OrganelleLesson("Nucleus", "Stores most of the cell's DNA and helps direct cell activities.",
@@ -46,12 +51,59 @@ val organelleLessons = listOf(
         "Ribosomes may float in cytoplasm or attach to rough endoplasmic reticulum."),
 )
 
+val sentencePartLessons = listOf(
+    SentencePartLesson("Subject", "The curious student", "Names who or what performs the action.",
+        "Ask: Who solved something? The curious student."),
+    SentencePartLesson("Verb", "solved", "Expresses the action performed by the subject.",
+        "Ask: What did the student do? Solved."),
+    SentencePartLesson("Object", "the puzzle", "Receives the action expressed by the verb.",
+        "Ask: What did the student solve? The puzzle."),
+)
+
 @Composable
 fun InteractiveLessonExplorer(subjectId: String?, chapterId: String?) {
     when (explorerKind(subjectId, chapterId)) {
         ExplorerKind.FRACTIONS -> FractionExplorer()
         ExplorerKind.CELL_ORGANELLES -> CellOrganelleExplorer()
+        ExplorerKind.SENTENCE_PARTS -> SentencePartExplorer()
         null -> Unit
+    }
+}
+
+@Composable
+private fun SentencePartExplorer() {
+    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val lesson = sentencePartLessons[selected]
+    val highlight = MaterialTheme.colorScheme.secondaryContainer
+    val highlightedSentence = buildAnnotatedString {
+        sentencePartLessons.forEachIndexed { index, part ->
+            if (index > 0) append(" ")
+            withStyle(SpanStyle(background = if (index == selected) highlight else Color.Transparent,
+                fontWeight = if (index == selected) FontWeight.Bold else FontWeight.Normal)) {
+                append(part.words)
+            }
+        }
+        append(".")
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Build a sentence", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Select a sentence part to highlight its words and discover the job it performs.")
+            Text(highlightedSentence, style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription =
+                    "Sentence with ${lesson.name} highlighted: ${lesson.words}" })
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                sentencePartLessons.forEachIndexed { index, part ->
+                    OutlinedButton(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (selected == index) "Selected: ${part.name}" else "Explore ${part.name}")
+                    }
+                }
+            }
+            Text("${lesson.name}: ${lesson.words}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(lesson.role)
+            Text(lesson.check, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Exploring this sentence does not submit an answer or change mastery.", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

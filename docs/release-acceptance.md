@@ -94,7 +94,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | New validated practice items, misconception handling, no automatic chapter mastery after one remediated concept |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path and Android save/clear/restart verified; live example quality, failure/account-switch checks remain |
 | TUT-04 | Written explanation assessment | Partial | Rubric/eval set, false-pass tests, helpful coaching without treating model confidence as measured reliability |
-| TUT-05 | Interactive examples and visible AI teacher | Partial | Fractions and Grade 8 Cells have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
+| TUT-05 | Interactive examples and visible AI teacher | Partial | Fractions, Grade 8 Cells and Grade 8 Grammar have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversational tutoring, speech unavailable/cancel/error cases, real audio and animation checks |
 | MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
 | PROG-01 | Real student subject/chapter progress | Partial | Remove static percentages; backend-derived values survive restart/account switching |
@@ -851,7 +851,7 @@ curriculum review, physical-device QA and UAT remain open.
   visually confirmed the result and proved through the authenticated session API
   that exploration did not submit, coach or award mastery. Generated HTML/actions
   are deliberately rejected. See `cell-explorer.md` and OA-03 in
-  `openmaic-provenance.md`; TUT-05 remains partial outside Fractions and Cells.
+  `openmaic-provenance.md`; TUT-05 remains partial outside these bounded scenes.
 - Added consent-based parent/teacher report sharing between separate authenticated
   accounts. Learner-created codes are 128-bit, stored only as hashes, expire after
   15 minutes, are single-use and are invalidated when regenerated. Links expose only
@@ -864,3 +864,11 @@ curriculum review, physical-device QA and UAT remain open.
   retention window (30 days default), with invalid configuration rejected. See
   `guardian-report-access.md`; identity/child-consent policy, broader data retention,
   physical-device accessibility, UAT and production verification remain open.
+- Added a native Grade 8 English Grammar sentence-parts explorer. Subject, Verb and
+  Object actions visibly highlight the exact words and show curated role/check text;
+  generated executable content is rejected. API 36 changed Subject to Verb, visually
+  confirmed "solved" was highlighted, and an authenticated server read proved no
+  submission, coaching or mastery mutation. See `sentence-explorer.md` and OA-03 in
+  `openmaic-provenance.md`. Android 129 JVM tests, lint and debug assembly passed;
+  backend regression remained 451 passing with one existing Windows skip. Broad grammar/curriculum and remaining interactive
+  concepts, TalkBack, physical-device QA and UAT remain open.

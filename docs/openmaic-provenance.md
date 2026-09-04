@@ -110,9 +110,9 @@ OA-01 through OA-03 do not claim a complete port.
 - Acquisition: inspected the listed files at the pinned commit. No cherry-pick,
   TypeScript copy, repository history, runtime package or upstream schema was added.
 - Local implementation: `InteractiveLessonExplorer.kt` routes exact supported
-  subject/chapter pairs to application-owned Compose scenes. The Cells scene uses a
-  small typed selection vocabulary, explicit button dispatch and separate visual
-  highlighting state, with curated native drawing and lesson content.
+  subject/chapter pairs to application-owned Compose scenes. The Cells and Grammar
+  scenes use small typed selection vocabularies, explicit button dispatch and
+  separate visual highlighting state, with curated native lesson content.
 - Adapted elements: allowlisted actions instead of free-form UI mutation; a visible
   selected object; state-driven highlighting; and a stable action-to-view mapping.
 - Deliberate changes: fixed lesson routes and organelle actions replace generic
@@ -121,6 +121,7 @@ OA-01 through OA-03 do not claim a complete port.
 - Rejected: generated HTML/JavaScript execution, model-controlled tool/action
   payloads, arbitrary whiteboard coordinates, full action-engine portability,
   multi-agent orchestration, course publishing and voice cloning.
-- Verification: route/content unit tests plus API 36 scripted device interaction,
-  visual inspection and server-side no-mastery-mutation assertion. This proves one
-  bounded Cells scene, not general interactivity, curriculum alignment or UAT.
+- Verification: route/content unit tests plus separate API 36 scripted Cells and
+  Grammar interactions, visual inspection and server-side no-mastery-mutation
+  assertions. This proves two bounded scenes, not general interactivity, curriculum
+  alignment or UAT.
