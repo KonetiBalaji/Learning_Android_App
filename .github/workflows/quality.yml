@@ -91,7 +91,7 @@ jobs:
           test -n "${payload:-}"
           python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$payload" "$GITHUB_SHA"
           test "$(docker inspect --format '{{.Config.User}}' "$container")" = learning
-          test "$(docker top "$container" -eo args | grep -c '[s]pawn_main')" -eq 2
+          test "$(docker top "$container" -eo pid,args | grep -c '[s]pawn_main')" -eq 2
           python backend/scripts/production_load_smoke.py "http://127.0.0.1:${port}" --requests 1400 --concurrency 40
 
   android:
