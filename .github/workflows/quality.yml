@@ -58,15 +58,17 @@ jobs:
         run: |
           set -euo pipefail
           image="learning-api:${GITHUB_SHA}"
-          container="learning-api-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          container_a="learning-api-a-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          container_b="learning-api-b-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           volume="learning-runtime-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           cleanup() {
-            docker rm -f "$container" >/dev/null 2>&1 || true
+            docker rm -f "$container_a" "$container_b" >/dev/null 2>&1 || true
             docker volume rm "$volume" >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
           docker volume create "$volume" >/dev/null
-          docker run --detach --name "$container" \
+          for container in "$container_a" "$container_b"; do
+            docker run --detach --name "$container" \
             --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
             --mount "type=volume,source=$volume,target=/runtime" \
             --publish 127.0.0.1::8000 \
@@ -77,22 +79,32 @@ jobs:
             --env LEARNING_WEB_CONCURRENCY=2 \
             --env OPENAI_API_KEY=ci-placeholder-never-used \
             "$image" >/dev/null
-          port="$(docker port "$container" 8000/tcp | sed 's/.*://')"
+          done
+          port_a="$(docker port "$container_a" 8000/tcp | sed 's/.*://')"
+          port_b="$(docker port "$container_b" 8000/tcp | sed 's/.*://')"
           for attempt in {1..30}; do
-            if payload="$(curl --fail --silent --show-error "http://127.0.0.1:${port}/ready")"; then
+            if payload_a="$(curl --fail --silent --show-error "http://127.0.0.1:${port_a}/ready")" && \
+               payload_b="$(curl --fail --silent --show-error "http://127.0.0.1:${port_b}/ready")"; then
               break
             fi
-            if ! docker inspect --format '{{.State.Running}}' "$container" | grep -qx true; then
-              docker logs "$container"
-              exit 1
-            fi
+            for container in "$container_a" "$container_b"; do
+              if ! docker inspect --format '{{.State.Running}}' "$container" | grep -qx true; then
+                docker logs "$container"
+                exit 1
+              fi
+            done
             sleep 1
           done
-          test -n "${payload:-}"
-          python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$payload" "$GITHUB_SHA"
-          test "$(docker inspect --format '{{.Config.User}}' "$container")" = learning
-          test "$(docker top "$container" -eo pid,args | grep -c '[s]pawn_main')" -eq 2
-          python backend/scripts/production_load_smoke.py "http://127.0.0.1:${port}" --requests 1400 --concurrency 40
+          for payload in "$payload_a" "$payload_b"; do
+            python -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"status":"ready","environment":"production","revision":sys.argv[2],"checks":["database","upload_storage"]}' "$payload" "$GITHUB_SHA"
+          done
+          for container in "$container_a" "$container_b"; do
+            test "$(docker inspect --format '{{.Config.User}}' "$container")" = learning
+            test "$(docker top "$container" -eo pid,args | grep -c '[s]pawn_main')" -eq 2
+          done
+          python backend/scripts/production_load_smoke.py \
+            "http://127.0.0.1:${port_a}" "http://127.0.0.1:${port_b}" \
+            --requests 1400 --concurrency 40
 
   android:
     runs-on: ubuntu-latest

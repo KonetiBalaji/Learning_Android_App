@@ -92,13 +92,14 @@ state only below the `/runtime` volume, disables raw Uvicorn access logs, and us
 configuration or secrets. Mount a durable volume at `/runtime` and inject all
 settings through the host's protected configuration facility.
 
-The hosted `backend-container` quality job builds the image, starts two validated
-API workers with a read-only root filesystem and a dedicated shared runtime volume,
-then verifies both worker processes, the exact production revision, database/upload
-readiness, and bounded concurrent traffic. This is repeatable
+The hosted `backend-container` quality job builds the image, starts two independent
+read-only containers with two validated API workers each and a dedicated shared
+runtime volume, then verifies all four worker processes, the exact production
+revision and database/upload readiness through both instances, plus bounded
+round-robin authenticated traffic. This is repeatable
 packaging evidence only. It does not prove volume durability, encryption, TLS,
-trusted-proxy behavior, provider access, long-duration capacity, monitoring, or
-deployment on a user-owned host.
+trusted-proxy behavior, cross-host/network-filesystem safety, provider access,
+long-duration capacity, monitoring, or deployment on a user-owned host.
 
 `uv run python -m app.release_candidate <manifest> --expected-environment
 production` performs that comparison and independently rehashes the APK. It also
