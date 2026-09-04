@@ -8,7 +8,7 @@ import fitz
 from .document_selection import resolve_chapters
 from .document_errors import DocumentErrorCode, DocumentValidationError
 from .schemas import Chapter, PdfPage, PdfPageSelection, SourceRange
-from .document_service import apply_parser_memory_limit
+from .document_service import apply_parser_memory_limit, validate_pdf_structure
 from .parser_capacity import parser_slot
 
 
@@ -31,8 +31,9 @@ def _read_pdf_page_content(content: bytes, text: str) -> list[PdfPage]:
     extracted = []
     position = 0
     with fitz.open(stream=content, filetype='pdf') as pdf:
-        if pdf.needs_pass or not 1 <= len(pdf) <= 1000:
+        if pdf.needs_pass:
             raise ValueError('PDF is protected or exceeds the page-indexing limit')
+        validate_pdf_structure(pdf)
         for number, page in enumerate(pdf, start=1):
             page_text = page.get_text('text')
             if len(page_text) > 200_000 or position + len(page_text) > 2_000_000:
@@ -110,8 +111,9 @@ def _render_pdf_pages_worker(pipe, content: bytes, page_numbers: list[int]) -> N
         apply_parser_memory_limit()
         rendered: list[tuple[int, bytes]] = []
         with fitz.open(stream=content, filetype='pdf') as pdf:
-            if pdf.needs_pass or not 1 <= len(pdf) <= 1000:
+            if pdf.needs_pass:
                 raise ValueError('PDF is protected or exceeds the page-rendering limit')
+            validate_pdf_structure(pdf)
             if (not page_numbers or len(page_numbers) > 5 or page_numbers != sorted(set(page_numbers))
                     or page_numbers[0] < 1 or page_numbers[-1] > len(pdf)):
                 raise ValueError('Invalid PDF page rendering request')

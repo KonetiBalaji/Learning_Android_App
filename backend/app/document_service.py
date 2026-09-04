@@ -25,6 +25,8 @@ from .parser_capacity import ParserCapacityError, parser_slot
 ALLOWED_SUFFIXES = {".pdf", ".docx", ".txt"}
 HEADING_PATTERN = re.compile(r"(?m)^(?:chapter|unit|section)\s+(?:\d+|[ivxlcdm]+)\b[^\n]*|^\d+(?:\.\d+)*\s+[^\n]{3,}$", re.IGNORECASE)
 MAX_EXTRACTED_CHARACTERS = 2_000_000
+MAX_PDF_PAGES = 1_000
+MAX_PDF_OBJECTS = 250_000
 PARSER_MEMORY_BYTES = 1024 * 1024 * 1024
 _WINDOWS_PARSER_JOB = None
 
@@ -90,9 +92,21 @@ def extract_text(content: bytes, suffix: str) -> str:
     try:
         if pdf.needs_pass:
             raise ValueError("Password-protected PDFs are not supported")
+        validate_pdf_structure(pdf)
         return "\n".join(page.get_text("text") for page in pdf)
     finally:
         pdf.close()
+
+
+def validate_pdf_structure(pdf, max_pages: int = MAX_PDF_PAGES,
+                           max_objects: int = MAX_PDF_OBJECTS) -> None:
+    """Reject structurally excessive PDFs before walking every page/object."""
+    if not 1 <= max_pages <= MAX_PDF_PAGES or not 1 <= max_objects <= MAX_PDF_OBJECTS:
+        raise ValueError('Invalid PDF processing limits')
+    if pdf.page_count > max_pages:
+        raise DocumentProcessingLimit('PDF page count exceeds its safe limit')
+    if pdf.xref_length() > max_objects:
+        raise DocumentProcessingLimit('PDF object count exceeds its safe limit')
 
 
 def _bounded_extract_worker(pipe, content: bytes, suffix: str) -> None:
@@ -103,6 +117,8 @@ def _bounded_extract_worker(pipe, content: bytes, suffix: str) -> None:
             pipe.send(('limit', None))
         else:
             pipe.send(('ok', text))
+    except DocumentProcessingLimit:
+        pipe.send(('limit', None))
     except BaseException:
         pipe.send(('error', None))
     finally:

@@ -54,6 +54,14 @@ Original-PDF page indexing uses the same spawned-process timeout and memory help
 when it re-extracts a stored source. A timeout returns the same fixed recovery code
 without changing the document or any saved selection.
 
+PDF upload parsing now rejects more than 1,000 pages or 250,000 indirect objects
+before walking page text. The same structural preflight is repeated when the
+immutable stored PDF is indexed or rendered for source evidence. These ceilings
+are fixed application safety bounds, not claims that every admitted PDF is safe or
+educationally usable. A structural ceiling raised in the child retains the stable
+`document_processing_limit` classification instead of being misreported as generic
+corruption; parser details and counts are not returned to the client.
+
 DOCX archive admission and ZIP central-directory inspection now occur only inside
 the bounded child before python-docx runs. Focused PDF, DOCX, corruption,
 output-bound, real timeout/termination, HTTP cleanup and configuration checks pass.
@@ -75,6 +83,13 @@ Android verified the retryable 503 recovery code without exposing a response
 body. The complete backend regression passes **540 tests with one existing
 Windows symlink-privilege skip**; Android unit tests, lint, and debug APK assembly
 pass.
+
+On 2026-09-04, focused extraction/limit/page tests passed **43 tests**, including
+page-count rejection, object-count rejection, immutable application ceilings and
+child-to-parent limit classification. The complete backend regression passed
+**589 tests with one existing Windows symlink-privilege skip**. Tests use lowered
+function inputs and small real PDFs; they do not allocate a 250,000-object fixture
+or establish resistance to every malformed object graph.
 
 Remaining production controls: deeper PDF object-expansion adversarial coverage,
 reverse-proxy ingress limits, sustained hostile-parser load tests and retained-data policy. Preflight is not

@@ -25,6 +25,53 @@ def pdf_bytes(text: str) -> bytes:
     return content
 
 
+def test_pdf_structure_rejects_excessive_pages_before_text_extraction():
+    with fitz.open() as pdf:
+        pdf.new_page()
+        pdf.new_page()
+        with pytest.raises(document_service.DocumentProcessingLimit, match='page count'):
+            document_service.validate_pdf_structure(pdf, max_pages=1)
+
+
+def test_pdf_structure_rejects_excessive_object_graph_before_text_extraction():
+    with fitz.open() as pdf:
+        pdf.new_page()
+        assert pdf.xref_length() > 1
+        with pytest.raises(document_service.DocumentProcessingLimit, match='object count'):
+            document_service.validate_pdf_structure(pdf, max_objects=1)
+
+
+def test_pdf_structure_limit_arguments_cannot_exceed_application_ceiling():
+    with fitz.open() as pdf:
+        pdf.new_page()
+        with pytest.raises(ValueError, match='Invalid PDF processing limits'):
+            document_service.validate_pdf_structure(
+                pdf, max_pages=document_service.MAX_PDF_PAGES + 1)
+
+
+class RecordingPipe:
+    def __init__(self):
+        self.messages = []
+
+    def send(self, message):
+        self.messages.append(message)
+
+    def close(self):
+        pass
+
+
+def test_worker_preserves_processing_limit_classification(monkeypatch):
+    pipe = RecordingPipe()
+    monkeypatch.setattr(document_service, 'apply_parser_memory_limit', lambda: None)
+
+    def reject(*_args):
+        raise document_service.DocumentProcessingLimit('bounded failure')
+
+    monkeypatch.setattr(document_service, 'extract_text', reject)
+    document_service._bounded_extract_worker(pipe, b'pdf', '.pdf')
+    assert pipe.messages == [('limit', None)]
+
+
 def test_isolated_parser_returns_real_pdf_text():
     assert 'isolated parser' in document_service.extract_text_isolated(
         pdf_bytes('Ordinary isolated parser content'), '.pdf', 10)
