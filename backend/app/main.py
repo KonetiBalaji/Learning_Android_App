@@ -82,7 +82,7 @@ from .guardian_access import (
     create_invitation, redeem_invitation, linked_learners, linked_guardians,
     require_link, revoke_by_guardian, revoke_by_learner, cleanup_invitations,
 )
-from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter
+from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter, unlocks_dependent_chapter
 from .ai_usage import consume_ai_operation
 from .operational_logging import OperationalLoggingMiddleware
 
@@ -798,7 +798,7 @@ def submit_rewrite(session_id: str, request: RewriteRequest, user_id: str = Depe
         mastery_score=mastery_score,
         confidence=confidence_for(mastery_score),
         coaching=coaching,
-        next_chapter_unlocked=mastered,
+        next_chapter_unlocked=mastered and unlocks_dependent_chapter(session['subject_id'], session['chapter_id']),
         next_action="mastery" if mastered else ("next_question" if understood else "tutor"),
         next_question=public_question(bank[next_index], next_index, len(bank)) if understood and not mastered else None,
         assessment_points=assessment.score,

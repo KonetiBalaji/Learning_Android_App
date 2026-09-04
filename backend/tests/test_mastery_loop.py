@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -131,6 +132,38 @@ def test_all_correct_diagnostic_reaches_mastery_without_revealing_answers(monkey
             assert outcome.status_code == 200, outcome.text
         assert outcome.json()["next_action"] == "mastery"
         assert outcome.json()["mastery_score"] == 1.0
+    finally:
+        client.__exit__(None, None, None)
+
+
+@pytest.mark.parametrize('chapter,unlocked', [('fractions', False), ('algebra', True)])
+def test_final_rewrite_unlock_signal_reflects_a_real_dependent_chapter(monkeypatch, tmp_path: Path,
+                                                                      chapter: str, unlocked: bool) -> None:
+    import app.main as api
+    from app.tutor_provider import DeterministicTutorProvider
+    from app.mastery_service import FRACTION_DIAGNOSTIC
+
+    provider = DeterministicTutorProvider()
+    monkeypatch.setattr(provider, 'diagnostic_bank', lambda *args: FRACTION_DIAGNOSTIC)
+    monkeypatch.setattr(api, 'tutor_provider', lambda *args, **kwargs: provider)
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        session = client.post('/v1/mastery/diagnostics', headers=headers,
+                              json={'grade': 8, 'subject_id': 'math', 'chapter_id': chapter}).json()
+        path = f"/v1/mastery/sessions/{session['id']}"
+        for answer in ('1', '3/6'):
+            assert client.post(f'{path}/diagnostic-answer', headers=headers,
+                               json={'selected_option': answer}).status_code == 200
+        wrong = client.post(f'{path}/diagnostic-answer', headers=headers,
+                            json={'selected_option': '6/8'})
+        assert wrong.json()['next_action'] == 'tutor'
+        assert client.post(f'{path}/practice', headers=headers,
+                           json={'response': '5/9'}).json()['next_action'] == 'rewrite'
+        rewrite = client.post(f'{path}/rewrite', headers=headers, json={
+            'response': 'Subtracting like fractions means subtract the numerator 2 from 7 and keep denominator 9.'})
+        assert rewrite.status_code == 200, rewrite.text
+        assert rewrite.json()['mastery_achieved'] is True
+        assert rewrite.json()['next_chapter_unlocked'] is unlocked
     finally:
         client.__exit__(None, None, None)
 

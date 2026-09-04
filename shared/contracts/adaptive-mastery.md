@@ -25,8 +25,12 @@ Scores below full credit receive server-authored hints; the provider's unchecked
 comment is not shown. See `docs/openmaic-provenance.md` for upstream attribution.
 
 A successful rewrite demonstrates the current concept only. Its `next_action`
-is `next_question` until every assessment item has been resolved. Only then are
-`mastery_achieved` and `next_chapter_unlocked` true and `next_action` is `mastery`.
+is `next_question` until every assessment item has been resolved. Only then is
+`mastery_achieved` true and `next_action` is `mastery`. `next_chapter_unlocked`
+is true only when the mastered chapter is an actual prerequisite for another
+chapter in the current catalog; mastering an unrelated or terminal chapter does
+not claim that a next chapter was unlocked. The authoritative dashboard still
+returns the concrete grade-scoped `unlocked_chapter_ids`.
 The optional `next_question` uses the same public question schema as diagnostics.
 `mastery_score` measures resolved assessment items / total items; it is not a
 calibrated exam prediction or probability of understanding the entire curriculum.

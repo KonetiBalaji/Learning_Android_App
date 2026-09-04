@@ -96,7 +96,7 @@ evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-r
 | TUT-04 | Written explanation assessment | QA verified | Strict four-point rubric, server-owned feedback, persistence/failure tests and two 20/20 live synthetic runs across Math, Science, English and Geography cover false-pass patterns; calibration, educator review and UAT remain |
 | TUT-05 | Interactive examples and visible AI teacher | Partial | Math Fractions plus Grade 8 Science Cells, English Grammar and Social Geography have native device-verified explorers; remaining concepts, TalkBack, physical-device and user acceptance are open |
 | TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversation, read-aloud lifecycle/animation and voice-input cancel/unavailable recovery are API 36 verified; successful microphone transcription, acoustic quality, TalkBack, physical device and UAT remain |
-| MAST-01 | Mastery, time spent, next chapter unlock | Partial | Durable server-owned grade/account-scoped mastery; all concepts assessed; honest time/score display |
+| MAST-01 | Mastery, time spent, next chapter unlock | QA verified | All stored assessment items must resolve before durable mastery; API 36 verifies remediation/restart/completion, graph-based unlock/relock recovery, bounded foreground presence and honest weekly display; physical-device/accessibility/UAT remain |
 | PROG-01 | Real student subject/chapter progress | QA verified | Static percentages are absent; backend-derived chapter/assessed-subject values, zero state, owner isolation, sign-out/sign-in and restart restoration are backend tested and API 36 verified; physical-device/UAT remain |
 | PROG-02 | Weak concepts and personalized learning path | QA verified | Independent recurring-error counts, remediation clearing, account/grade scope, active-session continuation and prerequisite-aware next diagnostic are backend tested and API 36 verified; educator/UAT review remains |
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts and read-only grade reports are device verified; identity/child-consent policy, retention, physical-device and UAT remain open |
@@ -157,6 +157,15 @@ existing Windows skip; Android build/lint and 138 JVM tests passed. API 36 post-
 original document and cleared the identity after confirmation. DOC-01 remains
 partial for cancellation/background transfer, broader malformed/network failures,
 physical-device accessibility, UAT and production evidence; see `upload-progress.md`.
+
+MAST-01 is now QA verified. The rewrite unlock flag was corrected so mastery only
+claims an unlock when the completed chapter is an actual prerequisite in the catalog;
+concrete access remains the grade-scoped dashboard list. Backend 476 tests passed
+with one existing Windows skip, including final-rewrite cases with and without a
+dependent chapter. Separate API 36 reruns verified all-item mastery, remediation and
+restart; server unlock, stale relock and refresh recovery; foreground-only timed
+presence; and a matching honest seven-day display (`1m 48s` in this disposable run).
+Physical-device accessibility, curriculum authority and user UAT remain open.
 
 OA-02 selectively adapts OpenMAIC's owner-scoped material count/byte quota and
 serialized admission pattern. This implementation uses SQLite `BEGIN IMMEDIATE`,
@@ -826,14 +835,14 @@ curriculum review, physical-device QA and UAT remain open.
 - Added the backend observed-study-presence endpoint and durable interval storage.
   Server timestamps, a 60-second gap limit, one owner cursor and completion clipping
   prevent the tested overlap/idle-gap overcounts; 183 backend tests passed. Android
-  lifecycle/idle signals and time displays are not connected yet, so MAST-01 time
-  tracking remains partial. This measures presence, not attention. See
+  lifecycle/idle signals and time displays were not connected at that stage. This
+  measures presence, not attention. See
   `shared/contracts/study-presence.md`.
 - Progress and weekly-report responses now include owner/grade-scoped observed
   study seconds. Weekly totals clip each interval to the exact reporting window;
   untracked history stays zero. Backend 184 tests passed, including both boundaries,
   aggregate/grade and other-owner checks. Android emission/display and device QA
- remain pending; MAST-01 is not complete. See the study-presence contract.
+  remained pending at that stage. See the study-presence contract.
 - Android now emits bounded presence observations only on active learning screens
   while resumed and recently interacted with. Pause/idle/session/failure transitions
   reset the next server interval; no offline event queue is replayed. Backend 185

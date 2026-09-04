@@ -66,3 +66,10 @@ def missing_prerequisite(db, owner_id: str, grade: int, subject_id: str, chapter
         (owner_id, grade, subject_id, required),
     ).fetchone()
     return None if latest is not None and latest['status'] == 'mastered' else required
+
+
+def unlocks_dependent_chapter(subject_id: str, mastered_chapter_id: str) -> bool:
+    """Return whether this catalog chapter is a prerequisite for a gated sibling."""
+    subject_id, mastered_chapter_id = subject_id.lower(), mastered_chapter_id.lower()
+    return any(subject == subject_id and required == mastered_chapter_id
+               for (subject, _chapter), required in PREREQUISITES.items())

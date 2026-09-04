@@ -4,9 +4,18 @@ import pytest
 
 from app.config import get_settings
 from app.database import connection
-from app.learning_path import PREREQUISITES
+from app.learning_path import PREREQUISITES, unlocks_dependent_chapter
 from app.mastery_service import FRACTION_DIAGNOSTIC, serialize_diagnostic_bank
 from test_mastery_loop import registered_client
+
+
+def test_unlock_signal_matches_the_catalog_prerequisite_graph():
+    assert unlocks_dependent_chapter('math', 'algebra') is True
+    assert unlocks_dependent_chapter('science', 'force-and-motion') is True
+    assert unlocks_dependent_chapter('english', 'vocabulary') is True
+    assert unlocks_dependent_chapter('social', 'civics') is True
+    assert unlocks_dependent_chapter('math', 'fractions') is False
+    assert unlocks_dependent_chapter('science', 'cells') is False
 
 
 def seed(headers, subject, chapter, grade=8, status='mastered'):
