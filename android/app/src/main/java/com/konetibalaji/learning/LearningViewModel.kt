@@ -448,6 +448,12 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         mutableState.value = mutableState.value.copy(linkedLearners = api.linkedLearners(), linkedGuardians = api.linkedGuardians(),
             guardianAccessHistory = api.guardianAccessHistory())
     }
+    fun exportGuardianAccessHistory(resolver: ContentResolver, destination: Uri) = perform(null) {
+        val csv = api.guardianAccessHistoryExport()
+        resolver.openOutputStream(destination, "wt")?.bufferedWriter(Charsets.UTF_8)?.use { writer ->
+            writer.write(csv)
+        } ?: throw IOException("The selected export destination is unavailable")
+    }
     fun createGuardianInvitation() = perform(null) {
         val invitation = api.createGuardianInvitation()
         mutableState.value = mutableState.value.copy(guardianInvitationCode = invitation.first,
@@ -836,6 +842,7 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
     fun linkedLearners(): List<GuardianAccount> = guardianAccounts(requestArray("GET", "/v1/guardian/learners"))
     fun linkedGuardians(): List<GuardianAccount> = guardianAccounts(requestArray("GET", "/v1/guardian/access"))
     fun guardianAccessHistory(): List<GuardianAccessEvent> = guardianAccessEvents(requestArray("GET", "/v1/guardian/access-history"))
+    fun guardianAccessHistoryExport(): String = readApiResponse(connection("GET", "/v1/guardian/access-history/export", "text/csv"))
     fun unlinkLearner(id: String) = requestNoContent("DELETE", "/v1/guardian/learners/$id")
     fun revokeGuardian(id: String) = requestNoContent("DELETE", "/v1/guardian/access/$id")
     fun saveInterests(values: List<String>): List<String> = request("PUT", "/v1/account/interests",

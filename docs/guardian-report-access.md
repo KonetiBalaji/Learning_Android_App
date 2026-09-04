@@ -33,6 +33,14 @@ then removes the deleted account identifier and email from prior events. Deletin
 the learner cascades their history. Guardians cannot use this endpoint to inspect
 a learner's history, including for a currently linked learner.
 
+The learner-owned `GET /v1/guardian/access-history/export` endpoint downloads the
+same ordered audit history as UTF-8 CSV. It sends `Cache-Control: no-store`, omits
+event, learner, and guardian database identifiers, represents a deleted guardian
+as `Deleted account`, and neutralizes spreadsheet-formula prefixes. The export
+contains only the timestamp, fixed event type, and guardian account label. A
+guardian calling it receives that account's own empty learner-side history, never
+a linked learner's record.
+
 ## Code handling and retention
 
 Codes contain 128 bits of randomness and use 32 lowercase hexadecimal characters
@@ -79,7 +87,14 @@ zero failures/skips, lint and debug APK assembly. The emulator occasionally
 reported a null accessibility root while dumping UI state, but the bounded retry
 recovered and the journey completed; no application request failed.
 
-This is development and emulator QA evidence. Parent/teacher identity policy,
-physical-device accessibility, real-user UAT, external notification policy, audit
-export, broader student-data retention, and production deployment remain open. PARENT-01 is
+The API 36 guardian journey now continues through the Android system document
+picker, saves `report-access-history.csv`, and reads the saved file back from the
+emulator. It verifies the header, grant and guardian-revocation rows, guardian
+account label, and absence of the internal guardian identifier, then removes the
+export and disposable accounts. The privacy-bounded audit CSV therefore has
+backend authorization/privacy automation and API 36 device verification.
+
+This remains development and emulator QA evidence. Parent/teacher identity policy, physical-device accessibility,
+real-user UAT, external notification policy, broader student-data retention, and
+production deployment remain open. PARENT-01 is
 therefore partial, not UAT accepted or production verified.

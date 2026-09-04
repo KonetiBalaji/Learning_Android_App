@@ -14,6 +14,8 @@ function DeleteAccount($token){if($token){Invoke-RestMethod 'http://127.0.0.1:80
 if(-not$ResetTestAppData){throw 'This script requires -ResetTestAppData and clears only the dedicated QA emulator app.'}
 if(((Adb emu avd name)-join"`n")-notmatch'^LearnSmart_API36'){throw 'Dedicated LearnSmart_API36 AVD required.'}
 if((Invoke-RestMethod 'http://127.0.0.1:8000/health').ai_provider-notin@('deterministic','scripted-qa')){throw 'Run an isolated deterministic or scripted QA backend first.'}
+$exportPath='/sdcard/Download/report-access-history.csv'
+Adb shell rm -f $exportPath|Out-Null
 $suffix=[Guid]::NewGuid().ToString('N')
 $learnerEmail="guardian-learner-$suffix@example.com"
 $guardianEmail="guardian-viewer-$suffix@example.com"
@@ -48,6 +50,7 @@ try{
     if(@($linked).Count-ne0-or@($access).Count-ne0){throw 'Unlink did not remove both sides of access.'}
     $history=Invoke-RestMethod 'http://127.0.0.1:8000/v1/guardian/access-history' -Headers @{Authorization="Bearer $($learner.access_token)"}
     if(@($history).Count-ne2-or$history[0].event_type-ne'granted'-or$history[1].event_type-ne'revoked_by_guardian'){throw 'Learner consent history did not record grant and guardian revocation.'}
+    $guardianInternalId=$history[0].guardian_id
     Adb shell pm clear $package|Out-Null
     Adb shell am start -n "$package/.MainActivity"|Out-Null;Start-Sleep -Seconds 3
     EnterField 0 $learnerEmail
@@ -59,9 +62,15 @@ try{
     FindText $guardianEmail 30 -Scroll|Out-Null
     Adb shell screencap -p /sdcard/qa-guardian-history.png|Out-Null
     Adb pull /sdcard/qa-guardian-history.png (Join-Path $repo 'artifacts\qa-guardian-history.png')|Out-Null
-    Write-Output 'PASS: separate guardian account viewed only the linked aggregate report, removed access, and learner saw the durable consent history.'
+    TapText 'Save access history CSV' 30 -Scroll
+    TapText 'Save' 30
+    Start-Sleep -Seconds 2
+    $csv=(Adb shell cat $exportPath)-join"`n"
+    if($csv-notmatch'occurred_at,event_type,guardian_account'-or$csv-notmatch'granted'-or$csv-notmatch'revoked_by_guardian'-or$csv-notmatch([regex]::Escape($guardianEmail))-or$csv-match([regex]::Escape($guardianInternalId))){throw 'Saved access-history CSV was missing, incomplete, or exposed an internal guardian ID.'}
+    Write-Output 'PASS: separate guardian account viewed only the linked aggregate report, removed access, learner saw durable history, and the system picker saved the bounded CSV.'
 }finally{
     DeleteAccount $guardian
     DeleteAccount $learner
     Adb shell pm clear $package|Out-Null
+    Adb shell rm -f $exportPath|Out-Null
 }

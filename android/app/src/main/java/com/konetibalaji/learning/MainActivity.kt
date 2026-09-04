@@ -120,6 +120,9 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
     }
     val colors = learningColorScheme(state.darkMode)
     val activity = LocalActivity.current
+    val auditExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) activity?.let { viewModel.exportGuardianAccessHistory(it.contentResolver, uri) }
+    }
     SideEffect {
         activity?.let {
             WindowCompat.getInsetsController(it.window, it.window.decorView).apply {
@@ -149,7 +152,7 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                         Screen.Rewrite -> RewriteScreen(state, viewModel::updateRewrite, viewModel::submitRewrite)
                         Screen.Mastery -> MasteryScreen(state, viewModel::continueFromMastery)
                         Screen.ParentDashboard -> ParentDashboard(state, viewModel::backFromParentDashboard)
-                        Screen.GuardianAccess -> GuardianAccessScreen(state, viewModel::updateGuardianCode, viewModel::redeemGuardianCode, viewModel::createGuardianInvitation, viewModel::openLinkedLearnerReport, viewModel::unlinkLearner, viewModel::revokeGuardian, viewModel::refreshGuardianAccess, viewModel::backToSubjects)
+                        Screen.GuardianAccess -> GuardianAccessScreen(state, viewModel::updateGuardianCode, viewModel::redeemGuardianCode, viewModel::createGuardianInvitation, viewModel::openLinkedLearnerReport, viewModel::unlinkLearner, viewModel::revokeGuardian, viewModel::refreshGuardianAccess, { auditExport.launch("report-access-history.csv") }, viewModel::backToSubjects)
                         Screen.Home -> StudyMaterialScreen(state.loading, viewModel::upload, viewModel::backToSubjects, viewModel::openDocumentLibrary)
                         Screen.DocumentLibrary -> DocumentLibraryScreen(state, viewModel::openSavedDocument, viewModel::deleteDocument, viewModel::refreshDocumentLibrary, viewModel::startDocumentStudy)
                         Screen.Chapters -> DocumentChaptersScreen(state, viewModel::selectChapter, viewModel::createQuiz, viewModel::startDocumentStudy, viewModel::selectAllDocumentChapters, viewModel::clearDocumentChapters, viewModel::setDocumentQuestionCount, viewModel::setDocumentDifficulty, viewModel::setDocumentQuestionType, viewModel::repairDocumentStructure, { viewModel.previewDocumentChapter(it) }, viewModel::setSourceQuery, viewModel::searchDocumentSource, viewModel::useSourceSearchResult, viewModel::loadPdfPages, viewModel::setPdfPageInput, viewModel::reviewPdfPages, viewModel::confirmPdfPages)
@@ -593,7 +596,8 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
 private fun GuardianAccessScreen(state: AppUiState, onCode: (String) -> Unit, onRedeem: () -> Unit,
                                  onInvite: () -> Unit, onView: (GuardianAccount) -> Unit,
                                  onUnlink: (String) -> Unit, onRevoke: (String) -> Unit,
-                                 onRefresh: () -> Unit, onBack: () -> Unit) = Page {
+                                 onRefresh: () -> Unit, onExport: () -> Unit,
+                                 onBack: () -> Unit) = Page {
     TextButton(onClick = onBack) { Text("‹ Back to subjects") }
     Header("Consent and privacy", "Parent & teacher access", "Link a separate account to share aggregate progress. Answers, tutor conversations and uploaded documents stay private.")
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
@@ -660,6 +664,10 @@ private fun GuardianAccessScreen(state: AppUiState, onCode: (String) -> Unit, on
             }
         }
     }
+    OutlinedButton(onClick = onExport, enabled = !state.loading,
+        modifier = Modifier.fillMaxWidth()) { Text("Save access history CSV") }
+    Text("You choose where to save it. The export contains access timestamps, changes, and account labels, but no internal account IDs.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     TextButton(onClick = onRefresh, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) { Text("Refresh access list") }
 }
 

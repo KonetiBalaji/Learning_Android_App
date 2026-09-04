@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+import csv
+import io
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -130,6 +132,35 @@ def test_guardian_revocation_is_recorded_but_history_is_learner_only(monkeypatch
         assert client.get('/v1/guardian/access-history', headers=guardian).json() == []
         history = client.get('/v1/guardian/access-history', headers=learner).json()
         assert [event['event_type'] for event in history] == ['granted', 'revoked_by_guardian']
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_learner_can_export_bounded_access_history_but_guardian_cannot(monkeypatch, tmp_path: Path) -> None:
+    client = configured_client(monkeypatch, tmp_path)
+    try:
+        learner = register(client, 'learner@example.com')
+        guardian = register(client, 'guardian@example.com')
+        learner_id = profile(client, learner)['id']
+        code = client.post('/v1/guardian/invitations', headers=learner).json()['code']
+        assert client.post('/v1/guardian/links', headers=guardian, json={'code': code}).status_code == 201
+        assert client.delete(f'/v1/guardian/learners/{learner_id}', headers=guardian).status_code == 204
+
+        exported = client.get('/v1/guardian/access-history/export', headers=learner)
+        assert exported.status_code == 200
+        assert exported.headers['content-type'] == 'text/csv; charset=utf-8'
+        assert exported.headers['content-disposition'] == 'attachment; filename="report-access-history.csv"'
+        assert exported.headers['cache-control'] == 'no-store'
+        rows = list(csv.DictReader(io.StringIO(exported.text)))
+        assert [row['event_type'] for row in rows] == ['granted', 'revoked_by_guardian']
+        assert all(row['guardian_account'] == 'guardian@example.com' for row in rows)
+        assert all(set(row) == {'occurred_at', 'event_type', 'guardian_account'} for row in rows)
+        assert learner_id not in exported.text
+
+        guardian_export = client.get('/v1/guardian/access-history/export', headers=guardian)
+        assert guardian_export.status_code == 200
+        assert list(csv.DictReader(io.StringIO(guardian_export.text))) == []
+        assert client.get('/v1/guardian/access-history/export').status_code == 401
     finally:
         client.__exit__(None, None, None)
 

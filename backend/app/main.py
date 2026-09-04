@@ -10,7 +10,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, status, Query
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, status, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
@@ -83,6 +83,7 @@ from .guardian_access import (
     GuardianInvitation, GuardianInvitationRedemption, LinkedAccount, GuardianAccessEvent,
     create_invitation, redeem_invitation, linked_learners, linked_guardians,
     require_link, revoke_by_guardian, revoke_by_learner, cleanup_invitations, access_history,
+    access_history_csv,
     record_guardian_account_deletion,
 )
 from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter, unlocks_dependent_chapter
@@ -255,6 +256,15 @@ def learner_guardians(user_id: str = Depends(current_user_id), settings: Setting
 @app.get('/v1/guardian/access-history', response_model=list[GuardianAccessEvent])
 def learner_guardian_history(user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> list[GuardianAccessEvent]:
     return access_history(user_id, settings)
+
+
+@app.get('/v1/guardian/access-history/export')
+def learner_guardian_history_export(user_id: str = Depends(current_user_id),
+                                    settings: Settings = Depends(get_settings)) -> Response:
+    return Response(content=access_history_csv(user_id, settings),
+                    media_type='text/csv',
+                    headers={'Content-Disposition': 'attachment; filename="report-access-history.csv"',
+                             'Cache-Control': 'no-store'})
 
 
 @app.delete('/v1/guardian/learners/{learner_id}', status_code=status.HTTP_204_NO_CONTENT)

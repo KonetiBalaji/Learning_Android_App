@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import csv
+import io
 import secrets
 import sqlite3
 import uuid
@@ -138,6 +140,19 @@ def access_history(learner_id: str, settings: Settings) -> list[GuardianAccessEv
             (learner_id,),
         ).fetchall()
     return [GuardianAccessEvent(**dict(row)) for row in rows]
+
+
+def access_history_csv(learner_id: str, settings: Settings) -> str:
+    """Create a learner-owned, spreadsheet-safe export without internal IDs."""
+    output = io.StringIO(newline='')
+    writer = csv.writer(output, lineterminator='\r\n')
+    writer.writerow(('occurred_at', 'event_type', 'guardian_account'))
+    for event in access_history(learner_id, settings):
+        account = event.guardian_email or 'Deleted account'
+        if account.startswith(('=', '+', '-', '@', '\t', '\r')):
+            account = "'" + account
+        writer.writerow((event.occurred_at, event.event_type, account))
+    return output.getvalue()
 
 
 def record_guardian_account_deletion(db: sqlite3.Connection, guardian_id: str) -> None:
