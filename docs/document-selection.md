@@ -1,14 +1,13 @@
 # Document selection boundaries
 
-The backend now also supports explicit bounded excerpts inside selected chapters;
-see `shared/contracts/excerpt-selection.md` for its request, persistence and retry
-contract. Android still exposes whole chapters only. This addition does not yet
-complete section/page/topic selection in the user-facing workflow.
-
 The original `Initial_plan.md` requires entire-document, single/multiple-chapter,
-section, page-range and custom-topic selection. Android now exposes chapter
-checkboxes, Entire document and Clear selection. Section/page/topic selection
-remains missing; chapter-set support does not establish delivery of those modes.
+section, page-range and custom-topic selection. The implementation grew in audited
+slices: checked detected chapters/sections, Entire document, highlighted excerpts,
+physical PDF page ranges, exact phrase lookup, and a bounded all-query-terms topic
+fallback. The detailed contracts and dated evidence below preserve that history;
+early “missing” statements describe the state of those earlier slices, not the
+current head. Semantic synonym retrieval, accessibility/device breadth and UAT are
+still open and keep DOC-02 partial.
 
 Both deterministic and live generation now use `resolve_chapters` to validate
 the complete selection. Unknown IDs, empty selections, repeated IDs, ambiguous
@@ -66,8 +65,11 @@ them. The existing conflict/restart/results/library checks passed as well.
 This is deterministic synthetic-fixture evidence, not a guarantee of proportional
 chapter coverage or live generation quality for arbitrary documents.
 
-Remaining work: section/page/topic retrieval with explicit boundaries; selection
-review/recovery device tests; and coverage/quality evaluation over selected material.
+Later work added physical PDF-page selection, highlighted excerpts, exact phrase
+lookup and a bounded all-query-terms fallback; see the contracts referenced in the
+acceptance ledger. Remaining work is API 36 evidence for the multi-term topic path,
+semantic/synonym retrieval if required by UAT, selection accessibility, and
+coverage/quality evaluation over selected material.
 This is not UAT or production sign-off.
 
 ## Detection coverage repair

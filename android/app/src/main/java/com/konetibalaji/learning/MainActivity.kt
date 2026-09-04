@@ -846,15 +846,15 @@ private fun DocumentPdfPageControls(state: AppUiState, onLoad: () -> Unit, onInp
 
 @Composable
 private fun DocumentSourceSearchControls(state: AppUiState, onQuery: (String) -> Unit, onSearch: () -> Unit, onUseResult: (Int) -> Unit) {
-    Text("Find topic text", style = MaterialTheme.typography.titleLarge)
-    Text("Find a literal phrase in the checked chapters. This does not find synonyms or change your selection automatically. Search covers whole checked chapters, even in excerpt mode.")
-    OutlinedTextField(value = state.sourceQuery, onValueChange = onQuery, label = { Text("Source phrase (2–120 characters)") },
+    Text("Find a topic or phrase", style = MaterialTheme.typography.titleLarge)
+    Text("Search the checked chapters for an exact phrase first. If there is no phrase match, every important query word must occur in one bounded source passage. This does not infer synonyms or change your selection automatically. Search covers whole checked chapters, even in excerpt mode.")
+    OutlinedTextField(value = state.sourceQuery, onValueChange = onQuery, label = { Text("Topic or source phrase (2–120 characters)") },
         singleLine = true, enabled = !state.loading, modifier = Modifier.fillMaxWidth())
     TextButton(onClick = onSearch, enabled = !state.loading && state.selectedChapterIds.isNotEmpty() && validSourceQuery(state.sourceQuery)) { Text("Search selected chapters") }
     state.documentSearch?.let { result ->
-        if (result.hits.isEmpty()) Text("No literal matches. Try another phrase or chapter; no selection was changed.")
-        else Text("${result.hits.size} source passages found. Read a passage before using it as an excerpt.")
-        if (result.hasMore) Text("More passages match. Refine your phrase or select fewer chapters.")
+        if (result.hits.isEmpty()) Text("No source passage contains the phrase or all important topic words. Try different words or chapters; no selection was changed.")
+        else Text("${result.hits.size} source passages found by ${if (result.matchMode == "literal_case_insensitive") "exact phrase" else "all topic words"}. Read a passage before using it as an excerpt.")
+        if (result.hasMore) Text("More passages match. Refine your topic or select fewer chapters.")
         result.hits.forEachIndexed { index, hit ->
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

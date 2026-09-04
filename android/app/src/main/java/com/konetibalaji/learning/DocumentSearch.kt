@@ -1,9 +1,18 @@
 package com.konetibalaji.learning
 
+import java.util.Locale
+
 data class SourceSearchHit(val chapterId: String, val title: String, val start: Int, val end: Int,
     val text: String, val matchStart: Int, val matchEnd: Int, val truncated: Boolean)
 data class DocumentSearch(val documentId: String, val query: String, val chapterIds: Set<String>,
-    val hits: List<SourceSearchHit>, val hasMore: Boolean)
+    val hits: List<SourceSearchHit>, val hasMore: Boolean, val matchMode: String)
+
+private val topicStopWords = setOf("a", "an", "and", "are", "as", "at", "be", "by", "did", "do", "does",
+    "explain", "for", "from", "how", "in", "is", "it", "of", "on", "or", "show", "that", "the", "this",
+    "to", "what", "when", "where", "which", "who", "why", "with", "work", "works")
+
+private fun topicTerms(query: String): List<String> = Regex("[\\p{L}\\p{N}]+").findAll(query.lowercase(Locale.ROOT))
+    .map { it.value }.filter { it.length >= 2 && it !in topicStopWords }.distinct().take(8).toList()
 
 fun validSourceQuery(value: String): Boolean {
     val query = value.trim()
@@ -11,8 +20,9 @@ fun validSourceQuery(value: String): Boolean {
 }
 
 fun validateSourceSearch(result: DocumentSearch, documentId: String, query: String,
-                         chapterIds: Set<String>, mode: String): DocumentSearch {
-    require(mode == "literal_case_insensitive" && result.documentId == documentId &&
+                         chapterIds: Set<String>): DocumentSearch {
+    require(result.matchMode in setOf("literal_case_insensitive", "all_query_terms_case_insensitive") &&
+        result.documentId == documentId &&
         result.query == query.trim() && result.chapterIds == chapterIds && chapterIds.isNotEmpty()) { "Search response does not match the request" }
     require(result.hits.size <= 20 && (!result.hasMore || result.hits.isNotEmpty())) { "Invalid search result count" }
     result.hits.forEach { hit ->
@@ -22,7 +32,16 @@ fun validateSourceSearch(result: DocumentSearch, documentId: String, query: Stri
         require(hit.matchStart >= hit.start && hit.matchEnd > hit.matchStart && hit.matchEnd <= hit.end)
         val first = hit.text.offsetByCodePoints(0, hit.matchStart - hit.start)
         val last = hit.text.offsetByCodePoints(0, hit.matchEnd - hit.start)
-        require(hit.text.substring(first, last).equals(result.query, ignoreCase = true)) { "Search match does not match the query" }
+        val matched = hit.text.substring(first, last)
+        if (result.matchMode == "literal_case_insensitive") {
+            require(matched.equals(result.query, ignoreCase = true)) { "Search match does not match the query" }
+        } else {
+            val terms = topicTerms(result.query)
+            require(terms.size >= 2 && terms.all { term ->
+                Regex("(?<![\\p{L}\\p{N}_])${Regex.escape(term)}(?![\\p{L}\\p{N}_])", RegexOption.IGNORE_CASE)
+                    .containsMatchIn(matched)
+            }) { "Topic result does not contain every query term" }
+        }
     }
     require(result.hits.zipWithNext().all { (left, right) -> left.start <= right.start }) { "Search results are out of order" }
     return result

@@ -1,4 +1,4 @@
-# Find literal topic text in selected source
+# Find a topic or exact phrase in selected source
 
 `POST /v1/documents/{document_id}/search` is an authenticated, owner-scoped,
 read-only source lookup. It does not invoke a provider, generate questions, save
@@ -20,22 +20,27 @@ silently dropped. Search never extends into an unselected chapter. No credential
 returns 401; another owner's or missing document returns 404; invalid input 422.
 
 The trimmed query must contain 2–120 Unicode code points without control
-characters. Matching is literal and case-insensitive using Python regular
-expression case handling; punctuation is escaped, not interpreted as a pattern.
-Internal whitespace is literal. It is **not semantic search**, stemming, synonym
-expansion, spelling correction, OCR or an authoritative topic/curriculum index.
-For example, zero matches for a topic's name do not prove the document lacks
-related explanations. An empty result never falls back to the whole document.
+characters. Search first tries the complete phrase, case-insensitively; punctuation
+is escaped rather than interpreted as a pattern and internal whitespace is literal.
+If no exact phrase exists, a bounded topic-query fallback removes a small documented
+set of English question/connector words and requires **every** remaining distinct
+term (up to eight) as a whole word in one source passage, in any order. It never
+returns a passage for only some terms and never falls back to the whole document.
+It is **not semantic search**, stemming, synonym expansion, spelling correction,
+OCR or an authoritative topic/curriculum index. A zero result therefore does not
+prove the document lacks a related explanation.
 
 ## Response
 
-The response contains `document_id`, trimmed `query`,
-`match_mode: "literal_case_insensitive"`, `matches` and `has_more`.
+The response contains `document_id`, trimmed `query`, `matches`, `has_more`, and
+`match_mode`, which is `literal_case_insensitive` or
+`all_query_terms_case_insensitive`.
 Each hit contains:
 
 - `chapter_id`, `title`: the stored chapter identity, not generated labels.
 - `start_character`, `end_character`, `text`: the exact bounded source passage.
-- `match_start`, `match_end`: a representative matching phrase within that passage.
+- `match_start`, `match_end`: the complete phrase, or the span from the first to
+  last required topic term, within that passage.
 - `context_truncated`: whether the 2,000-code-point context limit cuts a source
   line/paragraph at either edge.
 
@@ -74,11 +79,12 @@ workflow, semantic relevance evaluation, UAT or production acceptance.
 
 ## Android query and explicit result selection
 
-The chapter screen now includes **Find topic text**, a query field and **Search
+The chapter screen now includes **Find a topic or phrase**, a query field and **Search
 selected chapters**. Search is disabled for empty chapter selection or invalid
-query lengths. The screen states that matching is literal, not synonym/semantic
-lookup, and that it searches the whole checked chapters even when existing quiz
-selection is in excerpt mode. Search does not automatically change that selection.
+query lengths. The screen explains exact-phrase priority, all-important-term
+fallback and that synonyms are not inferred. It searches the whole checked chapters
+even when existing quiz selection is in excerpt mode. Search does not automatically
+change that selection.
 
 Results show full bounded source passages, chapter names, absolute character
 ranges and truncation warnings. Zero matches and additional-result limits have
@@ -91,8 +97,9 @@ information for the configured quiz count; selection does not bypass generation
 quality/quantity validation.
 
 Android validates document/query/match mode, checked chapter membership, result
-count/order, exact Unicode text/range lengths, complete match bounds and the
-matching phrase before accepting results. Confirmation additionally checks that
+count/order, exact Unicode text/range lengths and complete match bounds. It verifies
+the exact phrase or every retained topic term inside the reported match span before
+accepting results. Confirmation additionally checks that
 document, query and selected chapters have not changed. Query/chapter edits and
 structure repair invalidate results. Account changes, document deletion/opening,
 quiz acceptance/resume and starting another document clear applicable in-memory
@@ -126,7 +133,25 @@ range. Conflict recovery, feedback restart and completed-results restoration
 passed; remaining quiz answers were submitted through the API fixture, not all
 through Android. Transient UI-dump failures recovered using fresh-dump retries.
 
-This is one synthetic literal-search workflow with no live AI calls. Multiple
+This is one synthetic literal-search workflow with no live AI calls. The newer
+multi-term topic-query path has backend and JVM coverage but still needs the same
+API 36 workflow evidence. Multiple
 results/additions, truncated contexts, invalid/malformed/offline responses,
 account switching, query editing invalidation on-device, accessibility and user
 UAT remain open. It does not verify semantic relevance or full topic coverage.
+
+## Bounded custom-topic query implementation
+
+On 2026-09-04, source lookup gained the all-important-term fallback documented
+above. Exact phrase results remain preferred. Tests prove natural question-word
+removal, term order independence, whole-word matching, selected-chapter isolation,
+the 1,400-character required-term span, no partial-term fallback, exact source
+offsets, API ownership/read-only behavior and compatibility with explicit excerpt
+selection. Android accepts only the two declared modes and independently requires
+every retained topic term inside the reported match span before displaying it.
+
+The complete backend suite passed **531 tests with one Windows symlink-privilege
+skip**. Android passed **142 JVM tests**, lint and debug APK assembly. This is
+implementation and automated contract evidence; the multi-term path still needs
+API 36 interaction evidence, accessibility checks and UAT. Synonyms and semantic
+relevance are deliberately not claimed.

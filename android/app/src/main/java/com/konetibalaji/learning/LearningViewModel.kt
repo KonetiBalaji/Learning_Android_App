@@ -934,8 +934,8 @@ private class LearningApi(initialToken: String?, private val saveToken: (String)
                 hit.getString("text"), integer("match_start"), integer("match_end"), truncated)
         }
         val more = response.get("has_more"); require(more is Boolean)
-        return validateSourceSearch(DocumentSearch(response.getString("document_id"), response.getString("query"), chapterIds, hits, more),
-            documentId, query, chapterIds, response.getString("match_mode"))
+        return validateSourceSearch(DocumentSearch(response.getString("document_id"), response.getString("query"), chapterIds,
+            hits, more, response.getString("match_mode")), documentId, query, chapterIds)
     }
     data class StartedDocumentQuiz(val id: String, val question: QuizQuestion, val total: Int, val difficulty: String?, val questionType: String?)
     fun createQuiz(documentId: String, chapterIds: List<String>, count: Int, difficulty: String, questionType: String, requestId: String, excerpts: List<DocumentExcerpt> = emptyList()): StartedDocumentQuiz {

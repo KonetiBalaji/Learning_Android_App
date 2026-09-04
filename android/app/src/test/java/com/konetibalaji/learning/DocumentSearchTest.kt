@@ -5,8 +5,8 @@ import org.junit.Test
 
 class DocumentSearchTest {
     private val hit = SourceSearchHit("chapter", "Source", 10, 16, "😀 CELL", 12, 16, false)
-    private val result = DocumentSearch("doc", "cell", setOf("chapter"), listOf(hit), false)
-    private fun validate(value: DocumentSearch) = validateSourceSearch(value, "doc", " cell ", setOf("chapter"), "literal_case_insensitive")
+    private val result = DocumentSearch("doc", "cell", setOf("chapter"), listOf(hit), false, "literal_case_insensitive")
+    private fun validate(value: DocumentSearch) = validateSourceSearch(value, "doc", " cell ", setOf("chapter"))
 
     @Test fun validatesExactUnicodeOffsetsAndCaseInsensitiveMatch() {
         assertEquals(result, validate(result))
@@ -25,7 +25,18 @@ class DocumentSearchTest {
             assertThrows(IllegalArgumentException::class.java) { validate(it) }
         }
         assertThrows(IllegalArgumentException::class.java) {
-            validateSourceSearch(result, "doc", "cell", setOf("chapter"), "semantic")
+            validate(result.copy(matchMode = "semantic"))
+        }
+    }
+
+    @Test fun validatesAllTopicTermsInsideTheReportedMatchSpan() {
+        val topicHit = SourceSearchHit("chapter", "Source", 0, 44,
+            "Respiration releases usable energy in cells.", 0, 35, false)
+        val topic = DocumentSearch("doc", "How does energy respiration work?", setOf("chapter"),
+            listOf(topicHit), false, "all_query_terms_case_insensitive")
+        assertEquals(topic, validateSourceSearch(topic, "doc", topic.query, setOf("chapter")))
+        assertThrows(IllegalArgumentException::class.java) {
+            validateSourceSearch(topic.copy(hits = listOf(topicHit.copy(matchEnd = 11))), "doc", topic.query, setOf("chapter"))
         }
     }
 

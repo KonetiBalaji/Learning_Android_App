@@ -35,6 +35,34 @@ def test_regex_characters_are_literal_and_zero_results_do_not_fallback():
     assert result.matches == [] and result.has_more is False
 
 
+def test_custom_topic_query_finds_all_terms_in_any_order_without_widening_scope():
+    allowed = ('Cellular respiration releases usable energy inside mitochondria.\n'
+               'Energy alone must not match a two-term query.\n')
+    hidden = 'Respiration and energy appear in a different unselected chapter.'
+    text = allowed + hidden
+    chapters = [chapter('allowed', 0, len(allowed)), chapter('hidden', len(allowed), len(text))]
+    result = search_source('doc', text, chapters, ['allowed'], 'How does energy respiration work?')
+    assert result.match_mode == 'all_query_terms_case_insensitive'
+    assert len(result.matches) == 1 and result.has_more is False
+    hit = result.matches[0]
+    assert hit.text == text[hit.start_character:hit.end_character]
+    assert 'respiration' in hit.text.lower() and 'energy' in hit.text.lower()
+    assert hit.end_character <= len(allowed) and 'unselected' not in hit.text
+
+
+def test_topic_query_requires_all_terms_in_one_bounded_passage():
+    text = 'Photosynthesis appears here.\n' + ('x' * 1600) + '\nChlorophyll appears too far away.'
+    result = search_source('doc', text, [chapter('a', 0, len(text))], ['a'], 'photosynthesis chlorophyll')
+    assert result.match_mode == 'all_query_terms_case_insensitive' and result.matches == []
+
+
+def test_exact_phrase_remains_preferred_over_topic_term_fallback():
+    text = 'Light energy is stored.\nEnergy from light is also discussed.'
+    result = search_source('doc', text, [chapter('a', 0, len(text))], ['a'], 'light energy')
+    assert result.match_mode == 'literal_case_insensitive'
+    assert len(result.matches) == 1 and result.matches[0].text == 'Light energy is stored.'
+
+
 def test_limit_reports_more_passages_and_exact_last_page_is_not_truncated():
     text = '\n'.join(f'topic occurrence in source line {index}.' for index in range(21))
     chapters = [chapter('a', 0, len(text))]
@@ -91,6 +119,11 @@ def test_api_search_is_owned_read_only_and_never_calls_generation(monkeypatch, t
         assert result.status_code == 200
         assert len(result.json()['matches']) == 1
         assert result.json()['matches'][0]['text'] in text
+        topic = client.post(path, headers=headers, json={**request, 'query': 'light photosynthesis'})
+        assert topic.status_code == 200
+        assert topic.json()['match_mode'] == 'all_query_terms_case_insensitive'
+        assert len(topic.json()['matches']) == 1
+        assert all(term in topic.json()['matches'][0]['text'].lower() for term in ('light', 'photosynthesis'))
         assert client.get(f"/v1/documents/{document['id']}", headers=headers).json() == document
         assert client.post(path, json=request).status_code == 401
         other = client.post('/v1/auth/register', json={'email': 'search-other@example.com', 'password': 'long-enough-password'}).json()
