@@ -1,5 +1,11 @@
 # Host-neutral HTTPS deployment stack
 
+The TLS proxy uses the official stable Nginx `1.30.4-alpine3.24` image pinned to
+OCI index digest `sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c`.
+The version label remains visible for operator review while the digest prevents a
+registry tag change from silently altering a reviewed deployment. Updating it
+requires resolving a new official registry digest and rerunning the hosted stack.
+
 `deploy/compose.production.yml` runs the reviewed backend image behind an Nginx
 TLS boundary. Only HTTPS is published; the API port remains private on the Compose
 network. Both containers use read-only root filesystems, no-new-privileges and

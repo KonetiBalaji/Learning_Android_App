@@ -21,6 +21,10 @@ def test_production_compose_keeps_api_private_and_requires_external_state_and_se
         assert f"${{{required}:?" in compose_text
     assert proxy["read_only"] is True and proxy["security_opt"] == ["no-new-privileges:true"]
     assert proxy["depends_on"]["api"]["condition"] == "service_healthy"
+    assert proxy["image"] == (
+        "nginx:1.30.4-alpine3.24@"
+        "sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c"
+    )
 
 
 def test_tls_proxy_has_bounded_ingress_and_does_not_trust_forwarded_client_identity():
