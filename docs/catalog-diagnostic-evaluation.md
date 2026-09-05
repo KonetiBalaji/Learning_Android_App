@@ -51,6 +51,32 @@ checks pass, including direct duplicate rejection and fail-closed concept disagr
 The focused suite passed 55 tests and the complete backend suite passed 633 with one
 existing Windows privilege skip.
 
+## 2026-09-05 catalog run and adapter repair
+
+A new predeclared catalog-wide run exercised all 17 chapters after the concept-specific
+practice gate. Five banks passed and twelve failed closed. The evidence is
+`artifacts/catalog-diagnostic-eval-20260905T023721671105Z.json`. Failures included
+genuine ambiguity, key disagreement, concept/source review rejection, one malformed
+schema and one timeout. Eight item-level failures, however, used
+`practice_numeric_parse`, including all three Grammar items. This exposed an adapter
+availability defect: a reviewer `none` format classification forced numeric parsing
+even when the independently reviewed answer variants were clearly textual.
+
+The adapter now enables rational-number equivalence only when the reviewer selects
+`none`, the prompt has no explicit exact-format constraint, and every independently
+reviewed answer actually parses as a number. Otherwise it stores exact matching.
+This does not trust generated keys, weaken explicit format constraints, or accept a
+review disagreement. A regression locks the observed nonnumeric misclassification.
+
+A bounded follow-up reran only Algebra, Geometry, Grammar and Economics. Algebra,
+Geometry and Grammar passed; Economics remained rejected for an independent practice
+key disagreement. Evidence:
+`artifacts/catalog-diagnostic-eval-20260905T023952615002Z.json`. This is evidence that
+the adapter false rejection was repaired, not permission to resample Economics until
+it passes or a claim of catalog-wide content acceptance. The focused adapter suite
+passed 100 tests and the complete backend regression passed 635 with one existing
+Windows privilege skip.
+
 ## Remaining acceptance work
 
 Run a predeclared multi-sample holdout after reviewing provider timeout/cost limits,

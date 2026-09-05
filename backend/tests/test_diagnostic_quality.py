@@ -135,6 +135,18 @@ def test_observed_division_regression_accepts_both_proposed_representations():
     assert reviewed[0].answer_mode == 'number'
 
 
+def test_nonnumeric_review_answers_override_an_observed_none_misclassification():
+    result = review()
+    result['items'][0].update(practice_answers=['Mitochondrion', 'Mitochondria'],
+                              practice_format_constraint='none')
+    items = (replace(FRACTION_DIAGNOSTIC[0],
+                     practice_prompt='Name the organelle that releases usable energy from food.',
+                     practice_answers=('Mitochondrion',)), *FRACTION_DIAGNOSTIC[1:])
+    reviewed = review_diagnostic_answers(fake_client([result], []), 'fixture', 8, 'science', 'cells', items)
+    assert reviewed[0].answer_mode == 'exact'
+    assert reviewed[0].practice_answers == ('Mitochondrion', 'Mitochondria')
+
+
 def test_denominator_guard_overrides_observed_reviewer_omission():
     result = review()
     result['items'][1]['practice_format_constraint'] = 'none'

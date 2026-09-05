@@ -87,6 +87,15 @@ corrupted-key evaluations require disagreement at the corrupted item rather than
 counting unrelated review rejection as success. This strengthens evaluation
 evidence, not a broad model-accuracy or UAT claim. See `docs/diagnostic-answer-review.md`.
 
+The 2026-09-05 all-chapter live diagnostic run accepted 5/17 and failed closed on the
+remainder. It exposed a format-adapter false rejection for objective text practice:
+reviewed nonnumeric answers mislabeled `none` were forced through numeric parsing.
+Grading mode now requires both the unconstrained classification and independently
+numeric reviewed answers before enabling rational equivalence. A bounded rerun passed
+Algebra, Geometry and Grammar; Economics remained safely rejected for key disagreement.
+This improves availability without weakening the review gate; catalog-wide quality,
+educator review and UAT remain open. See `docs/catalog-diagnostic-evaluation.md`.
+
 Tutor explanations now pass a separate strict runtime review for accuracy, verified
 method, worked example, grade suitability, concept, tone, hint quality, unsupported
 claims and source-boundedness. Diagnostic teaching support is reviewed before storage,

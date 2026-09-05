@@ -148,12 +148,12 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
         ):
             if not valid:
                 issues.append(ReviewIssue(code, index))
-        mode = ('number' if result.practice_format_constraint == 'none'
-                and not requires_exact_numeric_format(item.practice_prompt) else 'exact')
         reviewed_answers = tuple(dict.fromkeys(answer.strip() for answer in result.practice_answers if answer.strip()))
-        if mode == 'number' and (not reviewed_answers or any(
-                rational_answer(normalize_answer(answer)) is None for answer in reviewed_answers)):
-            issues.append(ReviewIssue(ReviewFailure.PRACTICE_NUMBER, index))
+        reviewed_are_numeric = bool(reviewed_answers) and all(
+            rational_answer(normalize_answer(answer)) is not None for answer in reviewed_answers)
+        mode = ('number' if result.practice_format_constraint == 'none'
+                and reviewed_are_numeric
+                and not requires_exact_numeric_format(item.practice_prompt) else 'exact')
         if not reviewed_answers or not any(response_matches(answer, reviewed_answers, mode)[0]
                                            for answer in item.practice_answers):
             issues.append(ReviewIssue(ReviewFailure.PRACTICE_KEY, index))
