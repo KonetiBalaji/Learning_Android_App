@@ -1,0 +1,25 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Disabled unless an explicit device-QA command enables the component. -->
+        <activity
+            android:name=".DebugSpeechRecognitionActivity"
+            android:enabled="false"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.Learnly">
+            <intent-filter>
+                <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <receiver
+            android:name=".DebugSpeechFixtureReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.konetibalaji.learning.debug.ENABLE_SPEECH_FIXTURE" />
+                <action android:name="com.konetibalaji.learning.debug.DISABLE_SPEECH_FIXTURE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

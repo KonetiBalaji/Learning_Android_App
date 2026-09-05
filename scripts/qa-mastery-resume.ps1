@@ -236,10 +236,27 @@ if ($VerifyVoiceInput) {
     } finally {
         Adb shell pm enable com.google.android.tts | Out-Null
     }
+    try {
+        Adb shell am broadcast -a "$package.debug.ENABLE_SPEECH_FIXTURE" -n "$package/.DebugSpeechFixtureReceiver" | Out-Null
+        $componentState = (Adb shell dumpsys package $package) -join "`n"
+        if ($componentState -notmatch 'enabledComponents:[\s\S]*DebugSpeechRecognitionActivity') { throw 'Debug speech-result fixture did not enable itself' }
+        Adb shell pm disable-user --user 0 com.google.android.tts | Out-Null
+        TapText '🎙 Speak my tutor question'
+        TextNode 'Review the recognized text before submitting.' | Out-Null
+        $field = @((Ui).SelectNodes('//node') | Where-Object { $_.class -eq 'android.widget.EditText' })[0]
+        $expectedDraft = "$draft Why does the denominator stay?"
+        if ($field.text -ne $expectedDraft) { throw "Recognized text was not safely admitted for review: $($field.text)" }
+        TextNode 'No questions in this lesson conversation yet.' | Out-Null
+        Adb shell screencap -p /sdcard/qa-voice-input-success.png | Out-Null
+        Adb pull /sdcard/qa-voice-input-success.png (Join-Path $repo 'artifacts\qa-voice-input-success.png') | Out-Null
+    } finally {
+        Adb shell pm enable com.google.android.tts | Out-Null
+        Adb shell am broadcast -a "$package.debug.DISABLE_SPEECH_FIXTURE" -n "$package/.DebugSpeechFixtureReceiver" | Out-Null
+    }
     $auth = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
     Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers @{Authorization="Bearer $($auth.access_token)"} | Out-Null
     Adb shell pm clear $package | Out-Null
-    Write-Output 'PASS: speech cancellation and unavailable service preserve the exact typed tutor question; no question was sent.'
+    Write-Output 'PASS: speech cancellation/unavailable recovery preserves the draft; a successful debug activity result skips unusable alternatives, normalizes text and requires review before sending.'
     return
 }
 if ($VerifyTutorConversation) {

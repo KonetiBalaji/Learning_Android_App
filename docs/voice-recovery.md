@@ -113,5 +113,31 @@ navigation and physical-device/user acceptance remain open. Read-aloud playback,
 stop, completion and background lifecycle plus lesson-scoped conversational teaching
 have separate API 36 evidence in this record and the tutor-conversation contract.
 
+## Successful activity-result admission on API 36
+
+The debug APK now contains an otherwise-disabled recognition activity and an
+explicit debug-only receiver that lets the app enable that fixture for device QA.
+Neither source set is compiled into release. The fixture returns an unusable
+control-only first alternative and a second alternative containing a control
+character, repeated whitespace and surrounding whitespace. It supplies an Android
+`RecognizerIntent.EXTRA_RESULTS` result through the same activity-result boundary
+used by a device speech provider; it does not capture or synthesize audio.
+
+`scripts/qa-mastery-resume.ps1 -ResetTestAppData -VerifyVoiceInput` passed on
+LearnSmart_API36. After re-verifying real-provider cancellation and missing-provider
+recovery, it enabled the fixture, temporarily disabled the emulator provider so
+resolution was deterministic, and launched the normal **Speak my tutor question**
+action. Android skipped the unusable alternative, removed the control character,
+normalized whitespace, appended `Why does the denominator stay?` to the existing
+draft and displayed **Review the recognized text before submitting.** The empty
+conversation proved that recognition did not send the question automatically.
+The captured screen was visually inspected. A `finally` block restored the speech
+package and disabled the fixture; `dumpsys package` confirmed the component was
+disabled after the run.
+
+This closes device evidence for successful activity-result admission and mandatory
+review, not microphone permission, spoken-word accuracy, locale quality, acoustic
+output, TalkBack traversal, a physical device or user acceptance.
+
 Official references: [TTS initialization and lifecycle](https://developer.android.com/reference/android/speech/tts/TextToSpeech)
 and [recognition activity availability](https://developer.android.com/reference/android/speech/RecognizerIntent).
