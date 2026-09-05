@@ -169,6 +169,13 @@ legacy-catalog recovery were exercised. Three captures were inspected with reada
 unclipped grade/subject/action layouts. This strengthens installed-app integration
 evidence but is not physical-device or user UAT; see the same QA record.
 
+Representative production fallback content also passed installed-app API 36
+rendering for Decimals, Cells, Grammar and Geography. The reusable harness asserted
+each exact deterministic prompt and answer option; all four captures were visually
+inspected without overlap or clipping. This is representative rendering evidence,
+not exhaustive question coverage, physical-device testing, curriculum approval or
+user UAT; see `docs/full-catalog-fallback-qa.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |

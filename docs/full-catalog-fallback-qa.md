@@ -47,3 +47,19 @@ restored subject screen because successful recovery returns to the current catal
 
 This is installed-app API 36 integration evidence, not physical-device testing,
 spoken-accessibility review, curriculum approval or user acceptance.
+
+## Android deterministic-content rendering follow-up
+
+On 2026-09-05 `scripts/qa-deterministic-diagnostics.ps1
+-ResetTestAppData` installed the current debug APK on `LearnSmart_API36` and opened
+one production deterministic fallback diagnostic in each subject: Mathematics /
+Decimals, Science / Cells and Living Things, English / Grammar, and Social Studies /
+Geography. The harness asserted the exact first prompt and correct option returned by
+the app-owned banks, captured each screen, deleted each disposable account, and
+cleared app data.
+
+All four captures were visually inspected at 1080 × 2400. The subject/chapter
+identity, question, answer options, progress, teacher state and disabled submit action
+were readable without visible overlap or clipping. This proves representative
+installed-app rendering of the real fallback content, not all 51 screens, physical-
+device coverage, curriculum approval or user acceptance.
