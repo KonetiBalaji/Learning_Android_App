@@ -13,6 +13,7 @@ def review():
     return {'items': [dict(item_index=i, answer_index=item.options.index(item.correct_option),
                           unambiguous=True, topic_matches=True, grade_suitable=True,
                           practice_answers=list(item.practice_answers), practice_valid=True,
+                          practice_concept_matches=True,
                           explanation_accurate=True, worked_example_accurate=True,
                           hint_valid=True, teaching_grade_suitable=True, teaching_source_bounded=True,
                           practice_format_constraint='none' if item.answer_mode == 'number' else 'denominator')
@@ -44,7 +45,7 @@ def test_blind_review_hides_keys_but_independently_checks_teaching_support():
     request = requests[0]
     payload = json.loads(request['input'])
     assert payload['grade'] == 8 and payload['chapter'] == 'fractions'
-    assert all(set(item) == {'item_index', 'prompt', 'options', 'practice_prompt',
+    assert all(set(item) == {'item_index', 'prompt', 'options', 'concept', 'practice_prompt',
                              'explanation', 'worked_example', 'hint'} for item in payload['questions'])
     assert all('correct_option' not in item and 'practice_answers' not in item for item in payload['questions'])
     assert request['store'] is False
@@ -54,7 +55,8 @@ def test_blind_review_hides_keys_but_independently_checks_teaching_support():
 @pytest.mark.parametrize('field,value', [('answer_index', -1), ('answer_index', 0), ('unambiguous', False),
     ('topic_matches', False), ('grade_suitable', False), ('grade_suitable', 'true'), ('item_index', 1), ('answer_index', True),
     ('explanation_accurate', False), ('worked_example_accurate', False), ('hint_valid', False),
-    ('teaching_grade_suitable', False), ('teaching_source_bounded', False)])
+    ('teaching_grade_suitable', False), ('teaching_source_bounded', False),
+    ('practice_concept_matches', False)])
 def test_rejects_disagreement_uncertainty_and_malformed_review(field, value):
     result = review()
     result['items'][0][field] = value

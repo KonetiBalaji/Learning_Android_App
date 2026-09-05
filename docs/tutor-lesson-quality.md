@@ -45,6 +45,13 @@ The expanded blind diagnostic smoke then generated three Grade 8 Fractions items
 All answers, practice keys, explanations, examples and hints passed the gate and
 manual arithmetic review. A deliberately corrupted key was rejected at item 0.
 
+A later 17-chapter live diagnostic evaluation exposed an accepted English Writing
+bank that reused the same practice task across three different concepts. Production
+validation now requires distinct practice prompts, and the blind reviewer must confirm
+each practice task matches its own declared concept. The full backend suite passed 633
+tests with one existing Windows privilege skip. The catalog-wide live result remains
+unaccepted; see `catalog-diagnostic-evaluation.md` for failures and exact limitations.
+
 Reproduce from `backend` with `python scripts/evaluate_tutor_lessons.py --live`
 and `python scripts/evaluate_diagnostic.py --live`. Both refuse metered work without
 `--live`. Limits remain: generator and reviewer use the same model family, four

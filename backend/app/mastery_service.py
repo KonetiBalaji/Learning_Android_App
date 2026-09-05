@@ -55,6 +55,7 @@ def validate_diagnostic_bank(items: tuple[DiagnosticItem, ...]) -> tuple[Diagnos
     if len(items) != 3:
         raise ValueError("A diagnostic must contain exactly three questions")
     seen_prompts: set[str] = set()
+    seen_practice_prompts: set[str] = set()
     for item in items:
         if item.answer_mode not in {"exact", "number"}:
             raise ValueError("Unsupported practice answer mode")
@@ -68,6 +69,10 @@ def validate_diagnostic_bank(items: tuple[DiagnosticItem, ...]) -> tuple[Diagnos
             raise ValueError("Every correct answer must exactly match one choice")
         if not all((item.concept, item.explanation, item.worked_example, item.hint, item.practice_prompt)) or not item.practice_answers:
             raise ValueError("Every diagnostic question must include complete teaching support")
+        practice_key = item.practice_prompt.strip().casefold()
+        if practice_key in seen_practice_prompts:
+            raise ValueError("Every diagnostic question must include a distinct practice prompt")
+        seen_practice_prompts.add(practice_key)
     return items
 
 

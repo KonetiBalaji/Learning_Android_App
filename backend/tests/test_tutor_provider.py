@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from app.config import Settings
 import pytest
 
@@ -75,3 +77,10 @@ def test_generated_bank_rejects_ambiguous_or_duplicate_choices() -> None:
     )
     with pytest.raises(ValueError):
         validate_diagnostic_bank((invalid, invalid, invalid))
+
+
+def test_generated_bank_rejects_reused_practice_prompt() -> None:
+    items = list(FRACTION_DIAGNOSTIC)
+    items[1] = replace(items[1], practice_prompt=items[0].practice_prompt)
+    with pytest.raises(ValueError, match='distinct practice prompt'):
+        validate_diagnostic_bank(tuple(items))

@@ -18,6 +18,7 @@ class ReviewFailure(str, Enum):
     KEY = 'diagnostic_key_disagreement'
     UNSOLVED = 'diagnostic_unsolved'
     PRACTICE_INVALID = 'practice_invalid'
+    PRACTICE_CONCEPT = 'practice_concept'
     PRACTICE_NUMBER = 'practice_numeric_parse'
     PRACTICE_KEY = 'practice_key_disagreement'
     EXPLANATION = 'teaching_explanation'
@@ -57,6 +58,7 @@ class DiagnosticReviewItem(BaseModel):
     grade_suitable: StrictBool
     practice_answers: list[str] = Field(min_length=1, max_length=5)
     practice_valid: StrictBool
+    practice_concept_matches: StrictBool
     explanation_accurate: StrictBool
     worked_example_accurate: StrictBool
     hint_valid: StrictBool
@@ -88,6 +90,8 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
             'Return one to five concise practice_answers that obey every requested representation '
             'or format, including harmless singular/plural variants only when justified. '
             'Set practice_valid false if ambiguous, unsolvable, off-topic, grade-inappropriate or uncertain. '
+            'Set practice_concept_matches false unless the practice prompt reinforces the specific concept '
+            'tested by that same diagnostic item; broad subject overlap is insufficient. '
             'Independently audit the proposed explanation, worked example and hint against your own '
             'solution. Require correct reasoning and arithmetic, the requested concept, grade-suitable '
             'neutral wording, and no unsupported factual or causal claims. Set teaching_source_bounded '
@@ -113,6 +117,7 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
             'Fail uncertain judgments. Do not claim alignment with any national curriculum or education board.'),
         input=json.dumps({'grade': grade, 'subject': subject_id, 'chapter': chapter_id,
             'questions': [{'item_index': index, 'prompt': item.prompt, 'options': item.options,
+                           'concept': item.concept,
                            'practice_prompt': item.practice_prompt, 'explanation': item.explanation,
                            'worked_example': item.worked_example, 'hint': item.hint}
                           for index, item in enumerate(items)]}),
@@ -134,6 +139,7 @@ def review_diagnostic_answers(client, model, grade, subject_id, chapter_id, item
             (result.answer_index == item.options.index(item.correct_option),
              ReviewFailure.UNSOLVED if result.answer_index == -1 else ReviewFailure.KEY),
             (result.practice_valid, ReviewFailure.PRACTICE_INVALID),
+            (result.practice_concept_matches, ReviewFailure.PRACTICE_CONCEPT),
             (result.explanation_accurate, ReviewFailure.EXPLANATION),
             (result.worked_example_accurate, ReviewFailure.EXAMPLE),
             (result.hint_valid, ReviewFailure.HINT),
