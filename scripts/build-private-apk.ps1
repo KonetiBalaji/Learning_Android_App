@@ -2,9 +2,12 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^https://')]
     [string]$BackendUrl,
-    [string]$OutputDirectory = 'artifacts\private-release'
+    [string]$OutputDirectory = 'artifacts\private-release',
+    [string]$SigningProfile = (Join-Path $env:USERPROFILE '.learnsmart\release\signing-profile.clixml')
 )
 $ErrorActionPreference = 'Stop'
+$profileVariablesSet = @()
+try {
 $repo = Split-Path $PSScriptRoot -Parent
 $output = [IO.Path]::GetFullPath((Join-Path $repo $OutputDirectory))
 $artifactRoot = [IO.Path]::GetFullPath((Join-Path $repo 'artifacts'))
@@ -19,6 +22,39 @@ $required = @(
     'LEARN_SMART_RELEASE_KEY_PASSWORD'
 )
 $missing = @($required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) })
+if ($missing.Count -and (Test-Path -LiteralPath $SigningProfile -PathType Leaf)) {
+    $profile = Import-Clixml -LiteralPath $SigningProfile
+    $profileFields = @{
+        LEARN_SMART_RELEASE_STORE_FILE = $profile.StoreFile
+        LEARN_SMART_RELEASE_KEY_ALIAS = $profile.KeyAlias
+    }
+    foreach ($name in $profileFields.Keys) {
+        if ([string]::IsNullOrWhiteSpace([string]$profileFields[$name])) {
+            throw "Signing profile is missing $name."
+        }
+        [Environment]::SetEnvironmentVariable($name, [string]$profileFields[$name], 'Process')
+        $profileVariablesSet += $name
+    }
+    foreach ($entry in @(
+        @{ Name = 'LEARN_SMART_RELEASE_STORE_PASSWORD'; Value = $profile.StorePassword },
+        @{ Name = 'LEARN_SMART_RELEASE_KEY_PASSWORD'; Value = $profile.KeyPassword }
+    )) {
+        if ($entry.Value -isnot [Security.SecureString]) {
+            throw "Signing profile is missing $($entry.Name)."
+        }
+        $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($entry.Value)
+        try {
+            [Environment]::SetEnvironmentVariable(
+                $entry.Name,
+                [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer),
+                'Process')
+            $profileVariablesSet += $entry.Name
+        } finally {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
+        }
+    }
+    $missing = @($required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) })
+}
 if ($missing.Count) { throw "Missing release signing environment: $($missing -join ', ')" }
 $store = [IO.Path]::GetFullPath([Environment]::GetEnvironmentVariable('LEARN_SMART_RELEASE_STORE_FILE'))
 if (-not (Test-Path -LiteralPath $store -PathType Leaf)) { throw 'Release keystore file does not exist.' }
@@ -78,3 +114,8 @@ Write-Output "APK=$destination"
 Write-Output "MANIFEST=$manifestPath"
 Write-Output "SHA256=$hash"
 Write-Output "CERTIFICATE_SHA256=$certificate"
+} finally {
+    foreach ($name in $profileVariablesSet) {
+        [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+    }
+}
