@@ -491,12 +491,22 @@ def evaluate_rewrite(value: str, concept: str = "Adding like fractions") -> tupl
     normalized = value.lower()
     words = re.findall(r"[a-z0-9]+", normalized)
     concept_terms = {"numerator", "denominator", "same", "equal", "fourths", "parts"}
-    evidence_terms = {"add", "plus", "total", "sum", "4/4", "one"}
+    evidence_terms = {"add", "plus", "total", "sum", "one"}
     if concept == "Adding like fractions":
         understood = len(words) >= 8 and bool(concept_terms.intersection(words)) and (bool(evidence_terms.intersection(words)) or "4/4" in normalized)
+    elif concept == "Equivalent fractions":
+        relationship_terms = {"same", "equal", "equivalent", "value", "amount"}
+        method_terms = {"multiply", "divide", "numerator", "denominator", "both"}
+        understood = (len(words) >= 8 and bool(relationship_terms.intersection(words))
+                      and len(method_terms.intersection(words)) >= 2)
+    elif concept == "Subtracting like fractions":
+        method_terms = {"subtract", "minus", "difference"}
+        understood = (len(words) >= 8 and bool(concept_terms.intersection(words))
+                      and bool(method_terms.intersection(words)))
     else:
-        concept_words = {word for word in re.findall(r"[a-z0-9]+", concept.lower()) if len(word) > 3}
-        understood = len(words) >= 8 and bool(concept_words.intersection(words))
+        # No generic word-overlap heuristic can establish conceptual understanding.
+        # Non-Fractions rewrites require the independently reviewed provider rubric.
+        understood = False
     if understood:
         return True, None
     return False, f"Explain the key idea behind {concept}, then connect it to the practice example."

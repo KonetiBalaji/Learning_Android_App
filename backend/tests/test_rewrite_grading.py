@@ -104,3 +104,25 @@ def test_api_preserves_rewrite_phase_on_outage_and_records_successful_grade(monk
             assert stored["score"] == 4
     finally:
         client.__exit__(None, None, None)
+
+
+def test_generic_offline_rewrite_cannot_persist_false_mastery(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        session = client.post('/v1/mastery/diagnostics', headers=headers,
+                              json={'grade': 8, 'subject_id': 'science', 'chapter_id': 'cells'}).json()
+        path = f"/v1/mastery/sessions/{session['id']}"
+        assert client.post(path + '/diagnostic-answer', headers=headers,
+                           json={'selected_option': 'Nucleus'}).status_code == 200
+        assert client.post(path + '/practice', headers=headers,
+                           json={'response': 'cell membrane'}).status_code == 200
+        failed = client.post(path + '/rewrite', headers=headers, json={
+            'response': 'Cell membrane repeated many times without giving any real explanation at all.'})
+        assert failed.status_code == 503
+        assert client.get(path, headers=headers).json()['status'] == 'rewrite'
+        from app.config import get_settings
+        from app.database import connection
+        with connection(get_settings().database_path) as db:
+            assert db.execute("SELECT count(*) FROM mastery_attempts WHERE phase = 'rewrite'").fetchone()[0] == 0
+    finally:
+        client.__exit__(None, None, None)

@@ -20,6 +20,22 @@ no response storage, and prints no credential. Unit tests reject malformed score
 separate untrusted learner instructions from the rubric, and prove neither incomplete
 nor full-credit model comments can reach the learner.
 
+## Deterministic-mode false-credit repair (2026-09-05)
+
+The fallback grader previously accepted any response of at least eight words that
+contained one long word from a non-Fractions concept. That generic overlap was not
+evidence of understanding and could advance a deterministic development session.
+Non-Fractions rewrites now fail closed as assessment unavailable unless the strict
+provider rubric runs. The three explicitly curated Fractions concepts retain separate
+offline checks for concept and method evidence: addition, equivalence, and subtraction.
+
+Focused provider/mastery/grading QA passed 81 tests. An authenticated Cells journey
+proves a long response repeating the concept receives 503, remains in rewrite, writes
+no rewrite attempt, and cannot advance mastery. Positive and repetition-negative cases
+cover all three curated Fractions rubrics. Production already requires OpenAI mode;
+this repair protects deterministic development and test operation without treating
+keyword overlap as mastery.
+
 This is a small regression and false-pass screen, not statistical calibration. It
 does not establish curriculum correctness, multilingual grading, fairness, educator
 approval, physical-device behavior or UAT. Those remain separate acceptance gates.

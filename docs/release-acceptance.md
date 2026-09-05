@@ -149,6 +149,13 @@ post-failure practice still requires independent provider review, and the founda
 content is not board, educator, or UAT approved; see
 `docs/deterministic-social-diagnostics.md`.
 
+Deterministic rewrite grading no longer treats eight words plus one repeated concept
+term as proof of understanding. Non-Fractions explanations now remain ungraded and
+cannot advance mastery unless the strict provider rubric is available. Only the three
+explicitly curated Fractions methods retain offline rubrics. Focused QA includes an
+authenticated Cells response that returns 503, stays in rewrite, and writes no attempt;
+see `docs/rewrite-cross-subject-evaluation.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |

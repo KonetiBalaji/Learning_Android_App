@@ -35,6 +35,43 @@ def test_teaching_falls_back_but_grading_outage_cannot_award_mastery() -> None:
     assert len(provider.diagnostic_bank(6, "math", "fractions")) == 3
 
 
+def test_generic_deterministic_word_overlap_cannot_award_rewrite_mastery() -> None:
+    provider = DeterministicTutorProvider()
+    item = diagnostic_bank('science', 'matter')[1]
+    response = 'Density density density is repeated here in eight empty words.'
+    assessment = provider.assess_rewrite(8, item, response)
+    assert assessment.understood is False
+    assert assessment.available is False
+
+
+def test_curated_fraction_rewrite_remains_available_offline() -> None:
+    assessment = DeterministicTutorProvider().assess_rewrite(
+        8, FRACTION_DIAGNOSTIC[0],
+        'The denominator stays the same while we add numerators to get 4/4, one whole.')
+    assert assessment.understood is True
+    assert assessment.available is True
+
+
+@pytest.mark.parametrize('item,response', [
+    (FRACTION_DIAGNOSTIC[1],
+     'Equivalent fractions have the same value because we multiply both numerator and denominator equally.'),
+    (FRACTION_DIAGNOSTIC[2],
+     'With the same denominator, subtract the numerators and keep the denominator unchanged.'),
+])
+def test_each_explicit_fraction_rubric_can_award_offline_mastery(item, response) -> None:
+    assessment = DeterministicTutorProvider().assess_rewrite(8, item, response)
+    assert assessment.understood is True
+    assert assessment.available is True
+
+
+@pytest.mark.parametrize('item', FRACTION_DIAGNOSTIC)
+def test_repetition_without_fraction_reasoning_never_passes_offline(item) -> None:
+    assessment = DeterministicTutorProvider().assess_rewrite(
+        8, item, f'{item.concept} {item.concept} repeated words without a mathematical method.')
+    assert assessment.understood is False
+    assert assessment.available is True
+
+
 @pytest.mark.parametrize('chapter', ['fractions', 'decimals', 'percentages', 'algebra', 'geometry'])
 def test_every_grade_8_math_chapter_has_a_valid_deterministic_fallback(chapter) -> None:
     bank = diagnostic_bank('math', chapter)

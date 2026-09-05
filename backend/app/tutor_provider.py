@@ -149,7 +149,8 @@ class DeterministicTutorProvider:
 
     def assess_rewrite(self, grade: int, item: DiagnosticItem, response: str) -> RewriteAssessment:
         understood, coaching = evaluate_rewrite(response, item.concept)
-        return RewriteAssessment(understood=understood, coaching=coaching)
+        return RewriteAssessment(understood=understood, coaching=coaching,
+                                 available=item in diagnostic_bank('math', 'fractions'))
 
     def diagnostic_bank(self, grade: int, subject_id: str, chapter_id: str) -> tuple[DiagnosticItem, ...]:
         return diagnostic_bank(subject_id, chapter_id)
