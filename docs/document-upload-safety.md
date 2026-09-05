@@ -32,6 +32,9 @@ normal multipart headers but does not raise the 50 MiB document-content allowanc
   same material with a closing boundary succeeds with one saved document.
 - These are bounded-copy and in-process API tests, not Android document-picker
   end-to-end evidence or proof of production reverse-proxy streaming behavior.
+- `parser-stress-smoke.md` records two 100-input malformed PDF/DOCX runs through
+  the asynchronous upload validation boundary: all admitted files were rejected,
+  overload failed fast, no timeout/file/lease remained, and valid parsing recovered.
 
 Remaining: device tests with local/cloud content providers, revoked URI access,
 50 MiB boundary files, cancellation/offline recovery; reverse-proxy request size/time
