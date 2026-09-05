@@ -87,6 +87,14 @@ SHA-256 is
 The build profile contains only DPAPI-protected credentials; neither credentials nor
 private-key bytes are committed.
 
+On 2026-09-04, commit `0c30e05` produced an owned-key QA release with explicit
+`versionCode=2` and `versionName=0.2.0-qa.1`; signature, package metadata and the
+manifest matched. API 36 first installed the same-key `versionCode=1` artifact from
+commit `3154cd4`, then `adb install -r` upgraded it successfully to version 2 while
+preserving the package UID and signing key set. The endpoint was deliberately
+`https://qa.invalid`, so this proves signed private-APK upgrade compatibility only,
+not backend reachability, a UAT candidate or production deployment.
+
 Before UAT, rerun with an approved reachable HTTPS staging backend and the owned
 release key, install the exact hashed APK on the agreed physical device, and attach
 its manifest to the UAT record. Before production, repeat against the production

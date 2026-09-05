@@ -190,6 +190,10 @@ and semantic version name. The build refuses to overwrite an output directory's
 existing candidate unless its version code increases, and verifies the packaged APK
 matches both requested values. This repairs ambiguous `versionCode=1` artifacts but
 does not itself create a UAT candidate without a confirmed reachable HTTPS backend.
+The owned signing identity then passed an API 36 upgrade from the rebuilt commit
+`3154cd4` version-1 APK to commit `0c30e05` version 2 (`0.2.0-qa.1`); Android retained
+the package UID and signing key set. Both artifacts intentionally target
+`https://qa.invalid`, so this is upgrade QA rather than a distributable candidate.
 
 Backend production mode now fails startup without an explicit absolute runtime
 volume, strong non-default JWT secret, full Git revision, reviewed OpenAI mode and
