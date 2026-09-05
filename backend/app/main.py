@@ -95,7 +95,7 @@ from .guardian_access import (
     access_history_csv,
     record_guardian_account_deletion,
 )
-from .learning_path import CATALOG, CATALOG_VERSION, catalog_chapter, unlocks_dependent_chapter
+from .learning_path import CATALOG, CATALOG_VERSION, SUPPORTED_GRADES, catalog_chapter, unlocks_dependent_chapter
 from .ai_usage import consume_ai_operation
 from .operational_logging import OperationalLoggingMiddleware
 from .runtime_readiness import verify_runtime_readiness
@@ -216,6 +216,8 @@ def ready(settings: Settings = Depends(get_settings)):
 
 @app.get('/v1/catalog', response_model=CurriculumCatalog)
 def curriculum_catalog(grade: int = Query(ge=1, le=12), _: str = Depends(current_user_id)) -> CurriculumCatalog:
+    if grade not in SUPPORTED_GRADES:
+        raise HTTPException(status_code=422, detail='The reviewed curriculum catalog currently starts with Grade 8')
     return CurriculumCatalog(version=CATALOG_VERSION, grade=grade, board='unconfirmed',
                              subjects=[{'id': subject.id, 'title': subject.title,
                                         'chapters': [chapter.__dict__ for chapter in subject.chapters]}
@@ -888,6 +890,8 @@ def observe_study_presence(session_id: str, reset: bool = False, user_id: str = 
 
 @app.post("/v1/mastery/diagnostics", response_model=DiagnosticSession, status_code=status.HTTP_201_CREATED)
 def start_diagnostic(request: DiagnosticStartRequest, user_id: str = Depends(current_user_id), settings: Settings = Depends(get_settings)) -> DiagnosticSession:
+    if request.grade not in SUPPORTED_GRADES:
+        raise HTTPException(status_code=422, detail='Diagnostics currently start with Grade 8')
     if catalog_chapter(request.subject_id, request.chapter_id) is None:
         raise HTTPException(status_code=422, detail='This subject or chapter is not in the current catalog')
     from .learning_path import missing_prerequisite

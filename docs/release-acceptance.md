@@ -103,7 +103,7 @@ Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
 | AUTH-02 | Google login | Partial | Backend exchange, five-minute one-use nonce binding and Android Credential Manager wiring are implemented; disabled-build device QA passes. OAuth configuration, real sign-in, configured-device lifecycle recovery and user acceptance remain missing |
-| CUR-01 | Grade 1–12, subject and chapter selection | Partial | Versioned server catalog and pre-provider allowlisting are API 36 verified; user-confirmed board, authoritative grade-specific coverage and UAT remain open |
+| CUR-01 | Grade 1–12, subject and chapter selection | Partial | Grade 8 is the honest launch boundary: unsupported grades are visibly marked coming later in Android and rejected by the backend before provider work; versioned Grade 8 server catalog and pre-provider allowlisting are verified. User-confirmed board, authoritative grade-specific coverage, Grades 1–7/9–12 and UAT remain open |
 | ASM-01 | Diagnostic and correct-answer progression | QA verified | Transactional response replay, conflicting/stale rejection, owner scope, restart recovery, undisclosed-answer protection and correct/wrong/remediation/all-question transitions are backend tested and API 36 verified; live curriculum/UAT remain |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | QA verified | Independent fail-closed lesson and diagnostic-teaching review, safe checked fallback, strict rejection tests and bounded Grade 8 live checks across four subjects; catalog-wide sampling exposed repeated off-concept practice, so production now requires distinct prompts plus per-item concept review; availability, broader ages, educator calibration and UAT remain |
 | TUT-02 | Fresh practice, hints and repeated coaching | Partial | Blind answer solving plus separate fail-closed hint review, repeated deterministic and general practice persistence, four-subject Grade 8 live sampling and no automatic chapter mastery after one remediated concept; broader curriculum, latency/cost, device breadth, educator review and UAT remain |
@@ -1029,22 +1029,26 @@ curriculum review, physical-device QA and UAT remain open.
   bounded native interactive route in each core subject; it is not broad curriculum,
   TalkBack, physical-device or UAT acceptance.
 - Replaced Android's hardcoded subject/chapter graph with authenticated
-  `foundation-2026-09` server catalog loading for grades 1–12. Unknown pairs are
+  `foundation-2026-09` server catalog loading for Grade 8. Grades 1–7 and 9–12
+  remain visible as planned expansion but cannot be selected, restored or requested;
+  the backend rejects them before provider work or session creation. Unknown pairs are
   rejected before any provider call; prerequisite locks derive from the same graph.
   Android validates grade, board, subject order/identity and chapter integrity with
   no static fallback, and clears stale catalog data when the grade changes. API 36
   opened every Grade 8 subject list and restored the catalog after process restart;
   the board-unconfirmed disclosure was visually inspected. Follow-up API 36 QA
-  changed to Grade 9 under an injected one-shot 503, proved no stale Grade 8 catalog
-  remained, displayed an explicit recovery action, recovered all four subjects and
-  retained the recovered catalog after restart. Both success and fail-closed frames
-  were visually inspected. Mastery sessions now persist and return their creation
+  changed to grade selection, verified Grade 9 was marked coming later and disabled,
+  and confirmed a tap could not enter a mislabeled catalog. It then selected Grade 8
+  and retained the catalog after restart. Both catalog and grade-boundary frames were
+  visually inspected. Mastery sessions now persist and return their creation
   catalog version; legacy databases are migrated, and Android refuses to map an
   older saved lesson into a changed catalog while retaining its server record.
   API 36 verified that restart path, absence of the local resume action, current
   catalog rendering and an authenticated read of the retained legacy-version server
-  session. Backend 456 passed with one existing Windows skip; Android 133 JVM tests,
-  lint and debug assembly passed. See
+  session. Current regression passed 634 backend tests with one existing Windows
+  skip and 176 Android JVM tests with zero failures/skips; lint and debug assembly
+  passed. The API 36 journey passed and its Grade 8 boundary screenshot was visually
+  inspected without clipping. See
   `shared/contracts/curriculum-catalog.md`. This is a synchronized foundation catalog,
   not authoritative board coverage or curriculum UAT.
 - Replaced generic progress advice with deterministic evidence-based next steps.

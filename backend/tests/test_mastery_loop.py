@@ -37,7 +37,7 @@ def test_wrong_answer_routes_through_tutor_practice_rewrite_and_mastery(monkeypa
     try:
         started = client.post(
             "/v1/mastery/diagnostics",
-            json={"grade": 6, "subject_id": "math", "chapter_id": "fractions"},
+            json={"grade": 8, "subject_id": "math", "chapter_id": "fractions"},
             headers=headers,
         )
         assert started.status_code == 201, started.text
@@ -89,12 +89,12 @@ def test_diagnostic_validation_and_owner_scope(monkeypatch, tmp_path: Path) -> N
     try:
         unsupported = client.post(
             "/v1/mastery/diagnostics",
-            json={"grade": 6, "subject_id": "science", "chapter_id": "cells"}, headers=headers,
+            json={"grade": 8, "subject_id": "science", "chapter_id": "not-a-chapter"}, headers=headers,
         )
         assert unsupported.status_code == 422
         started = client.post(
             "/v1/mastery/diagnostics",
-            json={"grade": 6, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
+            json={"grade": 8, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
         ).json()
         other = client.post(
             "/v1/auth/register",
@@ -119,7 +119,7 @@ def test_all_correct_diagnostic_reaches_mastery_without_revealing_answers(monkey
     try:
         started = client.post(
             "/v1/mastery/diagnostics",
-            json={"grade": 6, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
+            json={"grade": 8, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
         ).json()
         session_id = started["id"]
         question = started["question"]
@@ -173,7 +173,7 @@ def test_failed_practice_and_rewrite_return_more_coaching(monkeypatch, tmp_path:
     try:
         started = client.post(
             "/v1/mastery/diagnostics",
-            json={"grade": 6, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
+            json={"grade": 8, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
         ).json()
         session_id = started["id"]
         client.post(
@@ -256,7 +256,7 @@ def test_weekly_report_and_account_deletion_cover_owned_data(monkeypatch, tmp_pa
         assert stored_path.exists()
         started = client.post(
             "/v1/mastery/diagnostics",
-            json={"grade": 6, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
+            json={"grade": 8, "subject_id": "math", "chapter_id": "fractions"}, headers=headers,
         ).json()
         client.post(
             f"/v1/mastery/sessions/{started['id']}/diagnostic-answer",

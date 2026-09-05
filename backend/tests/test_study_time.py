@@ -30,8 +30,12 @@ def test_reports_clip_intervals_and_isolate_grade_and_owner(monkeypatch, tmp_pat
         start = end - timedelta(days=7)
         monkeypatch.setattr(api, 'now', lambda: end.isoformat())
         def session(grade, auth):
-            return client.post('/v1/mastery/diagnostics', headers=auth,
-                json={'grade': grade, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()['id']
+            session_id = client.post('/v1/mastery/diagnostics', headers=auth,
+                json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()['id']
+            if grade != 8:
+                with connection(get_settings().database_path) as db:
+                    db.execute('UPDATE mastery_sessions SET grade = ? WHERE id = ?', (grade, session_id))
+            return session_id
         first, second = session(8, headers), session(7, headers)
         token = client.post('/v1/auth/register', json={'email': 'other-time-report@example.com', 'password': 'long-enough-password'}).json()['access_token']
         other = session(8, {'Authorization': f'Bearer {token}'})
@@ -60,8 +64,12 @@ def test_presence_is_bounded_nonoverlapping_and_stops_at_completion(monkeypatch,
     try:
         base = datetime.now(UTC)
         def start(grade):
-            return client.post('/v1/mastery/diagnostics', headers=headers,
-                json={'grade': grade, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()['id']
+            session_id = client.post('/v1/mastery/diagnostics', headers=headers,
+                json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()['id']
+            if grade != 8:
+                with connection(get_settings().database_path) as db:
+                    db.execute('UPDATE mastery_sessions SET grade = ? WHERE id = ?', (grade, session_id))
+            return session_id
         first, second = start(8), start(7)
         def beat(session, elapsed):
             monkeypatch.setattr(api, 'now', lambda: (base + timedelta(seconds=elapsed)).isoformat())

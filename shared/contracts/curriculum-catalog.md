@@ -2,7 +2,7 @@
 
 ## Contract
 
-`GET /v1/catalog?grade=8` is authenticated and accepts grades 1 through 12. It
+`GET /v1/catalog?grade=8` is authenticated and currently accepts Grade 8 only. It
 returns a version, the requested grade, an explicit board-alignment state, and an
 ordered subject/chapter graph. The current version is `foundation-2026-09` with
 board `unconfirmed`. It contains the existing 17 foundation topics across
@@ -10,11 +10,11 @@ Mathematics, Science, English and Social Studies, including each of the four
 existing immediate prerequisites.
 
 This is a product catalog, not an authoritative national, state or examination-
-board curriculum. The same foundation topic set is currently exposed for each
-grade and provider prompts receive the selected grade for age adaptation. This
-preserves the original Grades 1–12 navigation without pretending that the chapter
-set has been validated for every grade. Board-specific replacement and educator
-review remain CUR-01 acceptance gates.
+board curriculum. Grades 1-7 and 9-12 are planned expansion, but the backend
+rejects their catalog and diagnostic requests with 422 before provider selection
+or session creation. This prevents the Grade 8 foundation set from being
+misrepresented as reviewed material for another grade. Board-specific replacement
+and educator review remain CUR-01 acceptance gates.
 
 The backend now rejects a diagnostic subject/chapter pair that is absent from this
 catalog before selecting or calling any AI provider and before creating a session.
@@ -24,6 +24,8 @@ duplicating locked chapter identifiers.
 
 ## Android behavior
 
+Android displays all twelve grade choices, marks Grades 1-7 and 9-12 as coming
+later, and disables them. Grade 8 is the only selectable and restorable grade.
 Android no longer owns subject titles or chapter lists. It maps the four allowlisted
 subject IDs only to local icon/color presentation, validates the complete response,
 and renders server titles, ordering and prerequisite locks. It rejects wrong-grade,
@@ -43,24 +45,24 @@ flow requests the catalog when none is held.
 
 ## Verification and limits
 
-Backend tests verify authentication, boundary grades, version/board/order, 17 unique
+Backend tests verify authentication, rejection of unsupported grades before provider
+work, version/board/order, 17 unique
 chapters, valid prerequisite ordering, normalized known lookup, pre-provider
 rejection of unknown identifiers, legacy database migration, and session-version
 retention after a catalog change. Android tests verify strict response invariants.
-The full backend regression passed 456 tests with one existing Windows skip;
-Android passed 133 JVM tests with zero failures/skips plus lint and debug assembly.
+The full backend regression passed 634 tests with one existing Windows skip;
+Android passed 176 JVM tests with zero failures/skips plus lint and debug assembly.
 On API 36, `scripts/qa-curriculum-catalog.ps1 -ResetTestAppData` loaded Grade 8,
 opened all four subject lists and checked their first and last chapters, restarted
-the process, and verified the versioned catalog returned. It then changed to Grade
-9 while injecting a one-shot 503, verified the Grade 8 subject graph was absent,
-displayed a safe unavailable state with an explicit refresh action, recovered all
-four subjects, restarted, and verified the recovered catalog returned. The
+the process, and verified the versioned catalog returned. It then changed grade,
+verified Grade 9 was visibly marked coming later and disabled, confirmed tapping
+it did not leave grade selection, selected Grade 8 again, restarted, and verified
+the catalog returned. The
 disposable account was deleted and app data cleared.
 
 The inspected `artifacts/qa-curriculum-catalog.png` shows all four subject cards and
 the catalog/board disclosure without clipping. The inspected
-`artifacts/qa-curriculum-catalog-failure.png` shows the Grade 9 fail-closed state and
-large refresh control without clipping. The inspected
+`artifacts/qa-grade-availability.png` shows the honest Grade 8 launch boundary. The inspected
 `artifacts/qa-curriculum-catalog-migration.png` shows the current catalog after the
 incompatible local pointer was retired; the harness also authenticated a direct
 read proving the legacy-version server session still existed before account cleanup.

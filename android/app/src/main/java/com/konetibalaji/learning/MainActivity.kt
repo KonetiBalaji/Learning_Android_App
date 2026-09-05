@@ -264,13 +264,17 @@ private fun SignInScreen(loading: Boolean, onAuthenticate: (String, String, Bool
 @Composable
 private fun GradeScreen(onSelect: (Int) -> Unit) = Page {
     Text("👋 Hello, learner", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-    Header("Your learning path", "Select your grade", "We use your grade to explain concepts at the right level.")
+    Header("Your learning path", "Select your grade", "Grade 8 is available first. Other grades will open only after their curriculum is reviewed.")
     AccessibleSelectionGrid((1..12).toList(), 96f, 3) { grade ->
-        Card(modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).clickable { onSelect(grade) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 84.dp).padding(12.dp), contentAlignment = Alignment.Center) { Text("Grade\n$grade", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = Indigo) }
+        val available = isSupportedGrade(grade)
+        Card(modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).clickable(enabled = available) { onSelect(grade) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 84.dp).padding(8.dp), contentAlignment = Alignment.Center) {
+                Text(if (available) "Grade\n$grade" else "Grade\n$grade\nComing later", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold,
+                    color = if (available) Indigo else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
-    TipCard("You can change this later", "Your tutor adapts each explanation as you grow.")
+    TipCard("Grade 8 first", "The current foundation catalog is not presented as reviewed content for other ages or grades.")
 }
 
 @Composable

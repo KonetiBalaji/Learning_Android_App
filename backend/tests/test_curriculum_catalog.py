@@ -25,8 +25,10 @@ def test_authenticated_catalog_is_versioned_grade_scoped_and_internally_consiste
                 if prerequisite is not None:
                     assert prerequisite in ids
                     assert ids.index(prerequisite) < ids.index(chapter['id'])
-        assert client.get('/v1/catalog?grade=1', headers=headers).json()['grade'] == 1
-        assert client.get('/v1/catalog?grade=12', headers=headers).json()['grade'] == 12
+        for grade in (1, 7, 9, 12):
+            unsupported = client.get(f'/v1/catalog?grade={grade}', headers=headers)
+            assert unsupported.status_code == 422
+            assert unsupported.json()['detail'] == 'The reviewed curriculum catalog currently starts with Grade 8'
         assert client.get('/v1/catalog?grade=0', headers=headers).status_code == 422
         assert client.get('/v1/catalog?grade=13', headers=headers).status_code == 422
         assert client.get('/v1/catalog?grade=8').status_code == 401
@@ -54,3 +56,18 @@ def test_catalog_lookup_normalizes_only_known_identifiers():
     assert catalog_chapter(' MATH ', ' FRACTIONS ').title == 'Fractions'
     assert catalog_chapter('math', 'fraction') is None
     assert catalog_chapter('mathematics', 'fractions') is None
+
+
+def test_diagnostic_rejects_unsupported_grade_before_provider_work(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        import app.main as api
+        calls = []
+        monkeypatch.setattr(api, 'tutor_provider', lambda settings: calls.append(settings))
+        response = client.post('/v1/mastery/diagnostics', headers=headers,
+                               json={'grade': 7, 'subject_id': 'math', 'chapter_id': 'fractions'})
+        assert response.status_code == 422
+        assert response.json()['detail'] == 'Diagnostics currently start with Grade 8'
+        assert calls == []
+    finally:
+        client.__exit__(None, None, None)

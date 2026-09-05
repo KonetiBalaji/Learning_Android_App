@@ -61,6 +61,9 @@ data class GuardianAccount(val id: String, val email: String, val linkedAt: Stri
 data class CurriculumCatalogClient(val version: String, val grade: Int, val board: String,
                                    val subjects: List<LearningSubject>, val chapters: Map<String, List<MasteryChapter>>)
 
+const val INITIAL_SUPPORTED_GRADE = 8
+fun isSupportedGrade(grade: Int) = grade == INITIAL_SUPPORTED_GRADE
+
 data class LearningSubject(val id: String, val title: String, val icon: String, val accent: Long)
 data class MasteryChapter(val id: String, val title: String, val locked: Boolean = false)
 data class LearningBadge(val id: String, val title: String, val description: String, val earnedAt: String)
@@ -156,7 +159,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     private val preferences = application.getSharedPreferences("learn-smart", Context.MODE_PRIVATE)
     private val tokenStore = SessionTokenStore(preferences)
     private val api = LearningApi(null, tokenStore::write)
-    private val savedGrade = preferences.getInt("grade", 0).takeIf { it in 1..12 }
+    private val savedGrade = preferences.getInt("grade", 0).takeIf(::isSupportedGrade)
     private val mutableState = MutableStateFlow(AppUiState(
         screen = Screen.SignIn, loading = true,
         grade = savedGrade, darkMode = preferences.getBoolean("dark_mode", false),
@@ -349,6 +352,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             canResumeDocumentQuiz = preferences.contains("active_document_quiz:${email.lowercase()}") || preferences.contains("active_document:${email.lowercase()}"))
     }
     fun selectGrade(grade: Int) {
+        if (!isSupportedGrade(grade)) return
         preferences.edit().putInt("grade", grade).apply()
         mutableState.value = mutableState.value.copy(grade = grade, screen = Screen.Subjects,
             progressSnapshot = null, unlockedChapterIds = emptySet(), subject = null, masteryChapter = null,

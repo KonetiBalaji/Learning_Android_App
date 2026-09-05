@@ -24,6 +24,7 @@ $email='catalog-'+[Guid]::NewGuid().ToString('N')+'@example.com'
 EnterField 0 $email
 EnterField 1 'qa-password-long-enough'
 TapText 'Create account'
+FindText 'Select your grade' 30|Out-Null
 TapText "Grade`n8"
 $label='Catalog foundation-2026-09 · Board alignment unconfirmed'
 FindText $label 30 -Scroll|Out-Null
@@ -35,20 +36,16 @@ CheckSubject 'English' 'Grammar' 'Writing'
 CheckSubject 'Social Studies' 'Geography' 'Economics'
 TapText 'Settings and account' 30 -Scroll
 TapText 'Change grade · 8' 30 -Scroll
-Invoke-RestMethod 'http://127.0.0.1:8000/__qa/catalog/fail-next-response' -Method Post -Headers $headers|Out-Null
-TapText "Grade`n9"
-$supportPattern='^The learning service is temporarily unavailable\. Please try again\.\s+Support ID: [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-$supportNode=FindTextMatch $supportPattern
-if($supportNode.text-notmatch'Support ID: ([0-9a-f-]{36})$'){throw 'The failure dialog did not expose a canonical support ID.'}
-Adb shell screencap -p /sdcard/qa-support-id.png|Out-Null
-Adb pull /sdcard/qa-support-id.png (Join-Path $repo 'artifacts\qa-support-id.png')|Out-Null
-TapText 'Try again'
-FindText 'The curriculum catalog is unavailable. Reconnect, then refresh.'|Out-Null
-FindText 'Refresh curriculum and progress'|Out-Null
+$grade9=FindText "Grade`n9`nComing later"
+if($grade9.ParentNode.enabled-ne'false' -or $grade9.ParentNode.clickable-ne'true'){throw 'Grade 9 card must be present but disabled while Grade 8 is the launch curriculum.'}
+Adb shell screencap -p /sdcard/qa-grade-availability.png|Out-Null
+Adb pull /sdcard/qa-grade-availability.png (Join-Path $repo 'artifacts\qa-grade-availability.png')|Out-Null
+$p=Center $grade9
+Adb shell input tap $p[0] $p[1]|Out-Null
+Start-Sleep -Milliseconds 900
+FindText 'Select your grade'|Out-Null
 FindAbsent 'Mathematics'
-Adb shell screencap -p /sdcard/qa-curriculum-catalog-failure.png|Out-Null
-Adb pull /sdcard/qa-curriculum-catalog-failure.png (Join-Path $repo 'artifacts\qa-curriculum-catalog-failure.png')|Out-Null
-TapText 'Refresh curriculum and progress'
+TapText "Grade`n8"
 FindText $label 30 -Scroll|Out-Null
 FindText 'Mathematics' 30 -Scroll|Out-Null
 FindText 'Science' 30 -Scroll|Out-Null
@@ -76,4 +73,4 @@ Adb shell screencap -p /sdcard/qa-curriculum-catalog-migration.png|Out-Null
 Adb pull /sdcard/qa-curriculum-catalog-migration.png (Join-Path $repo 'artifacts\qa-curriculum-catalog-migration.png')|Out-Null
 Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers $headers|Out-Null
 Adb shell pm clear $package|Out-Null
-Write-Output 'PASS: API 36 loaded and recovered the server catalog, restored it after restart, and safely retired a local resume pointer for a legacy-catalog session.'
+Write-Output 'PASS: API 36 enforced the Grade 8 launch boundary, restored the server catalog after restart, and safely retired a local resume pointer for a legacy-catalog session.'

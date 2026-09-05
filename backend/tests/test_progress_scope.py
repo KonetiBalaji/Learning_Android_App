@@ -1,4 +1,15 @@
+from app.config import get_settings
+from app.database import connection
 from test_mastery_loop import registered_client
+
+
+def historical_session(client, headers, grade):
+    """Create a supported session, then model a retained pre-launch-boundary row."""
+    session_id = client.post('/v1/mastery/diagnostics', headers=headers,
+        json={'grade': 8, 'subject_id': 'math', 'chapter_id': 'fractions'}).json()['id']
+    with connection(get_settings().database_path) as db:
+        db.execute('UPDATE mastery_sessions SET grade = ? WHERE id = ?', (grade, session_id))
+    return session_id
 
 
 def test_weak_area_clears_after_explanation_but_not_practice_alone(monkeypatch, tmp_path):
@@ -19,7 +30,7 @@ def test_weak_area_clears_after_explanation_but_not_practice_alone(monkeypatch, 
         assert recovered['weak_areas'] == []
         assert [badge['id'] for badge in recovered['badges']] == ['first_answer', 'learn_from_mistakes']
         # A different grade's mistake cannot undo Grade 8 remediation.
-        other_grade = f'/v1/mastery/sessions/{start(6)}'
+        other_grade = f'/v1/mastery/sessions/{historical_session(client, headers, 6)}'
         client.post(other_grade + '/diagnostic-answer', headers=headers, json={'selected_option': '1/2'})
         assert client.get('/v1/progress/dashboard?grade=8', headers=headers).json()['weak_areas'] == []
         assert client.get('/v1/progress/dashboard?grade=6', headers=headers).json()['weak_areas'] == weak
@@ -34,13 +45,12 @@ def test_weak_area_clears_after_explanation_but_not_practice_alone(monkeypatch, 
 def test_progress_is_grade_and_owner_scoped(monkeypatch, tmp_path):
     client, headers = registered_client(monkeypatch, tmp_path)
     try:
-        for grade in (6, 8):
-            session = client.post("/v1/mastery/diagnostics", headers=headers,
-                                  json={"grade": grade, "subject_id": "math", "chapter_id": "fractions"}).json()
-            if grade == 8:
-                for answer in ("1", "3/6", "4/8"):
-                    client.post(f"/v1/mastery/sessions/{session['id']}/diagnostic-answer",
-                                headers=headers, json={"selected_option": answer})
+        historical_session(client, headers, 6)
+        session = client.post("/v1/mastery/diagnostics", headers=headers,
+                              json={"grade": 8, "subject_id": "math", "chapter_id": "fractions"}).json()
+        for answer in ("1", "3/6", "4/8"):
+            client.post(f"/v1/mastery/sessions/{session['id']}/diagnostic-answer",
+                        headers=headers, json={"selected_option": answer})
         eight = client.get("/v1/progress/dashboard?grade=8", headers=headers).json()
         six = client.get("/v1/progress/dashboard?grade=6", headers=headers).json()
         assert eight["subjects"]["math"] == 1

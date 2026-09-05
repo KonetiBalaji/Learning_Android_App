@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 
 CATALOG_VERSION = 'foundation-2026-09'
+SUPPORTED_GRADES = frozenset({8})
 
 
 @dataclass(frozen=True)
