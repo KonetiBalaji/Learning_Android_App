@@ -225,9 +225,17 @@ mode, and the saved source boundaries survived force-stop/restart. Transient
 UIAutomator null-root responses recovered through the bounded fresh-dump retry.
 
 The initial 1,600-character candidate crossed into unrelated fixture prose. After
-paragraph-aware 800-character segmentation and a calibrated 0.30 threshold, the
+paragraph-aware 800-character segmentation and a calibrated 0.25 threshold, the
 same journey passed again and visual inspection confirmed that the result stopped
 at the natural Plants-paragraph boundary (source characters 307–927). Complete
 paragraphs do not carry a false truncation warning. This remains one synthetic
 emulator journey rather than broad semantic relevance evidence. Physical-device
 QA, labeled multilingual/spelling evaluation and UAT remain open.
+
+The threshold calibration is executable through
+`backend/scripts/evaluate_semantic_retrieval.py`. With `text-embedding-3-small`, its
+eight English synthetic synonym cases all ranked the labeled passage above 0.25
+and above both distractors; four unrelated-query controls remained below 0.122.
+The initial 0.30 cutoff had suppressed one correctly ranked 0.257 plant result.
+This bounded holdout supports the chosen cutoff but is not curriculum-scale or
+multilingual relevance acceptance.

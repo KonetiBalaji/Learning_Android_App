@@ -14,7 +14,7 @@ from .schemas import Chapter, SourceSearchHit, SourceSearchResults
 MAX_SOURCE_CHARACTERS = 80_000
 MAX_PASSAGE_CHARACTERS = 800
 MAX_PASSAGES = 256
-MIN_SIMILARITY = 0.30
+MIN_SIMILARITY = 0.25
 
 
 class SemanticSearchUnavailable(RuntimeError):
