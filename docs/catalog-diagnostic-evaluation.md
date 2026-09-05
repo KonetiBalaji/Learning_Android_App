@@ -4,6 +4,29 @@ Status: production quality gate strengthened; catalog-wide live quality is not
 accepted. This evaluation is synthetic and curriculum-neutral. It does not prove
 CBSE/NCERT alignment, educator approval, student outcomes or UAT.
 
+## Source-bounded generation follow-up (2026-09-05)
+
+The earlier all-chapter run repeatedly rejected otherwise plausible teaching text
+because it introduced facts that were not established by the generated question.
+Generation now explicitly requires the model to solve every diagnostic and practice
+item before returning it, put all necessary factual premises in the question or
+options, confine the explanation to those premises and the verified solution, and
+make each worked example self-contained. The independent review remains unchanged
+and fail-closed; this is an availability improvement, not weaker validation.
+
+A single live targeted run covered the three chapters whose earlier results most
+directly showed `teaching_source` failures:
+
+- Civics passed all three items and teaching checks.
+- Matter no longer had a teaching-source failure, but item 1 was rejected as
+  ambiguous with invalid practice.
+- Decimals reached the fixed 30-second provider timeout and remained unavailable.
+
+Evidence: `artifacts/catalog-diagnostic-eval-20260905T025032292688Z.json` (ignored
+runtime artifact). The run was not repeated to select a favorable sample. It is
+1/3 bounded evidence that the prompt reaches the intended review path, not proof of
+catalog-wide availability or curriculum correctness.
+
 ## Reproducible evaluator
 
 `backend/scripts/evaluate_catalog_diagnostics.py` enumerates every chapter exposed by

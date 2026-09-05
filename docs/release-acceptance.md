@@ -96,6 +96,14 @@ Algebra, Geometry and Grammar; Economics remained safely rejected for key disagr
 This improves availability without weakening the review gate; catalog-wide quality,
 educator review and UAT remain open. See `docs/catalog-diagnostic-evaluation.md`.
 
+A source-bounded generation follow-up now requires every necessary premise to be in
+the generated question/options, keeps explanations within those premises and the
+verified solution, and makes worked examples self-contained. A single live targeted
+run accepted Civics; Matter was still safely rejected for ambiguity/invalid practice,
+and Decimals timed out at the fixed provider deadline. The run was not resampled for
+a pass. Independent review is unchanged, so this is a bounded availability repair,
+not curriculum certification; see `docs/catalog-diagnostic-evaluation.md`.
+
 Tutor explanations now pass a separate strict runtime review for accuracy, verified
 method, worked example, grade suitability, concept, tone, hint quality, unsupported
 claims and source-boundedness. Diagnostic teaching support is reviewed before storage,

@@ -186,6 +186,19 @@ def test_provider_requires_review_before_returning_generated_bank():
         provider.diagnostic_bank(8, 'math', 'fractions')
 
 
+def test_generation_prompt_requires_self_solved_source_bounded_teaching():
+    provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
+    provider.model = 'fixture'
+    requests = []
+    provider.client = fake_client([generated_bank(), review()], requests)
+    provider.diagnostic_bank(8, 'math', 'fractions')
+    instructions = requests[0]['instructions']
+    assert 'independently solve every question and practice prompt' in instructions
+    assert 'every factual premise needed to solve a question' in instructions
+    assert 'strictly to those premises and the verified solution' in instructions
+    assert 'self-contained parallel problem' in instructions
+
+
 def test_model_cannot_opt_itself_into_numeric_grading():
     provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
     provider.model = 'fixture'

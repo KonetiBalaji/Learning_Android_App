@@ -245,7 +245,13 @@ class OpenAITutorProvider:
                 "the bank, reinforces that question's specific concept, and has exactly one concise proposed answer. "
                 "It must be answerable in the app's text field with one objective answer. Never request a "
                 "drawing, labeling, essay, sentence, explanation, opinion, or any/one example from many choices. "
-                "Explanations, examples, and hints must teach without shaming. Do not mention being an AI."
+                "Before returning, independently solve every question and practice prompt and make each proposed "
+                "answer agree with that solution. Put every factual premise needed to solve a question in the "
+                "question or its options. Keep its explanation strictly to those premises and the verified solution; "
+                "do not add background facts, causal claims, dates, places, people, examples, or analogies that the "
+                "question does not establish. A worked example must be a self-contained parallel problem whose "
+                "premises and solution are both stated, without relying on outside facts. Explanations, examples, "
+                "and hints must teach without shaming. Do not mention being an AI."
             ),
             input=f"Grade: {grade}\nSubject: {subject_id}\nChapter or topic: {chapter_id}",
             text={"format": {"type": "json_schema", "name": "diagnostic_bank", "strict": True, "schema": schema}},
