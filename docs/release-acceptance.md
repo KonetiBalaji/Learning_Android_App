@@ -235,6 +235,14 @@ stays partial.
 | UAT-01 | User acceptance | Missing | Testable build, scripted user journeys, issue log, explicit user acceptance |
 | PROD-01 | Production deployment | Missing | Private APK distribution confirmed; a host-neutral locked non-root container and hosted production-mode smoke are implemented, and candidate verification requires matching health plus database/schema/write and upload-volume readiness. User-confirmed host/domain, staging deployment, rollback, secrets and remaining operational checks are still missing |
 
+UAT preparation now includes a machine-checkable candidate-bound record covering
+every pre-production ledger ID. It rejects mismatched APK/backend/commit identity,
+missing or untestable requirements, evidence-free passes, incomplete physical-device
+details, timezone-free dates, unapproved scope changes and unresolved issues. This
+prevents incomplete sign-off from being recorded as acceptance; it does not supply
+the still-missing physical-device journeys or the user's decision. See
+`docs/uat-runbook.md`.
+
 Gamification badges are now earned only from persisted learning evidence. The
 backend owns four fixed achievements for a first diagnostic answer, independently
 correcting a mistake through rewrite, completing chapter mastery and starting all

@@ -50,6 +50,28 @@ instructions and educational errors, not just crashes.
 
 ## Issue and acceptance record
 
+Create a candidate-bound JSON record only after the signed APK manifest exists:
+
+```powershell
+cd backend
+uv run python -m app.uat_record init ..\artifacts\private-release\candidate-manifest.json ..\artifacts\private-release\uat-record.json
+```
+
+The generated record lists every pre-production acceptance-ledger requirement. Fill
+it with physical-device observations and redacted evidence; do not remove rows or
+change the copied candidate identity. `SCOPE_ACCEPTED` requires the user's explicit
+approval text. Before treating the result as acceptance, run:
+
+```powershell
+uv run python -m app.uat_record verify ..\artifacts\private-release\candidate-manifest.json ..\artifacts\private-release\uat-record.json --require-acceptance
+```
+
+The validator fails closed for a different APK/backend/commit, missing requirements,
+untestable or failed rows, absent evidence, incomplete tester/device identity,
+timezone-free dates, unapproved scope changes, and unresolved issues. A passing
+record verifies completeness and identity only; it does not replace the tester's
+actual observations or decision.
+
 For each issue: `ID / requirement IDs / candidate commit+APK hash / device / steps /
 expected / actual / impact / Support ID when shown / redacted evidence / fix commit / tester retest result`.
 The Support ID is safe operational correlation metadata; do not copy response bodies,
