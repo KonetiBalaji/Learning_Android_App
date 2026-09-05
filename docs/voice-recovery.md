@@ -131,13 +131,17 @@ action. Android skipped the unusable alternative, removed the control character,
 normalized whitespace, appended `Why does the denominator stay?` to the existing
 draft and displayed **Review the recognized text before submitting.** The empty
 conversation proved that recognition did not send the question automatically.
-The captured screen was visually inspected. A `finally` block restored the speech
-package and disabled the fixture; `dumpsys package` confirmed the component was
-disabled after the run.
+With TalkBack active, the accessibility tree exposed the screen heading, complete
+recognized draft, speech action, online-processing disclosure, review notice,
+send action and empty-conversation state. The captured screen was visually
+inspected. `finally` blocks restored the speech package, TalkBack service,
+accessibility-enabled value and notification permission, and disabled the fixture;
+device settings plus `dumpsys package` confirmed the original state after the run.
 
-This closes device evidence for successful activity-result admission and mandatory
-review, not microphone permission, spoken-word accuracy, locale quality, acoustic
-output, TalkBack traversal, a physical device or user acceptance.
+This closes device evidence for successful activity-result admission, mandatory
+review and presence of the named voice-review nodes in TalkBack. It does not prove
+gesture/spoken traversal order, microphone permission, spoken-word accuracy,
+locale quality, acoustic output, a physical device or user acceptance.
 
 Official references: [TTS initialization and lifecycle](https://developer.android.com/reference/android/speech/tts/TextToSpeech)
 and [recognition activity availability](https://developer.android.com/reference/android/speech/RecognizerIntent).

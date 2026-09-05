@@ -104,6 +104,40 @@ function RestartApp {
     Adb shell am start -n "$package/.MainActivity" | Out-Null
     Start-Sleep -Seconds 3
 }
+function VerifyTalkBackVoiceReview([string]$expectedDraft) {
+    $oldServices = ((Adb shell settings get secure enabled_accessibility_services) -join '').Trim()
+    $oldEnabled = ((Adb shell settings get secure accessibility_enabled) -join '').Trim()
+    $talkBackPackage = 'com.google.android.marvin.talkback'
+    $notificationWasGranted = ((Adb shell dumpsys package $talkBackPackage) -join "`n") -match 'android\.permission\.POST_NOTIFICATIONS: granted=true'
+    try {
+        if (-not $notificationWasGranted) { Adb shell pm grant $talkBackPackage android.permission.POST_NOTIFICATIONS | Out-Null }
+        Adb shell settings put secure enabled_accessibility_services "$talkBackPackage/$talkBackPackage.TalkBackService" | Out-Null
+        Adb shell settings put secure accessibility_enabled 1 | Out-Null
+        Start-Sleep -Seconds 2
+        $accessibility = (Adb shell dumpsys accessibility) -join "`n"
+        if ($accessibility -notmatch 'com\.google\.android\.marvin\.talkback/.+TalkBackService') { throw 'TalkBack service did not become active' }
+        foreach ($label in @(
+            'Talk with your tutor',
+            $expectedDraft,
+            '🎙 Speak my tutor question',
+            "Uses your device's speech service, which may process audio online.",
+            'Review the recognized text before submitting.',
+            'Send question',
+            'No questions in this lesson conversation yet.'
+        )) {
+            try { TextNode $label | Out-Null } catch { throw "TalkBack tree omitted voice-review element: $label" }
+        }
+    } finally {
+        if ([string]::IsNullOrWhiteSpace($oldServices) -or $oldServices -eq 'null') {
+            Adb shell settings delete secure enabled_accessibility_services | Out-Null
+        } else { Adb shell settings put secure enabled_accessibility_services $oldServices | Out-Null }
+        if ([string]::IsNullOrWhiteSpace($oldEnabled) -or $oldEnabled -eq 'null') {
+            Adb shell settings delete secure accessibility_enabled | Out-Null
+        } else { Adb shell settings put secure accessibility_enabled $oldEnabled | Out-Null }
+        if (-not $notificationWasGranted) { Adb shell pm revoke $talkBackPackage android.permission.POST_NOTIFICATIONS | Out-Null }
+        Start-Sleep -Seconds 1
+    }
+}
 
 if (-not $ResetTestAppData) { throw 'This isolated QA script requires -ResetTestAppData; it clears only the test emulator app.' }
 $avd = (Adb emu avd name) -join "`n"
@@ -247,6 +281,7 @@ if ($VerifyVoiceInput) {
         $expectedDraft = "$draft Why does the denominator stay?"
         if ($field.text -ne $expectedDraft) { throw "Recognized text was not safely admitted for review: $($field.text)" }
         TextNode 'No questions in this lesson conversation yet.' | Out-Null
+        VerifyTalkBackVoiceReview $expectedDraft
         Adb shell screencap -p /sdcard/qa-voice-input-success.png | Out-Null
         Adb pull /sdcard/qa-voice-input-success.png (Join-Path $repo 'artifacts\qa-voice-input-success.png') | Out-Null
     } finally {
@@ -256,7 +291,7 @@ if ($VerifyVoiceInput) {
     $auth = Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$qaEmail;password='qa-password-long-enough'} | ConvertTo-Json)
     Invoke-RestMethod 'http://127.0.0.1:8000/v1/account' -Method Delete -Headers @{Authorization="Bearer $($auth.access_token)"} | Out-Null
     Adb shell pm clear $package | Out-Null
-    Write-Output 'PASS: speech cancellation/unavailable recovery preserves the draft; a successful debug activity result skips unusable alternatives, normalizes text and requires review before sending.'
+    Write-Output 'PASS: speech cancellation/unavailable recovery preserves the draft; a successful debug activity result skips unusable alternatives, normalizes text and exposes the unsent review state to TalkBack.'
     return
 }
 if ($VerifyTutorConversation) {
