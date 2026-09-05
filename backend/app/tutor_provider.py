@@ -12,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .ai_limits import (DIAGNOSTIC_GENERATION_OUTPUT_TOKENS,
                         REVIEW_OUTPUT_TOKENS, TUTOR_OUTPUT_TOKENS)
 from .config import Settings
-from .mastery_service import DiagnosticItem, FRACTION_DIAGNOSTIC, diagnostic_bank, evaluate_rewrite, tutor_for, validate_diagnostic_bank
+from .mastery_service import (DiagnosticItem, diagnostic_bank, evaluate_rewrite,
+                              is_deterministic_diagnostic_item, tutor_for, validate_diagnostic_bank)
 from .schemas import TutorIntervention
 from .rewrite_grading import FULL_MARKS, GradeResult, grading_prompts, learner_feedback
 from .diagnostic_quality import DiagnosticReviewRejected, review_diagnostic_answers
@@ -374,7 +375,7 @@ class ResilientTutorProvider:
                            else [type(primary_error).__name__])
             logging.getLogger(__name__).warning('Primary tutor lesson unavailable: %s', safe_reason)
             fallback = self.fallback.explain(grade, item, selected_option)
-            if item in FRACTION_DIAGNOSTIC:
+            if is_deterministic_diagnostic_item(item):
                 return fallback
             # Existing generated sessions may predate the teaching-review gate.
             # Re-review stored support now instead of assuming legacy content is safe.

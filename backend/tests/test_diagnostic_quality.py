@@ -224,14 +224,15 @@ def test_generated_diagnostic_rejects_non_objective_app_practice(prompt):
         provider.diagnostic_bank(8, 'science', 'cells')
 
 
-def test_rejected_off_topic_bank_cannot_fallback_to_fractions_for_another_chapter():
+def test_rejected_off_topic_bank_uses_only_the_matching_curated_chapter():
     provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
     provider.model = 'fixture'
     rejected = review()
     rejected['items'][0]['topic_matches'] = False
     provider.client = fake_client([generated_bank(), rejected], [])
-    with pytest.raises(ValueError):
-        ResilientTutorProvider(provider, DeterministicTutorProvider()).diagnostic_bank(8, 'math', 'geometry')
+    fallback = ResilientTutorProvider(provider, DeterministicTutorProvider()).diagnostic_bank(8, 'math', 'geometry')
+    assert fallback[0].concept == 'Triangle angle sum'
+    assert fallback != FRACTION_DIAGNOSTIC
 
 
 @pytest.mark.parametrize('accepted', [False, True])

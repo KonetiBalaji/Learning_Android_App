@@ -116,6 +116,14 @@ rejected. A new live Fractions diagnostic bank passed teaching review and manual
 arithmetic inspection. This advances TUT-01 to QA verified, not educator/UAT or
 Grades 1–12 calibration; see `docs/tutor-lesson-quality.md`.
 
+All five current Grade 8 Mathematics chapters now have app-owned deterministic
+diagnostic fallbacks. Provider timeout or review rejection can therefore preserve the
+complete Math diagnostic/tutor/practice/rewrite path without accepting failed model
+content. Focused tests validate every bank, outage teaching, unsupported-chapter
+failure, and authenticated creation for the non-gated chapters. Geometry retains its
+Algebra prerequisite. The content is curriculum-neutral and not educator/UAT approved;
+see `docs/deterministic-math-diagnostics.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |

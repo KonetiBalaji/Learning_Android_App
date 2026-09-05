@@ -3,7 +3,10 @@ from dataclasses import replace
 from app.config import Settings
 import pytest
 
-from app.mastery_service import DiagnosticItem, FRACTION_DIAGNOSTIC, parse_diagnostic_bank, serialize_diagnostic_bank, validate_diagnostic_bank
+from app.mastery_service import (DETERMINISTIC_DIAGNOSTICS, DiagnosticItem,
+                                 FRACTION_DIAGNOSTIC, diagnostic_bank,
+                                 parse_diagnostic_bank, serialize_diagnostic_bank,
+                                 validate_diagnostic_bank)
 from app.tutor_provider import DeterministicTutorProvider, ResilientTutorProvider, RewriteAssessment, TutorLessonUnavailable
 
 
@@ -30,6 +33,29 @@ def test_teaching_falls_back_but_grading_outage_cannot_award_mastery() -> None:
     assert assessment.available is False
     assert assessment.score is None
     assert len(provider.diagnostic_bank(6, "math", "fractions")) == 3
+
+
+@pytest.mark.parametrize('chapter', ['fractions', 'decimals', 'percentages', 'algebra', 'geometry'])
+def test_every_grade_8_math_chapter_has_a_valid_deterministic_fallback(chapter) -> None:
+    bank = diagnostic_bank('math', chapter)
+    assert bank is DETERMINISTIC_DIAGNOSTICS[('math', chapter)]
+    assert validate_diagnostic_bank(bank) == bank
+    assert all(item.correct_option in item.options for item in bank)
+
+
+@pytest.mark.parametrize('chapter', ['decimals', 'percentages', 'algebra', 'geometry'])
+def test_math_provider_outage_keeps_diagnostic_and_teaching_available(chapter) -> None:
+    provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
+    bank = provider.diagnostic_bank(8, 'math', chapter)
+    lesson = provider.explain(8, bank[0], bank[0].options[-1])
+    assert bank == diagnostic_bank('math', chapter)
+    assert lesson.title == bank[0].concept
+
+
+def test_non_curated_chapter_still_fails_closed_during_provider_outage() -> None:
+    provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
+    with pytest.raises(Exception, match='reviewed diagnostic is temporarily unavailable'):
+        provider.diagnostic_bank(8, 'science', 'cells')
 
 
 def test_generated_legacy_fallback_must_be_reviewed_or_remain_unavailable() -> None:

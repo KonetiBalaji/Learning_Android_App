@@ -3,6 +3,20 @@ from __future__ import annotations
 from test_mastery_loop import registered_client
 
 
+def test_offline_grade_8_math_diagnostics_start_without_provider_credentials(monkeypatch, tmp_path):
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        for chapter in ('fractions', 'decimals', 'percentages', 'algebra'):
+            response = client.post('/v1/mastery/diagnostics', headers=headers,
+                                   json={'grade': 8, 'subject_id': 'math', 'chapter_id': chapter})
+            assert response.status_code == 201
+            question = response.json()['question']
+            assert question['ordinal'] == 1 and question['total'] == 3
+            assert 'correct_option' not in question
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_authenticated_catalog_is_versioned_grade_scoped_and_internally_consistent(monkeypatch, tmp_path):
     client, headers = registered_client(monkeypatch, tmp_path)
     try:
