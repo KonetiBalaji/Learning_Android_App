@@ -172,7 +172,14 @@ private fun LearnSmartApp(viewModel: LearningViewModel = viewModel()) {
                 }
             }
         }
-        state.error?.let { ErrorDialog(it, viewModel::clearError) }
+        state.error?.let {
+            ErrorDialog(
+                it,
+                viewModel::clearError,
+                if (state.pendingQuizCreationRecoveryRequired) "Discard local retry record" else null,
+                viewModel::discardCorruptQuizCreationIdentity,
+            )
+        }
         state.questionSourceEvidence?.let { SourceEvidenceDialog(it, viewModel::closeQuestionSource) }
     }
 }
@@ -1028,4 +1035,18 @@ private fun LoadingOverlay(upload: DocumentUploadProgress? = null) = Box(
 }
 
 @Composable
-private fun ErrorDialog(message: String, onDismiss: () -> Unit) = AlertDialog(onDismissRequest = onDismiss, icon = { Icon(Icons.Outlined.ErrorOutline, null) }, title = { Text("We could not continue") }, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismiss) { Text("Try again") } })
+internal fun ErrorDialog(
+    message: String,
+    onDismiss: () -> Unit,
+    recoveryLabel: String? = null,
+    onRecovery: () -> Unit = {},
+) = AlertDialog(
+    onDismissRequest = onDismiss,
+    icon = { Icon(Icons.Outlined.ErrorOutline, null) },
+    title = { Text("We could not continue") },
+    text = { Text(message) },
+    confirmButton = { TextButton(onClick = onDismiss) { Text(if (recoveryLabel == null) "Try again" else "Keep retry record") } },
+    dismissButton = recoveryLabel?.let { label ->
+        { TextButton(onClick = onRecovery) { Text(label) } }
+    },
+)

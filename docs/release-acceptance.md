@@ -481,6 +481,12 @@ curriculum review, physical-device QA and UAT remain open.
   the quiz and clearing the pending identity. Build/lint/58 JVM tests passed.
   Device lost-response/process-death and account-switch verification remain open;
   see `quiz-creation-retries.md`. No live calls in this slice.
+- 2026-09-04: a corrupted saved quiz-creation identity now fails closed with a
+  specific explanation and two explicit actions: retain the uncertain retry record,
+  or discard only that local record before making a new request. The production
+  dialog passed Accessibility Test Framework checks and both actions on API 36;
+  all 14 connected component tests plus build, lint and 58 JVM tests passed. Full
+  corrupt-preference journey injection and storage-removal failure injection remain.
 - 2026-09-03: added optional owner-scoped quiz creation request IDs. Committed
   retries return the original quiz without generation; settings conflicts return
   409 and concurrent commits save one quiz. Backend 158 tests passed; 35 focused

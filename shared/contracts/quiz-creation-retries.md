@@ -45,12 +45,16 @@ loads results if already complete. Only then does one preferences commit replace
 the upload pointer with the quiz pointer and remove pending identity. Errors before
 that point retain identity for retry, including process restart. Explicitly
 starting another document or deleting the active document clears the pending key;
-account deletion clears all preferences. Corrupted-pending-data recovery UX still
-needs improvement; it must not silently discard uncertain server work.
+account deletion clears all preferences. A malformed pending record now fails closed
+with an explicit choice: keep the uncertain retry record, or discard only that local
+record and start a new request. The app never silently replaces it.
 
 Build/lint/58 JVM tests passed for Android, including identity reconstruction,
 chapter-order stability, changed settings, write failure and corrupt identity.
 These unit tests do not simulate an actual post-commit network loss or process death.
+The production recovery dialog also passed Android Accessibility Test Framework checks
+and both explicit actions on the API 36 emulator as part of 14 connected tests. This
+component test does not inject corrupted preferences through the full app journey.
 
 ## API 36 post-commit HTTP failure verification
 

@@ -114,6 +114,7 @@ fun validatedCatalog(value: CurriculumCatalogClient, requestedGrade: Int): Curri
 data class AppUiState(
     val tutorTurns: List<TutorChatTurn> = emptyList(), val tutorQuestion: String = "",
     val pendingTutorQuestion: PendingTutorQuestion? = null,
+    val pendingQuizCreationRecoveryRequired: Boolean = false,
     val tutorConversationContext: String? = null,
     val screen: Screen = Screen.SignIn, val loading: Boolean = false, val error: String? = null, val grade: Int? = null,
     val subject: LearningSubject? = null, val masteryChapter: MasteryChapter? = null, val diagnosticIndex: Int = 0, val diagnosticCorrect: Int = 0,
@@ -746,8 +747,13 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         require(current.documentExcerpts.isEmpty() || current.documentExcerpts.map { it.chapterId }.toSet() == current.selectedChapterIds)
         val fingerprint = quizCreationFingerprint(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType, current.documentExcerpts)
         val pendingKey = pendingQuizCreationKey()
-        val requestId = prepareQuizCreation(preferences.getString(pendingKey, null), fingerprint,
-            persist = { preferences.edit().putString(pendingKey, it).commit() })
+        val requestId = try {
+            prepareQuizCreation(preferences.getString(pendingKey, null), fingerprint,
+                persist = { preferences.edit().putString(pendingKey, it).commit() })
+        } catch (failure: IllegalArgumentException) {
+            mutableState.value = current.copy(pendingQuizCreationRecoveryRequired = true)
+            throw CorruptQuizCreationIdentityException()
+        }
         val quiz = api.createQuiz(documentId, chapterIds, count, current.documentDifficulty, current.documentQuestionType, requestId, current.documentExcerpts)
         val resumed = api.resumeDocumentQuiz(quiz.id)
         check(resumed.document.id == documentId && resumed.total == count) { "Recovered quiz does not match the request" }
@@ -804,6 +810,15 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     }
     fun startAnotherDocument() { preferences.edit().remove(documentQuizKey()).remove(documentKey()).remove(documentChapterKey()).remove(pendingQuizCreationKey()).apply(); mutableState.value = mutableState.value.copy(screen = Screen.Home, document = null, documentProgress = null, selectedChapterIds = emptySet(), documentExcerpts = emptyList(), documentPreview = null, sourceQuery = "", documentSearch = null, pdfPageDraft = null, quizId = null, question = null, feedback = null, results = null, canResumeDocumentQuiz = false) }
     fun clearError() { mutableState.value = mutableState.value.copy(error = null) }
+    fun discardCorruptQuizCreationIdentity() {
+        val current = mutableState.value
+        if (current.loading || !current.pendingQuizCreationRecoveryRequired) return
+        val removed = preferences.edit().remove(pendingQuizCreationKey()).commit()
+        mutableState.value = current.copy(
+            pendingQuizCreationRecoveryRequired = !removed,
+            error = if (removed) null else "Could not remove the damaged retry record. Keep it and try again after restarting the app.",
+        )
+    }
 
     private var operationInFlight = false
     private fun perform(destination: Screen?, submittedFlow: SubmittedFlow? = null, block: suspend () -> Unit) = viewModelScope.launch {
@@ -832,6 +847,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 val message = when (failure) {
                     is ApiFailure -> apiFailureDisplay(failure)
                     is DocumentUploadException -> failure.message
+                    is CorruptQuizCreationIdentityException -> "The saved quiz retry record is damaged. It may refer to a request whose response was lost. Keep it unless you are ready to discard that local retry record and start a new quiz request."
                     is IOException -> "Could not reach the learning service. Check your connection and try again."
                     else -> "Something went wrong. Please try again."
                 }
@@ -847,6 +863,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
         }
     }
 }
+
+private class CorruptQuizCreationIdentityException : IllegalStateException()
 
 private class LearningApi(initialToken: String?, private val saveToken: (String) -> Unit) {
     fun tutorContext(sessionId: String): String = masterySubmissionState.expected(sessionId)
