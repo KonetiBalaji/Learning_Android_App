@@ -51,6 +51,14 @@ def test_every_grade_8_science_chapter_has_a_valid_deterministic_fallback(chapte
     assert all(item.correct_option in item.options for item in bank)
 
 
+@pytest.mark.parametrize('chapter', ['grammar', 'reading-comprehension', 'vocabulary', 'writing'])
+def test_every_grade_8_english_chapter_has_a_valid_deterministic_fallback(chapter) -> None:
+    bank = diagnostic_bank('english', chapter)
+    assert bank is DETERMINISTIC_DIAGNOSTICS[('english', chapter)]
+    assert validate_diagnostic_bank(bank) == bank
+    assert all(item.correct_option in item.options for item in bank)
+
+
 @pytest.mark.parametrize('chapter', ['decimals', 'percentages', 'algebra', 'geometry'])
 def test_math_provider_outage_keeps_diagnostic_and_teaching_available(chapter) -> None:
     provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
@@ -69,10 +77,19 @@ def test_science_provider_outage_keeps_diagnostic_and_teaching_available(chapter
     assert lesson.title == bank[0].concept
 
 
+@pytest.mark.parametrize('chapter', ['grammar', 'reading-comprehension', 'vocabulary', 'writing'])
+def test_english_provider_outage_keeps_diagnostic_and_teaching_available(chapter) -> None:
+    provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
+    bank = provider.diagnostic_bank(8, 'english', chapter)
+    lesson = provider.explain(8, bank[0], bank[0].options[-1])
+    assert bank == diagnostic_bank('english', chapter)
+    assert lesson.title == bank[0].concept
+
+
 def test_non_curated_chapter_still_fails_closed_during_provider_outage() -> None:
     provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
     with pytest.raises(Exception, match='reviewed diagnostic is temporarily unavailable'):
-        provider.diagnostic_bank(8, 'english', 'grammar')
+        provider.diagnostic_bank(8, 'social', 'geography')
 
 
 def test_generated_legacy_fallback_must_be_reviewed_or_remain_unavailable() -> None:

@@ -221,6 +221,94 @@ ECOSYSTEMS_DIAGNOSTIC = (
 )
 
 
+GRAMMAR_DIAGNOSTIC = (
+    DiagnosticItem(
+        "Which sentence has correct subject-verb agreement?", ("The basket of apples is heavy.", "The basket of apples are heavy.", "The apples in the basket is fresh.", "The baskets is heavy."), "The basket of apples is heavy.", "Subject-verb agreement",
+        "The subject is the singular noun basket, so the singular verb 'is' agrees with it.",
+        "In 'The group of players is ready,' group is singular, so 'is' is correct.", "Identify the main subject, not the noun inside the phrase beginning with of.",
+        "Choose the correct verb: The team of dancers (is/are) ready.", ("is",),
+    ),
+    DiagnosticItem(
+        "Which sentence uses the pronoun correctly?", ("Maya and I completed the project.", "Maya and me completed the project.", "Her completed the project.", "Us completed the project."), "Maya and I completed the project.", "Pronoun case",
+        "The pronoun is part of the sentence subject, so the subject pronoun I is correct.",
+        "In 'Ravi and she arrived,' she is a subject pronoun.", "Remove Maya and test which pronoun can be the subject before completed.",
+        "Complete with I or me: Arjun and ___ prepared the chart.", ("I",),
+    ),
+    DiagnosticItem(
+        "Which sentence is punctuated correctly?", ("After the rain stopped, we continued the match.", "After the rain stopped we, continued the match.", "After, the rain stopped we continued the match.", "After the rain, stopped we continued the match."), "After the rain stopped, we continued the match.", "Introductory-clause punctuation",
+        "The introductory dependent clause 'After the rain stopped' is followed by a comma before the main clause.",
+        "In 'When the bell rang, the class left,' the comma separates the introductory clause.", "Place the comma after the complete introductory clause.",
+        "Add the missing punctuation mark: Before class began___ we reviewed our notes.", (",", "comma"),
+    ),
+)
+
+
+READING_DIAGNOSTIC = (
+    DiagnosticItem(
+        "Passage: Lina planted two seed trays. She placed one beside a sunny window and one in a dark cupboard. She gave both equal water. After a week, only the window tray had strong green shoots. Which variable did Lina change?", ("Amount of water", "Amount of light", "Type of seed tray", "Length of the week"), "Amount of light", "Identifying an experimental variable",
+        "Both trays received equal water, but one received window light and the other did not, so the changed variable was the amount of light.",
+        "If two plants receive equal light but different water amounts, water is the changed variable.", "Compare what was different between the two tray locations.",
+        "In the passage, was light or water intentionally different between the trays?", ("light",),
+    ),
+    DiagnosticItem(
+        "Passage: The library extended its hours during exams. Attendance rose each evening, and students asked the library to repeat the schedule next term. What is the main idea?", ("The library bought new books.", "Longer exam hours were useful to students.", "Students stopped studying at home.", "Evening attendance decreased."), "Longer exam hours were useful to students.", "Determining main idea",
+        "The passage connects extended hours with higher attendance and a request to repeat them, supporting the main idea that the longer hours were useful.",
+        "When several details describe benefits of a new bus route, the main idea summarizes those benefits rather than one minor detail.", "Choose the option supported by both increased attendance and the request to repeat the schedule.",
+        "Did students want the extended schedule repeated? Answer yes or no.", ("yes",),
+    ),
+    DiagnosticItem(
+        "Passage: Omar checked the sky, packed an umbrella, and moved the picnic food indoors before the first drops fell. What can the reader infer?", ("Omar expected rain.", "Omar lost the picnic food.", "The picnic had ended yesterday.", "The umbrella was broken."), "Omar expected rain.", "Making an inference",
+        "Checking the sky, packing an umbrella, and moving food indoors before drops fell together support the inference that Omar expected rain.",
+        "If someone wears gloves and a thick coat before leaving, those clues can support an inference that the person expects cold weather.", "Combine the clues about the sky, umbrella, and indoor food.",
+        "What weather did Omar expect?", ("rain", "rainy weather"),
+    ),
+)
+
+
+VOCABULARY_DIAGNOSTIC = (
+    DiagnosticItem(
+        "In the sentence 'The path was arduous, requiring hours of steep climbing,' what does arduous mean?", ("Difficult", "Short", "Crowded", "Hidden"), "Difficult", "Using context clues",
+        "The phrase 'requiring hours of steep climbing' signals that arduous means difficult.",
+        "In 'The fragile glass broke easily,' 'broke easily' helps show that fragile means easily damaged.", "Use the description after the comma as a clue.",
+        "Give the one-word meaning of arduous in this sentence.", ("difficult", "hard"),
+    ),
+    DiagnosticItem(
+        "Which word is the best antonym for scarce?", ("Abundant", "Limited", "Rare", "Insufficient"), "Abundant", "Antonyms",
+        "Scarce means available in too small an amount, while abundant means available in a large amount, so the words are opposites.",
+        "The antonym of narrow is wide.", "Choose the word meaning plentiful rather than limited.",
+        "What is an antonym for ancient: modern or old?", ("modern",),
+    ),
+    DiagnosticItem(
+        "The prefix re- means again. What does rewrite mean?", ("Write again", "Write before", "Write badly", "Stop writing"), "Write again", "Prefixes",
+        "Combining re-, meaning again, with write gives the meaning write again.",
+        "Rebuild means build again.", "Apply the stated meaning of re- to write.",
+        "Using the meaning of re-, what does reread mean?", ("read again", "to read again"),
+    ),
+)
+
+
+WRITING_DIAGNOSTIC = (
+    DiagnosticItem(
+        "Which sentence is the clearest topic sentence for a paragraph about saving water at home?", ("Homes can save water through several simple daily habits.", "Water is clear.", "Yesterday was Tuesday.", "Some cups are blue."), "Homes can save water through several simple daily habits.", "Topic sentences",
+        "A topic sentence states the paragraph's controlling idea; this choice introduces saving water through daily habits.",
+        "For a paragraph about safe cycling, 'Several habits help cyclists stay safe' clearly introduces the topic.", "Choose the sentence broad enough to introduce several water-saving details.",
+        "Which topic does the correct sentence introduce: saving water or choosing cups?", ("saving water", "water saving"),
+    ),
+    DiagnosticItem(
+        "Which transition best completes the sentence? 'The first trial failed. ___, the team revised the design and tried again.'", ("Therefore", "Meanwhile", "For example", "Similarly"), "Therefore", "Logical transitions",
+        "Therefore shows that revising the design was a result of the failed trial.",
+        "The road was flooded; therefore, the trip was postponed. The transition marks a result.", "The second action happened as a result of the first sentence.",
+        "Choose the result transition: therefore or meanwhile.", ("therefore",),
+    ),
+    DiagnosticItem(
+        "Which revision removes unnecessary repetition?", ("The final outcome was unexpected.", "The outcome was unexpected.", "The unexpected outcome was an outcome.", "The final outcome result was unexpected."), "The outcome was unexpected.", "Concise revision",
+        "Outcome already means a final result, so removing final makes the sentence concise without changing its meaning.",
+        "Revise 'return back' to 'return' because return already includes the idea of back.", "Remove the word whose meaning is already contained in outcome.",
+        "Revise 'repeat again' by writing only the necessary verb.", ("repeat",),
+    ),
+)
+
+
 DETERMINISTIC_DIAGNOSTICS = {
     ("math", "fractions"): FRACTION_DIAGNOSTIC,
     ("math", "decimals"): DECIMAL_DIAGNOSTIC,
@@ -231,6 +319,10 @@ DETERMINISTIC_DIAGNOSTICS = {
     ("science", "matter"): MATTER_DIAGNOSTIC,
     ("science", "force-and-motion"): FORCE_MOTION_DIAGNOSTIC,
     ("science", "ecosystems"): ECOSYSTEMS_DIAGNOSTIC,
+    ("english", "grammar"): GRAMMAR_DIAGNOSTIC,
+    ("english", "reading-comprehension"): READING_DIAGNOSTIC,
+    ("english", "vocabulary"): VOCABULARY_DIAGNOSTIC,
+    ("english", "writing"): WRITING_DIAGNOSTIC,
 }
 
 

@@ -9,6 +9,7 @@ def test_offline_grade_8_ungated_diagnostics_start_without_provider_credentials(
         for subject, chapter in (
             ('math', 'fractions'), ('math', 'decimals'), ('math', 'percentages'), ('math', 'algebra'),
             ('science', 'cells'), ('science', 'matter'), ('science', 'force-and-motion'),
+            ('english', 'grammar'), ('english', 'reading-comprehension'), ('english', 'vocabulary'),
         ):
             response = client.post('/v1/mastery/diagnostics', headers=headers,
                                    json={'grade': 8, 'subject_id': subject, 'chapter_id': chapter})

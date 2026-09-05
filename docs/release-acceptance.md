@@ -132,6 +132,14 @@ its Force and Motion prerequisite. Further distinct practice after a failed guid
 attempt still requires the reviewed provider. These foundation items are not board or
 educator approved; see `docs/deterministic-science-diagnostics.md`.
 
+All four current Grade 8 English chapters now have exact app-owned deterministic
+fallbacks. Reading prompts are self-contained; Writing fallback items cover objective
+editing and organization while the separate written-explanation evaluator retains its
+four-point rubric. Focused tests validate every bank, outage teaching, ungated HTTP
+creation, the Vocabulary prerequisite for Writing, and continued unavailability for an
+uncurated Social Studies chapter. These are foundation items without board, educator,
+or UAT approval; see `docs/deterministic-english-diagnostics.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
