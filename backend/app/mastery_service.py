@@ -309,6 +309,94 @@ WRITING_DIAGNOSTIC = (
 )
 
 
+GEOGRAPHY_DIAGNOSTIC = (
+    DiagnosticItem(
+        "Which coordinate gives latitude before longitude?", ("20°N, 75°E", "75°E, 20°N", "20°E, 75°N", "75°N, 20°E"), "20°N, 75°E", "Latitude and longitude order",
+        "A geographic coordinate is conventionally written with latitude first and longitude second, so 20°N, 75°E has the required order.",
+        "12°S, 40°W lists latitude 12°S before longitude 40°W.", "Latitude uses north or south; place it before the east-or-west longitude.",
+        "Write the order using the words latitude and longitude.", ("latitude, longitude", "latitude then longitude"),
+    ),
+    DiagnosticItem(
+        "A map scale says 1 cm represents 5 km. Two towns are 4 cm apart on the map. What is their real distance?", ("1.25 km", "9 km", "20 km", "25 km"), "20 km", "Map scale",
+        "Each map centimetre represents 5 km, so 4 × 5 km = 20 km.",
+        "At 1 cm = 3 km, a 2 cm map distance represents 2 × 3 = 6 km.", "Multiply the map distance by the kilometres represented by each centimetre.",
+        "At 1 cm = 8 km, what distance does 3 cm represent?", ("24", "24 km"), "exact",
+    ),
+    DiagnosticItem(
+        "Which statement describes climate rather than weather?", ("It rained this morning.", "The temperature is 18°C today.", "Summers are usually hot and dry in this region.", "A storm is expected tonight."), "Summers are usually hot and dry in this region.", "Weather and climate",
+        "Climate describes usual conditions over a long period, while the other statements describe conditions or forecasts for a short time.",
+        "'Winters are generally mild here' describes climate; 'today is cold' describes weather.", "Choose the statement about usual conditions, not one day.",
+        "Does 'winters are usually wet here' describe weather or climate?", ("climate",),
+    ),
+)
+
+
+HISTORY_DIAGNOSTIC = (
+    DiagnosticItem(
+        "Which item is a primary source for studying a historical event?", ("A diary written by a witness", "A modern textbook summary", "A recent documentary", "A student's book review"), "A diary written by a witness", "Primary and secondary sources",
+        "A diary created by a witness during or near the event is direct evidence from that time, so it is a primary source.",
+        "A letter written by a participant during an event is a primary source for studying that event.", "Choose the source created by someone who directly witnessed the event.",
+        "Is a witness's diary a primary or secondary source?", ("primary", "primary source"),
+    ),
+    DiagnosticItem(
+        "An agreement was signed in 1910, a protest occurred in 1912, and a law changed in 1915. Which event happened second?", ("The agreement", "The protest", "The law change", "All happened together"), "The protest", "Chronological order",
+        "Ordering the stated years gives 1910, 1912, 1915, so the 1912 protest happened second.",
+        "For events in 1801, 1804, and 1809, the 1804 event is second chronologically.", "Arrange the three stated years from earliest to latest.",
+        "Which year comes second in this sequence: 1920, 1923, 1928?", ("1923",), "number",
+    ),
+    DiagnosticItem(
+        "A city raised a bridge toll. The next month, fewer drivers used the bridge. Which statement identifies the effect described?", ("The toll was raised.", "Fewer drivers used the bridge.", "The bridge was built.", "The city removed the toll."), "Fewer drivers used the bridge.", "Cause and effect in sources",
+        "The passage presents the toll increase first as the cause and fewer drivers afterward as the described effect.",
+        "If a road closed and traffic moved elsewhere, the closure is the cause and moved traffic is the effect.", "Look for what happened after the toll increase.",
+        "In the passage, did bridge use increase or decrease after the toll rose?", ("decrease", "decreased"),
+    ),
+)
+
+
+CIVICS_DIAGNOSTIC = (
+    DiagnosticItem(
+        "A system states that the legislature makes laws, the executive enforces them, and the judiciary interprets them. Which branch interprets a disputed law?", ("Legislature", "Executive", "Judiciary", "Election commission"), "Judiciary", "Separation of powers",
+        "The question states that the judiciary interprets laws, so the judiciary interprets the disputed law.",
+        "If a town charter says its court interprets rules, the court decides what a disputed rule means.", "Match the action 'interprets' to the branch assigned that role.",
+        "Name the branch that interprets laws in the stated system.", ("judiciary", "the judiciary"),
+    ),
+    DiagnosticItem(
+        "Which action is a civic responsibility rather than an individual right?", ("Obeying lawful rules", "Expressing an opinion", "Practising a religion", "Receiving equal treatment"), "Obeying lawful rules", "Rights and responsibilities",
+        "Obeying lawful rules is an obligation placed on community members, so it is a responsibility; the other choices are framed as individual rights.",
+        "Serving on a jury when legally required is a civic responsibility rather than a personal freedom.", "Choose the obligation rather than a protected freedom.",
+        "Classify obeying lawful rules as a right or responsibility.", ("responsibility", "a responsibility"),
+    ),
+    DiagnosticItem(
+        "A rule requires more than half of 80 votes to win. What is the smallest winning number?", ("39", "40", "41", "80"), "41", "Majority rule",
+        "Half of 80 is 40. More than half therefore begins at 41 votes.",
+        "More than half of 50 requires at least 26 votes.", "Find half of 80, then add one.",
+        "What is the smallest majority in a total of 100 votes?", ("51",), "number",
+    ),
+)
+
+
+ECONOMICS_DIAGNOSTIC = (
+    DiagnosticItem(
+        "A family can buy either a bicycle or a tablet, but not both. If it buys the bicycle, what is the opportunity cost?", ("The tablet not bought", "The bicycle", "The family's income", "Both items"), "The tablet not bought", "Opportunity cost",
+        "Opportunity cost is the next-best option given up. Buying the bicycle means giving up the tablet.",
+        "If a student uses an hour to study instead of playing a game, the forgone game time is the opportunity cost.", "Identify the alternative the family gives up.",
+        "If you choose tea instead of coffee, which drink is the opportunity cost?", ("coffee",),
+    ),
+    DiagnosticItem(
+        "A shop has 10 notebooks but customers want 25 at the current price. Which condition is described?", ("Shortage", "Surplus", "Balance", "No demand"), "Shortage", "Shortage and surplus",
+        "Quantity wanted, 25, is greater than quantity available, 10, so the shop has a shortage.",
+        "If 30 tickets are wanted but only 20 are available, the difference describes a shortage.", "Compare how many are wanted with how many are available.",
+        "If 50 items are wanted but only 40 are available, is there a shortage or surplus?", ("shortage", "a shortage"),
+    ),
+    DiagnosticItem(
+        "A budget has ₹500. After spending ₹320, how much remains?", ("₹180", "₹220", "₹320", "₹820"), "₹180", "Budget balance",
+        "Remaining budget equals starting amount minus spending: ₹500 - ₹320 = ₹180.",
+        "From a ₹200 budget, spending ₹75 leaves ₹125.", "Subtract the amount spent from the starting budget.",
+        "How much remains from ₹700 after spending ₹450?", ("₹250", "250"), "exact",
+    ),
+)
+
+
 DETERMINISTIC_DIAGNOSTICS = {
     ("math", "fractions"): FRACTION_DIAGNOSTIC,
     ("math", "decimals"): DECIMAL_DIAGNOSTIC,
@@ -323,6 +411,10 @@ DETERMINISTIC_DIAGNOSTICS = {
     ("english", "reading-comprehension"): READING_DIAGNOSTIC,
     ("english", "vocabulary"): VOCABULARY_DIAGNOSTIC,
     ("english", "writing"): WRITING_DIAGNOSTIC,
+    ("social", "geography"): GEOGRAPHY_DIAGNOSTIC,
+    ("social", "history"): HISTORY_DIAGNOSTIC,
+    ("social", "civics"): CIVICS_DIAGNOSTIC,
+    ("social", "economics"): ECONOMICS_DIAGNOSTIC,
 }
 
 

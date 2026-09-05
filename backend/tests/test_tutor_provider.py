@@ -59,6 +59,14 @@ def test_every_grade_8_english_chapter_has_a_valid_deterministic_fallback(chapte
     assert all(item.correct_option in item.options for item in bank)
 
 
+@pytest.mark.parametrize('chapter', ['geography', 'history', 'civics', 'economics'])
+def test_every_grade_8_social_chapter_has_a_valid_deterministic_fallback(chapter) -> None:
+    bank = diagnostic_bank('social', chapter)
+    assert bank is DETERMINISTIC_DIAGNOSTICS[('social', chapter)]
+    assert validate_diagnostic_bank(bank) == bank
+    assert all(item.correct_option in item.options for item in bank)
+
+
 @pytest.mark.parametrize('chapter', ['decimals', 'percentages', 'algebra', 'geometry'])
 def test_math_provider_outage_keeps_diagnostic_and_teaching_available(chapter) -> None:
     provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
@@ -86,10 +94,25 @@ def test_english_provider_outage_keeps_diagnostic_and_teaching_available(chapter
     assert lesson.title == bank[0].concept
 
 
+@pytest.mark.parametrize('chapter', ['geography', 'history', 'civics', 'economics'])
+def test_social_provider_outage_keeps_diagnostic_and_teaching_available(chapter) -> None:
+    provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
+    bank = provider.diagnostic_bank(8, 'social', chapter)
+    lesson = provider.explain(8, bank[0], bank[0].options[-1])
+    assert bank == diagnostic_bank('social', chapter)
+    assert lesson.title == bank[0].concept
+
+
 def test_non_curated_chapter_still_fails_closed_during_provider_outage() -> None:
     provider = ResilientTutorProvider(BrokenProvider(), DeterministicTutorProvider())
     with pytest.raises(Exception, match='reviewed diagnostic is temporarily unavailable'):
-        provider.diagnostic_bank(8, 'social', 'geography')
+        provider.diagnostic_bank(8, 'science', 'invented')
+
+
+def test_deterministic_fallback_keys_cover_the_entire_current_catalog() -> None:
+    from app.learning_path import CATALOG
+    catalog_keys = {(subject.id, chapter.id) for subject in CATALOG for chapter in subject.chapters}
+    assert set(DETERMINISTIC_DIAGNOSTICS) == catalog_keys
 
 
 def test_generated_legacy_fallback_must_be_reviewed_or_remain_unavailable() -> None:

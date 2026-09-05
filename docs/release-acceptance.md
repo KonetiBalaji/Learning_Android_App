@@ -140,6 +140,15 @@ creation, the Vocabulary prerequisite for Writing, and continued unavailability 
 uncurated Social Studies chapter. These are foundation items without board, educator,
 or UAT approval; see `docs/deterministic-english-diagnostics.md`.
 
+All four current Grade 8 Social Studies chapters now have matching app-owned
+deterministic fallbacks using self-contained, country-neutral premises. Focused tests
+validate each bank, outage teaching, ungated HTTP creation, the Civics prerequisite for
+Economics, and rejection of unknown chapters. A set-equality contract now proves that
+the deterministic map covers exactly all 17 chapters in the current catalog. Fresh
+post-failure practice still requires independent provider review, and the foundation
+content is not board, educator, or UAT approved; see
+`docs/deterministic-social-diagnostics.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
