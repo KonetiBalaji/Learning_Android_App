@@ -6,6 +6,8 @@ plugins {
 }
 
 val releaseApiBaseUrl = providers.gradleProperty("releaseApiBaseUrl").orNull
+val releaseVersionCode = providers.gradleProperty("releaseVersionCode").orNull?.toIntOrNull()
+val releaseVersionName = providers.gradleProperty("releaseVersionName").orNull?.trim()
 val releaseStoreFile = providers.environmentVariable("LEARN_SMART_RELEASE_STORE_FILE").orNull
 val releaseStorePassword = providers.environmentVariable("LEARN_SMART_RELEASE_STORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("LEARN_SMART_RELEASE_KEY_ALIAS").orNull
@@ -42,8 +44,18 @@ val validateReleaseSigning = tasks.register("validateReleaseSigning") {
         require(keyStore.isFile) { "Release keystore does not exist or is not a file" }
     }
 }
+val validateReleaseVersion = tasks.register("validateReleaseVersion") {
+    doLast {
+        require(releaseVersionCode != null && releaseVersionCode in 1..2_100_000_000) {
+            "Release requires -PreleaseVersionCode as a positive monotonic Android version code"
+        }
+        require(!releaseVersionName.isNullOrBlank() && Regex("[0-9]+(?:\\.[0-9]+){1,3}(?:[-+][A-Za-z0-9.-]+)?").matches(releaseVersionName)) {
+            "Release requires -PreleaseVersionName in a semantic form such as 0.2.0-uat.1"
+        }
+    }
+}
 tasks.configureEach {
-    if (name == "preReleaseBuild") dependsOn(validateReleaseEndpoint, validateReleaseSigning)
+    if (name == "preReleaseBuild") dependsOn(validateReleaseEndpoint, validateReleaseSigning, validateReleaseVersion)
 }
 
 android {
@@ -66,8 +78,8 @@ android {
         applicationId = "com.konetibalaji.learning"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = releaseVersionCode ?: 1
+        versionName = releaseVersionName ?: "0.1.0-dev"
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

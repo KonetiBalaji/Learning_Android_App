@@ -185,6 +185,12 @@ without secret values. A disposable-key `assembleRelease`/APK Signature Scheme v
 check passed; this is packaging QA, not an owned production signature, reachable
 backend, UAT candidate or deployment. See `private-apk-release.md`.
 
+Private release versioning now requires an explicit positive monotonic version code
+and semantic version name. The build refuses to overwrite an output directory's
+existing candidate unless its version code increases, and verifies the packaged APK
+matches both requested values. This repairs ambiguous `versionCode=1` artifacts but
+does not itself create a UAT candidate without a confirmed reachable HTTPS backend.
+
 Backend production mode now fails startup without an explicit absolute runtime
 volume, strong non-default JWT secret, full Git revision, reviewed OpenAI mode and
 server-side provider key. Health reports safe environment/revision/provider identity

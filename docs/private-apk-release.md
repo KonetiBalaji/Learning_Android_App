@@ -22,12 +22,17 @@ secret-bearing session instead:
 - `LEARN_SMART_RELEASE_KEY_PASSWORD`
 
 Then run `scripts/build-private-apk.ps1 -BackendUrl
-https://the-confirmed-backend.example`. The HTTPS URL is public configuration,
+https://the-confirmed-backend.example -VersionCode 2 -VersionName 0.2.0-uat.1`.
+The HTTPS URL is public configuration,
 not a secret. It must be the verified production or approved UAT service, never
 localhost, an emulator alias or a placeholder domain.
 
-The build fails closed when the HTTPS endpoint or any signing input is missing,
-the keystore is absent, or tracked files differ from HEAD. Gradle signs the release
+The version code must be a positive Android integer and must increase beyond any
+candidate manifest already in the selected output directory. The version name must
+use a bounded semantic form. This makes private APK upgrades and manifests
+unambiguous across commits. The build fails closed when version identity, the HTTPS
+endpoint or any signing input is missing, the keystore is absent, or tracked files
+differ from HEAD. Gradle signs the release
 variant only from those environment values and disables cleartext traffic.
 
 ## Outputs and identity

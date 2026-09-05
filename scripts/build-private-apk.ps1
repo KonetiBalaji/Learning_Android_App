@@ -2,6 +2,12 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^https://')]
     [string]$BackendUrl,
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, 2100000000)]
+    [int]$VersionCode,
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[0-9]+(?:\.[0-9]+){1,3}(?:[-+][A-Za-z0-9.-]+)?$')]
+    [string]$VersionName,
     [string]$OutputDirectory = 'artifacts\private-release',
     [string]$SigningProfile = (Join-Path $env:USERPROFILE '.learnsmart\release\signing-profile.clixml')
 )
@@ -61,10 +67,18 @@ if (-not (Test-Path -LiteralPath $store -PathType Leaf)) { throw 'Release keysto
 $commit = (git -C $repo rev-parse HEAD) -join ''
 $dirty = (git -C $repo status --porcelain --untracked-files=no) -join ''
 if ($dirty) { throw 'Refusing to build a candidate from a modified tracked worktree.' }
+$existingManifest = Join-Path $output 'candidate-manifest.json'
+if (Test-Path -LiteralPath $existingManifest -PathType Leaf) {
+    try { $previous = Get-Content -LiteralPath $existingManifest -Raw | ConvertFrom-Json }
+    catch { throw 'Existing candidate manifest is unreadable; preserve or remove it deliberately before rebuilding.' }
+    if ($previous.version_code -isnot [ValueType] -or [long]$previous.version_code -lt 1 -or $VersionCode -le [long]$previous.version_code) {
+        throw "VersionCode must increase beyond the existing candidate value $($previous.version_code)."
+    }
+}
 
 Push-Location (Join-Path $repo 'android')
 try {
-    & .\gradlew.bat clean assembleRelease "-PreleaseApiBaseUrl=$BackendUrl"
+    & .\gradlew.bat clean assembleRelease "-PreleaseApiBaseUrl=$BackendUrl" "-PreleaseVersionCode=$VersionCode" "-PreleaseVersionName=$VersionName"
     if ($LASTEXITCODE -ne 0) { throw 'Release APK build failed.' }
 } finally { Pop-Location }
 
@@ -93,6 +107,9 @@ if ($LASTEXITCODE -ne 0) { throw 'APK package metadata could not be read.' }
 $package = [regex]::Match($badging, "package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'" )
 if (-not $package.Success -or $package.Groups[1].Value -ne 'com.konetibalaji.learning') {
     throw 'APK package identity or version metadata is invalid.'
+}
+if ([int]$package.Groups[2].Value -ne $VersionCode -or $package.Groups[3].Value -ne $VersionName) {
+    throw 'APK version metadata does not match the requested release identity.'
 }
 $manifest = [ordered]@{
     product = 'Learn Smart AI'
