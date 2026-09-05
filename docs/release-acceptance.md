@@ -163,6 +163,12 @@ exactly 17 mastered rows at 100%. This proves backend fallback continuity and un
 state, not Android UAT or curriculum approval; see
 `docs/full-catalog-fallback-qa.md`.
 
+The current APK subsequently passed the API 36 catalog journey against the current
+deterministic QA backend: all four subject lists, Grade 8 boundary, process restart and
+legacy-catalog recovery were exercised. Three captures were inspected with readable,
+unclipped grade/subject/action layouts. This strengthens installed-app integration
+evidence but is not physical-device or user UAT; see the same QA record.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
