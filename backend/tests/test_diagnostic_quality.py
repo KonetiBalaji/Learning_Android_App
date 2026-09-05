@@ -264,7 +264,7 @@ def test_http_start_persists_only_a_reviewed_bank(monkeypatch, tmp_path, accepte
         client.__exit__(None, None, None)
 
 
-def test_reviewed_provider_failure_is_retryable_not_misreported_as_student_input(monkeypatch, tmp_path):
+def test_reviewed_provider_failure_uses_matching_curated_fallback(monkeypatch, tmp_path):
     from test_mastery_loop import registered_client
     from app.config import get_settings
     from app.database import connection
@@ -279,8 +279,10 @@ def test_reviewed_provider_failure_is_retryable_not_misreported_as_student_input
         monkeypatch.setattr('app.main.tutor_provider', lambda settings: resilient)
         response = client.post('/v1/mastery/diagnostics', headers=headers,
             json={'grade': 8, 'subject_id': 'science', 'chapter_id': 'cells'})
-        assert response.status_code == 503
+        assert response.status_code == 201
+        assert response.json()['question']['concept'] == 'Cell membrane function'
         with connection(get_settings().database_path) as db:
-            assert db.execute('SELECT COUNT(*) FROM mastery_sessions').fetchone()[0] == 0
+            saved = db.execute('SELECT subject_id, chapter_id FROM mastery_sessions').fetchone()
+            assert tuple(saved) == ('science', 'cells')
     finally:
         client.__exit__(None, None, None)

@@ -124,6 +124,14 @@ failure, and authenticated creation for the non-gated chapters. Geometry retains
 Algebra prerequisite. The content is curriculum-neutral and not educator/UAT approved;
 see `docs/deterministic-math-diagnostics.md`.
 
+All four current Grade 8 Science chapters now have matching app-owned deterministic
+diagnostic fallbacks as well. Focused provider/catalog/quality tests validate the banks,
+outage teaching, generated-bank rejection fallback, authenticated creation for ungated
+chapters, and continued failure for an uncurated English chapter. Ecosystems retains
+its Force and Motion prerequisite. Further distinct practice after a failed guided
+attempt still requires the reviewed provider. These foundation items are not board or
+educator approved; see `docs/deterministic-science-diagnostics.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |

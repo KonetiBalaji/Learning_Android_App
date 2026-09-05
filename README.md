@@ -12,7 +12,7 @@ The MVP implementation is in progress on `agent/mvp-implementation`:
 
 - `android/` contains the Jetpack Compose client for account creation, document selection, chapter selection, the one-question quiz experience, teaching feedback, and results/mistake review.
 - `backend/` contains the FastAPI service that owns authentication, document validation/extraction, chapter detection, grounded quiz sessions, answer evaluation, and owner-scoped deletion.
-- The Grade 8 Mathematics path now persists diagnostic answers, tutoring interventions, guided practice, student rewrites, mastery evidence, and parent/teacher progress. All five current Mathematics chapters have app-owned deterministic diagnostic fallbacks; configured OpenAI generation remains independently reviewed and fails closed before persistence.
+- The Grade 8 learning path now persists diagnostic answers, tutoring interventions, guided practice, student rewrites, mastery evidence, and parent/teacher progress. All current Mathematics and Science chapters have app-owned deterministic diagnostic fallbacks; configured OpenAI generation remains independently reviewed and fails closed before persistence.
 
 The backend test suite passes. Android APK compilation requires a locally accepted Android SDK license; see `android/README.md`.
 

@@ -3,12 +3,15 @@ from __future__ import annotations
 from test_mastery_loop import registered_client
 
 
-def test_offline_grade_8_math_diagnostics_start_without_provider_credentials(monkeypatch, tmp_path):
+def test_offline_grade_8_ungated_diagnostics_start_without_provider_credentials(monkeypatch, tmp_path):
     client, headers = registered_client(monkeypatch, tmp_path)
     try:
-        for chapter in ('fractions', 'decimals', 'percentages', 'algebra'):
+        for subject, chapter in (
+            ('math', 'fractions'), ('math', 'decimals'), ('math', 'percentages'), ('math', 'algebra'),
+            ('science', 'cells'), ('science', 'matter'), ('science', 'force-and-motion'),
+        ):
             response = client.post('/v1/mastery/diagnostics', headers=headers,
-                                   json={'grade': 8, 'subject_id': 'math', 'chapter_id': chapter})
+                                   json={'grade': 8, 'subject_id': subject, 'chapter_id': chapter})
             assert response.status_code == 201
             question = response.json()['question']
             assert question['ordinal'] == 1 and question['total'] == 3

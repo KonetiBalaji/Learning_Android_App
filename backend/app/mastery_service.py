@@ -133,12 +133,104 @@ GEOMETRY_DIAGNOSTIC = (
 )
 
 
+CELLS_DIAGNOSTIC = (
+    DiagnosticItem(
+        "Which cell structure controls what enters and leaves the cell?", ("Cell membrane", "Nucleus", "Cytoplasm", "Ribosome"), "Cell membrane", "Cell membrane function",
+        "The cell membrane forms the cell boundary and controls which substances enter and leave.",
+        "If a substance moves from outside a cell into it, that substance crosses the cell membrane.", "Think about the boundary around the cell.",
+        "Name the structure that controls movement into and out of a cell.", ("Cell membrane", "membrane"),
+    ),
+    DiagnosticItem(
+        "Which structure is present in plant cells but not animal cells?", ("Cell wall", "Cell membrane", "Cytoplasm", "Nucleus"), "Cell wall", "Plant and animal cells",
+        "Both plant and animal cells have a membrane, cytoplasm, and a nucleus, while plant cells also have a cell wall.",
+        "A diagram with a cell wall can represent a plant cell rather than an animal cell.", "Look for the structure outside the plant cell membrane.",
+        "Name the rigid outer structure found in plant cells.", ("Cell wall",),
+    ),
+    DiagnosticItem(
+        "Which order goes from smallest to largest?", ("Cell, tissue, organ, organ system", "Tissue, cell, organ, organ system", "Organ, tissue, cell, organ system", "Cell, organ, tissue, organ system"), "Cell, tissue, organ, organ system", "Levels of organization",
+        "Similar cells form tissues, tissues form organs, and organs work together in organ systems.",
+        "Muscle cells form muscle tissue, and several tissues can form an organ.", "Begin with one cell and group similar cells together.",
+        "What level comes directly after tissue: cell, organ, or organ system?", ("organ",),
+    ),
+)
+
+
+MATTER_DIAGNOSTIC = (
+    DiagnosticItem(
+        "Which change is a physical change?", ("Ice melting", "Iron rusting", "Paper burning", "Milk souring"), "Ice melting", "Physical and chemical changes",
+        "Melting changes water from solid to liquid without forming a new substance, so it is a physical change.",
+        "Liquid water freezing into ice is also a physical change because it remains water.", "Choose the change that keeps the same substance.",
+        "Is water freezing a physical or chemical change?", ("physical", "physical change"),
+    ),
+    DiagnosticItem(
+        "A sample has mass 60 g and volume 20 cm³. What is its density?", ("3 g/cm³", "40 g/cm³", "80 g/cm³", "1200 g/cm³"), "3 g/cm³", "Density",
+        "Density equals mass divided by volume: 60 g ÷ 20 cm³ = 3 g/cm³.",
+        "A 40 g sample with volume 10 cm³ has density 40 ÷ 10 = 4 g/cm³.", "Divide 60 by 20 and keep the density unit.",
+        "Find the density in g/cm³ of a 45 g sample with volume 15 cm³.", ("3", "3 g/cm³", "3 g/cm3"), "exact",
+    ),
+    DiagnosticItem(
+        "Which sample is a mixture?", ("Air", "Pure oxygen", "Pure gold", "Distilled water"), "Air", "Pure substances and mixtures",
+        "Air contains several gases together, so it is a mixture. The other choices name single pure substances.",
+        "Salt water contains salt and water together, so it is a mixture.", "Look for a sample containing more than one substance together.",
+        "Is salt water a pure substance or a mixture?", ("mixture", "a mixture"),
+    ),
+)
+
+
+FORCE_MOTION_DIAGNOSTIC = (
+    DiagnosticItem(
+        "A cyclist travels 120 m in 20 s. What is the cyclist's average speed?", ("6 m/s", "20 m/s", "100 m/s", "2400 m/s"), "6 m/s", "Average speed",
+        "Average speed equals distance divided by time: 120 m ÷ 20 s = 6 m/s.",
+        "Traveling 90 m in 15 s gives an average speed of 90 ÷ 15 = 6 m/s.", "Divide the distance by the time.",
+        "Find the average speed in m/s for 150 m traveled in 30 s.", ("5", "5 m/s"), "exact",
+    ),
+    DiagnosticItem(
+        "A 10 N force pushes right and a 6 N force pushes left. What is the net force?", ("4 N right", "4 N left", "16 N right", "16 N left"), "4 N right", "Net force",
+        "Opposite forces subtract. The larger force is rightward, so 10 N - 6 N = 4 N right.",
+        "For 9 N left and 3 N right, the net force is 6 N left.", "Subtract the smaller force and keep the larger force's direction.",
+        "Find the net force for 12 N left and 5 N right.", ("7 N left", "7 newtons left"),
+    ),
+    DiagnosticItem(
+        "When a bus stops suddenly, a standing passenger tends to keep moving forward. Which idea explains this?", ("Inertia", "Density", "Buoyancy", "Reflection"), "Inertia", "Inertia",
+        "Inertia is the tendency of an object's motion to remain unchanged unless a net force acts on it, so the passenger's body tends to keep moving.",
+        "When a moving cart is stopped, an unsecured object on it tends to continue moving because of inertia.", "Which idea describes resistance to a change in motion?",
+        "Name the tendency of motion to remain unchanged unless a net force acts.", ("inertia",),
+    ),
+)
+
+
+ECOSYSTEMS_DIAGNOSTIC = (
+    DiagnosticItem(
+        "In the food chain grass → rabbit → fox, which organism is the producer?", ("Grass", "Rabbit", "Fox", "All three"), "Grass", "Producers in food chains",
+        "Grass makes its own food and begins the stated food chain, so grass is the producer.",
+        "In algae → fish → heron, algae is the producer at the start of the chain.", "Choose the organism at the start that makes its own food.",
+        "In leaves → caterpillar → bird, name the producer.", ("leaves", "the leaves"),
+    ),
+    DiagnosticItem(
+        "In the food chain grass → rabbit → fox, which organism gets energy directly from grass?", ("Rabbit", "Fox", "Grass", "None"), "Rabbit", "Energy transfer in food chains",
+        "The arrow from grass to rabbit shows that the rabbit gets energy directly from grass.",
+        "In algae → fish → heron, the fish gets energy directly from algae.", "Follow the arrow leaving grass.",
+        "In seeds → mouse → owl, which organism gets energy directly from seeds?", ("mouse", "the mouse"),
+    ),
+    DiagnosticItem(
+        "A pond has enough food and space, but very little water remains. Which stated factor most directly limits the pond population?", ("Water", "Food", "Space", "None"), "Water", "Limiting factors",
+        "The premises say food and space are sufficient but water is scarce, so water is the limiting factor.",
+        "If water and space are sufficient but food is scarce, food is the limiting factor.", "Which resource does the question say is scarce?",
+        "If food is scarce while water and space are sufficient, name the limiting factor.", ("food",),
+    ),
+)
+
+
 DETERMINISTIC_DIAGNOSTICS = {
     ("math", "fractions"): FRACTION_DIAGNOSTIC,
     ("math", "decimals"): DECIMAL_DIAGNOSTIC,
     ("math", "percentages"): PERCENTAGE_DIAGNOSTIC,
     ("math", "algebra"): ALGEBRA_DIAGNOSTIC,
     ("math", "geometry"): GEOMETRY_DIAGNOSTIC,
+    ("science", "cells"): CELLS_DIAGNOSTIC,
+    ("science", "matter"): MATTER_DIAGNOSTIC,
+    ("science", "force-and-motion"): FORCE_MOTION_DIAGNOSTIC,
+    ("science", "ecosystems"): ECOSYSTEMS_DIAGNOSTIC,
 }
 
 
