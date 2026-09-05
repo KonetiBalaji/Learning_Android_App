@@ -54,7 +54,13 @@ chapter-order stability, changed settings, write failure and corrupt identity.
 These unit tests do not simulate an actual post-commit network loss or process death.
 The production recovery dialog also passed Android Accessibility Test Framework checks
 and both explicit actions on the API 36 emulator as part of 14 connected tests. This
-component test does not inject corrupted preferences through the full app journey.
+was followed by a full isolated app journey using
+`scripts/qa-document-recovery.ps1 -ResetTestAppData -VerifyCorruptCreationRecovery`.
+It injected a malformed account-scoped record, proved that keep preserved it, proved
+that explicit discard removed it, then created and completed a quiz. The selected
+chapter, post-answer conflict recovery, exact source evidence and results restart also
+passed. `artifacts/qa-corrupt-quiz-identity.png` was visually captured. Storage-removal
+failure injection remains open.
 
 ## API 36 post-commit HTTP failure verification
 

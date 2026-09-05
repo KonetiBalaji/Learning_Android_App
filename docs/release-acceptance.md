@@ -485,8 +485,11 @@ curriculum review, physical-device QA and UAT remain open.
   specific explanation and two explicit actions: retain the uncertain retry record,
   or discard only that local record before making a new request. The production
   dialog passed Accessibility Test Framework checks and both actions on API 36;
-  all 14 connected component tests plus build, lint and 58 JVM tests passed. Full
-  corrupt-preference journey injection and storage-removal failure injection remain.
+  all 14 connected component tests plus build, lint and 58 JVM tests passed. A
+  subsequent full app journey injected the corrupt account-scoped preference, proved
+  keep/discard persistence, created and completed the replacement quiz, recovered a
+  saved answer conflict, opened exact source evidence and restored results after
+  restart. Screenshot captured. Storage-removal failure injection remains.
 - 2026-09-03: added optional owner-scoped quiz creation request IDs. Committed
   retries return the original quiz without generation; settings conflicts return
   409 and concurrent commits save one quiz. Backend 158 tests passed; 35 focused

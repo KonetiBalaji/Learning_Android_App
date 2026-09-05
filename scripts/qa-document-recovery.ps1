@@ -1,4 +1,4 @@
-param([string]$Serial = 'emulator-5554', [string]$BackendUrl = 'http://127.0.0.1:8000', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifySemanticSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure, [switch]$VerifyResultActions, [switch]$VerifyDocumentProgress)
+param([string]$Serial = 'emulator-5554', [string]$BackendUrl = 'http://127.0.0.1:8000', [switch]$ResetTestAppData, [switch]$VerifyLibrary, [switch]$VerifyMultiChapter, [switch]$VerifyQuestionCount, [switch]$VerifyDifficulty, [switch]$VerifyQuestionType, [ValidateSet('true_false','yes_no')][string]$BinaryFixtureType, [switch]$VerifyCreationRetry, [switch]$VerifyCorruptCreationRecovery, [switch]$VerifyStructureRepair, [switch]$VerifyPreview, [switch]$VerifyExcerpts, [switch]$VerifySourceSearch, [switch]$VerifySemanticSearch, [switch]$VerifyPdfPages, [switch]$VerifyUploadProgress, [switch]$VerifySavedUploadFailure, [switch]$VerifyResultActions, [switch]$VerifyDocumentProgress)
 $ErrorActionPreference = 'Stop'
 $BackendUrl = $BackendUrl.TrimEnd('/')
 if ($BackendUrl -notmatch '^http://127\.0\.0\.1:\d{2,5}$') { throw 'Document QA backend must be an explicit loopback HTTP port' }
@@ -20,6 +20,7 @@ $expectedCount = if ($VerifyPdfPages) { 5 } elseif ($VerifyQuestionCount) { 7 } 
 $expectedFormat = if ($BinaryFixtureType) { $BinaryFixtureType } else { 'multiple_choice' }
 $formatLabel = switch ($expectedFormat) { 'true_false' { 'True / False' } 'yes_no' { 'Yes / No' } default { 'Multiple choice' } }
 if ($VerifyStructureRepair -and -not $VerifyCreationRetry) { throw 'Structure repair check requires -VerifyCreationRetry to verify pending identity preservation' }
+if ($VerifyCorruptCreationRecovery -and $VerifyCreationRetry) { throw 'Corrupt identity recovery and committed creation retry are separate creation-failure fixtures' }
 if ($BinaryFixtureType -and ($VerifyQuestionType -or $VerifyDifficulty -or $VerifyMultiChapter)) { throw 'Binary fixture run cannot be combined with offline or source coverage checks' }
 function Adb {
     & $adb -s $Serial @args
@@ -414,6 +415,34 @@ if ($VerifyPdfPages) {
     RestartApp
     TextNode 'Generate 5 questions' | Out-Null
     Write-Output 'PASS: insufficient page material rejects ten questions; exact selection survives and five-question count restores'
+}
+if ($VerifyCorruptCreationRecovery) {
+    $pendingKey = "pending_quiz_creation:$qaEmail"
+    Adb shell am force-stop $package | Out-Null
+    [xml]$corruptPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    $pendingNode = $corruptPreferences.map.ChildNodes | Where-Object name -eq $pendingKey | Select-Object -First 1
+    if (-not $pendingNode) {
+        $pendingNode = $corruptPreferences.CreateElement('string')
+        $pendingNode.SetAttribute('name', $pendingKey)
+        $corruptPreferences.map.AppendChild($pendingNode) | Out-Null
+    }
+    $pendingNode.InnerText = 'damaged-retry-record'
+    $corruptPreferences.OuterXml | & $adb -s $Serial shell run-as $package tee "/data/user/0/$package/shared_prefs/learn-smart.xml" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Could not write the isolated corrupt quiz identity fixture' }
+    RestartApp
+    TapText "Generate $expectedCount questions"
+    TextNode 'The saved quiz retry record is damaged. It may refer to a request whose response was lost. Keep it unless you are ready to discard that local retry record and start a new quiz request.' | Out-Null
+    Adb shell screencap -p /sdcard/qa-corrupt-quiz-identity.png | Out-Null
+    Adb pull /sdcard/qa-corrupt-quiz-identity.png (Join-Path $repo 'artifacts\qa-corrupt-quiz-identity.png') | Out-Null
+    TapText 'Keep retry record'
+    [xml]$keptPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if (($keptPreferences.map.ChildNodes | Where-Object name -eq $pendingKey).InnerText -ne 'damaged-retry-record') { throw 'Keep action changed the uncertain retry record' }
+    TapText "Generate $expectedCount questions"
+    TapText 'Discard local retry record'
+    [xml]$discardedPreferences = (Adb shell run-as $package cat shared_prefs/learn-smart.xml) -join "`n"
+    if ($discardedPreferences.map.ChildNodes | Where-Object name -eq $pendingKey) { throw 'Discard action retained the corrupt retry record' }
+    TextNode 'Choose chapters' | Out-Null
+    Write-Output 'PASS: corrupt quiz identity failed closed; keep preserved it and explicit discard removed only the local retry record'
 }
 if ($VerifyCreationRetry) {
     $creationAudit = "$BackendUrl/__qa/documents/$($document.id)/created-quizzes"
