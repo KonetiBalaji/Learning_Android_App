@@ -64,8 +64,10 @@ implemented. Returned ranges can be explicitly reviewed and submitted through
 the existing `source_ranges` quiz contract. Overlap/insufficient-material checks
 still apply; search alone never selects text or broadens quiz scope.
 
-Semantic candidates are contiguous source-order chunks of at most 1,600 Unicode
-code points. Returned semantic `match_start` and `match_end` intentionally cover
+Semantic candidates follow author-provided blank-line paragraph boundaries and
+split long paragraphs at sentence or word boundaries into at most 800 Unicode
+code points. At most 256 candidates are admitted. Returned semantic `match_start`
+and `match_end` intentionally cover
 the complete verbatim passage because no literal token span is claimed. Up to the
 requested result limit are selected by cosine similarity above the fixed minimum,
 then returned in source order. Neither embeddings, similarity scores nor queries
@@ -222,7 +224,10 @@ explicit confirmation action to TalkBack. Selecting that action entered excerpt
 mode, and the saved source boundaries survived force-stop/restart. Transient
 UIAutomator null-root responses recovered through the bounded fresh-dump retry.
 
-This is one synthetic emulator journey. Its passage window included unrelated
-fixture prose, so it proves transport, validation, accessibility, explicit consent
-and persistence rather than optimal segmentation or broad semantic relevance.
-Physical-device QA, labeled multilingual/spelling evaluation and UAT remain open.
+The initial 1,600-character candidate crossed into unrelated fixture prose. After
+paragraph-aware 800-character segmentation and a calibrated 0.30 threshold, the
+same journey passed again and visual inspection confirmed that the result stopped
+at the natural Plants-paragraph boundary (source characters 307–927). Complete
+paragraphs do not carry a false truncation warning. This remains one synthetic
+emulator journey rather than broad semantic relevance evidence. Physical-device
+QA, labeled multilingual/spelling evaluation and UAT remain open.

@@ -4,7 +4,7 @@ import pytest
 
 from app.schemas import Chapter
 from app.semantic_source_search import (
-    MAX_SOURCE_CHARACTERS, SemanticSearchScopeTooLarge, SemanticSearchUnavailable,
+    MAX_PASSAGES, MAX_SOURCE_CHARACTERS, SemanticSearchScopeTooLarge, SemanticSearchUnavailable,
     semantic_search_source,
 )
 
@@ -73,4 +73,47 @@ def test_semantic_search_rejects_oversized_scope_before_provider_call():
     with pytest.raises(SemanticSearchScopeTooLarge, match='select fewer'):
         semantic_search_source('doc', text, [chapter('a', 0, len(text))], ['a'], 'related idea', 1,
                                'secret', 'model', client_factory=FakeClient)
+    assert FakeClient.captured is None
+
+
+def test_semantic_candidates_do_not_join_unrelated_neighboring_paragraphs():
+    relevant = 'Plants manufacture stored food by converting light into chemical energy.'
+    unrelated = 'This disposable paragraph explains only the mechanics of a QA procedure.'
+    text = relevant + '\n\n' + unrelated
+    FakeClient.vectors = [[1.0, 0.0], [0.95, 0.05], [0.0, 1.0]]
+
+    result = semantic_search_source('doc', text, [chapter('plants', 0, len(text))], ['plants'],
+                                    'plant food production', 1, 'secret', 'model',
+                                    client_factory=FakeClient)
+
+    assert len(result.matches) == 1
+    assert result.matches[0].text == relevant
+    assert result.matches[0].context_truncated is False
+    assert unrelated not in result.matches[0].text
+    assert FakeClient.captured[1]['input'][1:] == [relevant, unrelated]
+
+
+def test_long_paragraph_splits_on_sentence_boundary_with_exact_offsets():
+    first = ('A' * 390) + '. '
+    second = ('B' * 390) + '. '
+    third = ('C' * 100) + '.'
+    text = first + second + third
+    FakeClient.vectors = [[1.0, 0.0], [0.9, 0.1], [0.0, 1.0]]
+
+    result = semantic_search_source('doc', text, [chapter('a', 0, len(text))], ['a'],
+                                    'related idea', 1, 'secret', 'model',
+                                    client_factory=FakeClient)
+
+    assert FakeClient.captured[1]['input'][1:] == [(first + second).rstrip(), third]
+    hit = result.matches[0]
+    assert hit.text == text[hit.start_character:hit.end_character] == (first + second).rstrip()
+    assert hit.context_truncated is True
+
+
+def test_semantic_search_rejects_pathologically_fragmented_scope():
+    text = '\n\n'.join(f'paragraph {index}' for index in range(MAX_PASSAGES + 1))
+    FakeClient.captured = None
+    with pytest.raises(SemanticSearchScopeTooLarge, match='too many passages'):
+        semantic_search_source('doc', text, [chapter('a', 0, len(text))], ['a'],
+                               'related idea', 1, 'secret', 'model', client_factory=FakeClient)
     assert FakeClient.captured is None

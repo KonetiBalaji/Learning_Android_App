@@ -7,7 +7,8 @@ remain open.
 When exact-phrase and all-important-term lookup both return zero results, OpenAI
 mode now performs a quota-counted embedding lookup over deterministic passages from
 only the selected chapters. The provider receives the trimmed query and at most
-80,000 selected source characters split into at most 1,600-character passages.
+80,000 selected source characters split on paragraph/sentence boundaries into at
+most 800-character passages, with a 256-passage admission ceiling.
 It does not choose offsets, rewrite text, select an excerpt or create a quiz.
 
 Automated tests cover synonymous ranking without lexical overlap, selected-chapter
@@ -40,8 +41,13 @@ identity, exact source range and verbatim passage; the result and explicit **Use
 passage 1 as excerpt** action were exposed in the TalkBack tree. The user-facing
 action selected the passage, and the saved boundaries survived force-stop/restart.
 
-The displayed passage also included unrelated fixture prose because the current
-deterministic passage window is intentionally broad (up to 1,600 characters). This
-run therefore proves the live network, validation, accessibility, explicit-choice
-and persistence path, but it is not evidence that passage boundaries are optimally
-focused. Passage segmentation and threshold quality remain acceptance risks.
+The initial displayed passage also included unrelated fixture prose because the
+earlier 1,600-character window crossed a blank-line topic boundary. Follow-up work
+now treats blank lines as author-provided boundaries, splits overlong paragraphs at
+sentence/word boundaries, caps inputs at 256 passages and uses a 0.30 cutoff. In a
+live calibration check the focused Plants paragraph scored 0.336 while the three
+unrelated fixture paragraphs scored 0.104–0.156. The repeated API 36 journey passed
+and visual inspection confirmed that the result now ends at source character 927,
+before the unrelated fixture paragraph. Complete paragraph candidates no longer
+claim that their context was cut; only a paragraph actually split by the 800-character
+limit carries that warning. Broader threshold quality remains an acceptance risk.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import re
 
 from openai import OpenAI
 
@@ -11,8 +12,9 @@ from .schemas import Chapter, SourceSearchHit, SourceSearchResults
 
 
 MAX_SOURCE_CHARACTERS = 80_000
-MAX_PASSAGE_CHARACTERS = 1_600
-MIN_SIMILARITY = 0.35
+MAX_PASSAGE_CHARACTERS = 800
+MAX_PASSAGES = 256
+MIN_SIMILARITY = 0.30
 
 
 class SemanticSearchUnavailable(RuntimeError):
@@ -37,19 +39,40 @@ def _candidates(text: str, selected: list[Chapter]) -> list[Candidate]:
             'Semantic search source is too large; select fewer or smaller chapters')
     result: list[Candidate] = []
     for chapter in selected:
-        start = chapter.start_character
-        while start < chapter.end_character:
-            ceiling = min(start + MAX_PASSAGE_CHARACTERS, chapter.end_character)
-            if ceiling < chapter.end_character:
-                boundary = text.rfind('\n', start + 1, ceiling + 1)
-                end = boundary if boundary > start else ceiling
-            else:
+        # Blank lines are strong author-provided topic boundaries. Do not join
+        # neighboring paragraphs merely to fill a model input: doing so made a
+        # relevant paragraph return unrelated prose in the same result card.
+        chapter_text = text[chapter.start_character:chapter.end_character]
+        paragraphs = [match.span() for match in re.finditer(r'\S(?:.*?\S)?(?=\n\s*\n|\Z)',
+                                                              chapter_text, re.DOTALL)]
+        for relative_start, relative_end in paragraphs:
+            paragraph_start = chapter.start_character + relative_start
+            start = paragraph_start
+            paragraph_end = chapter.start_character + relative_end
+            while start < paragraph_end:
+                ceiling = min(start + MAX_PASSAGE_CHARACTERS, paragraph_end)
                 end = ceiling
-            if text[start:end].strip():
+                if ceiling < paragraph_end:
+                    window = text[start:ceiling]
+                    sentence_ends = list(re.finditer(r'[.!?](?:[\"\'\u2019\u201d)]*)\s+', window))
+                    if sentence_ends:
+                        end = start + sentence_ends[-1].end()
+                    else:
+                        boundary = max(window.rfind('\n'), window.rfind(' '))
+                        if boundary > 0:
+                            end = start + boundary + 1
+                while end > start and text[end - 1].isspace():
+                    end -= 1
+                if end <= start:
+                    end = ceiling
                 result.append(Candidate(chapter, start, end,
-                    (start > chapter.start_character and text[start - 1] != '\n')
-                    or (end < chapter.end_character and text[end] != '\n')))
-            start = end + int(end < chapter.end_character and text[end] == '\n')
+                    start > paragraph_start or end < paragraph_end))
+                start = end
+                while start < paragraph_end and text[start].isspace():
+                    start += 1
+                if len(result) > MAX_PASSAGES:
+                    raise SemanticSearchScopeTooLarge(
+                        'Semantic search source has too many passages; select fewer or smaller chapters')
     return result
 
 
