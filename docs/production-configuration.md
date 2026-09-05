@@ -62,6 +62,21 @@ is returned to the caller. Raw paths, queries, headers, bodies, identities, cont
 and exception text are excluded; see `operational-observability.md`. The production
 host must still provide a protected log sink, retention, metrics and alerts.
 
+For an external scheduler or alert runner, execute a candidate-bound readiness probe:
+
+```powershell
+uv run python -m app.deployment_probe --backend-url https://the-confirmed-origin.example.org --revision <40-character-release-commit> --environment production --max-latency-ms 5000
+```
+
+It requires a public non-placeholder HTTPS origin, exact environment/revision, the
+reviewed production OpenAI provider/model, database and upload-storage readiness,
+and the configured total latency ceiling. Success emits only deployment identity,
+fixed check names and elapsed time as JSON; failure exits 2 with a bounded message
+that does not echo the URL. The host must schedule it from outside the deployment
+and route nonzero exits to an owned alert channel. This is a monitoring-ready
+mechanism, not evidence that a scheduler, alert destination or response process is
+currently deployed.
+
 Application-level body admission rejects declared and streamed requests above
 `LEARNING_MAX_UPLOAD_BYTES` plus a fixed 256 KiB multipart envelope before route
 handling. This protects direct/container operation from unbounded multipart spooling
