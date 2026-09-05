@@ -3,6 +3,46 @@ from __future__ import annotations
 from test_mastery_loop import registered_client
 
 
+def test_offline_full_catalog_mastery_journey_respects_prerequisite_order(monkeypatch, tmp_path):
+    from app.learning_path import CATALOG
+    from app.mastery_service import diagnostic_bank
+
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        completed = []
+        for subject in CATALOG:
+            for chapter in subject.chapters:
+                started = client.post('/v1/mastery/diagnostics', headers=headers, json={
+                    'grade': 8, 'subject_id': subject.id, 'chapter_id': chapter.id})
+                assert started.status_code == 201, (subject.id, chapter.id, started.text)
+                session = started.json()
+                assert session['status'] == 'diagnostic'
+                assert session['question']['ordinal'] == 1
+                assert 'correct_option' not in session['question']
+                path = f"/v1/mastery/sessions/{session['id']}"
+                bank = diagnostic_bank(subject.id, chapter.id)
+                for index, item in enumerate(bank):
+                    answered = client.post(path + '/diagnostic-answer', headers=headers,
+                                           json={'selected_option': item.correct_option})
+                    assert answered.status_code == 200, (subject.id, chapter.id, index, answered.text)
+                    outcome = answered.json()
+                    assert outcome['correct'] is True
+                    assert outcome['next_action'] == ('mastery' if index == len(bank) - 1 else 'next_question')
+                restored = client.get(path, headers=headers)
+                assert restored.status_code == 200
+                assert restored.json()['status'] == 'mastered'
+                completed.append((subject.id, chapter.id))
+        assert completed == [(subject.id, chapter.id) for subject in CATALOG for chapter in subject.chapters]
+        dashboard = client.get('/v1/progress/dashboard?grade=8', headers=headers)
+        assert dashboard.status_code == 200
+        progress = dashboard.json()
+        assert len(progress['chapters']) == 17
+        assert all(chapter['status'] == 'mastered' and chapter['mastery'] == 1.0
+                   for chapter in progress['chapters'])
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_offline_grade_8_ungated_diagnostics_start_without_provider_credentials(monkeypatch, tmp_path):
     client, headers = registered_client(monkeypatch, tmp_path)
     try:

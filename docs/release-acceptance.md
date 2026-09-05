@@ -156,6 +156,13 @@ explicitly curated Fractions methods retain offline rubrics. Focused QA includes
 authenticated Cells response that returns 503, stays in rewrite, and writes no attempt;
 see `docs/rewrite-cross-subject-evaluation.md`.
 
+A single authenticated deterministic end-to-end test now traverses all 17 catalog
+chapters and 51 questions in prerequisite order through the real diagnostic routes.
+Every session restores as mastered, and the final owner-scoped dashboard contains
+exactly 17 mastered rows at 100%. This proves backend fallback continuity and unlock
+state, not Android UAT or curriculum approval; see
+`docs/full-catalog-fallback-qa.md`.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
