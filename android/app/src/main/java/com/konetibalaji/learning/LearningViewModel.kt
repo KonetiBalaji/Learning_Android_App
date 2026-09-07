@@ -102,7 +102,7 @@ private val subjectPresentation = mapOf(
 
 fun validatedCatalog(value: CurriculumCatalogClient, requestedGrade: Int): CurriculumCatalogClient {
     require(value.version.isNotBlank() && value.version.length <= 100 && value.grade == requestedGrade)
-    require(value.board == "unconfirmed")
+    require(value.board == "open-oer-foundation")
     require(value.subjects.map { it.id } == listOf("math", "science", "english", "social"))
     require(value.chapters.keys == value.subjects.map { it.id }.toSet())
     value.subjects.forEach { subject ->

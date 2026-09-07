@@ -68,9 +68,9 @@ def test_authenticated_catalog_is_versioned_grade_scoped_and_internally_consiste
         response = client.get('/v1/catalog?grade=8', headers=headers)
         assert response.status_code == 200
         catalog = response.json()
-        assert catalog['version'] == 'foundation-2026-09'
+        assert catalog['version'] == 'open-oer-foundation-2026-09'
         assert catalog['grade'] == 8
-        assert catalog['board'] == 'unconfirmed'
+        assert catalog['board'] == 'open-oer-foundation'
         assert [(subject['id'], subject['title']) for subject in catalog['subjects']] == [
             ('math', 'Mathematics'), ('science', 'Science'),
             ('english', 'English'), ('social', 'Social Studies'),

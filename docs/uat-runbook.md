@@ -12,9 +12,9 @@ Use a reachable, approved staging service and a private APK supplied through an
 agreed channel. A physical phone cannot use the emulator's host-only service address.
 Do not label a debug build as a signed production release.
 
-Confirm the Grade 8 curriculum/board, supported subjects and test materials with
-the user. Check release-acceptance.md for every original requirement, including
-Grades 1–12; Grade 8-first sequencing is not acceptance of missing later grades.
+Confirm the approved Grade 8 Open OER Foundation catalog, supported subjects and
+test materials. Check release-acceptance.md for every original requirement.
+Grades 1–7 and 9–12 remain later scope and must stay visibly unavailable.
 Resolve release-blocking security, data-loss and learning-correctness issues first.
 Record any agreed test-only limitations; they do not silently change product scope.
 
@@ -34,7 +34,7 @@ PASS. The tester, not the coding agent, confirms learning usability and acceptan
 | Journey | User-observable acceptance checks | Current limitations to resolve |
 | --- | --- | --- |
 | Account and isolation | Register/login, wrong password, sign out/in, switch test accounts; no other student's documents/progress appear | Google login/configuration and broader account-switch verification remain open |
-| Curriculum and navigation | Choose Grade 8, each subject and chapter; confirm titles/content match the approved board; return and restart | Authoritative board and complete grade/subject coverage are not yet confirmed |
+| Curriculum and navigation | Choose Grade 8, each subject and chapter; confirm the Open OER Foundation identity, titles and app-authored content; return and restart | Educator review and later-grade coverage remain open; no national/state board alignment is claimed |
 | Learning and mastery | Answer correctly and incorrectly; inspect explanation/example, ask for a hint, practice, submit weak and sound rewrites; verify restart and prerequisite progression | Broad subject coverage and live grading false-pass/age-suitability evaluation remain incomplete |
 | Document study | Upload valid PDF/DOCX/TXT; select chapters, highlighted text, literal search passage and physical PDF pages; confirm only chosen content supports questions | Semantic topic/section scope and complex/scanned PDFs remain partial; OCR is unavailable |
 | Failure and recovery | Choose a blank page or too many questions for short material; read the message, change the selection/count and recover; interrupt network and restart | New message/device/network cases must have candidate-specific evidence |

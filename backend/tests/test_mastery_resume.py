@@ -11,7 +11,7 @@ def test_resume_tracks_phases_without_answer_leakage_or_provider_calls(monkeypat
         path = f"/v1/mastery/sessions/{started['id']}"
         initial = client.get(path, headers=headers).json()
         assert initial["status"] == "diagnostic"
-        assert initial["catalog_version"] == "foundation-2026-09"
+        assert initial["catalog_version"] == "open-oer-foundation-2026-09"
         assert initial["grade"] == 8
         assert initial["question"]["ordinal"] == 1
         assert "correct_option" not in initial["question"]
@@ -93,7 +93,7 @@ def test_saved_session_keeps_creation_catalog_version_after_catalog_changes(monk
         monkeypatch.setattr(main, 'CATALOG_VERSION', 'foundation-next')
         assert client.get('/v1/catalog?grade=8', headers=headers).json()['version'] == 'foundation-next'
         saved = client.get(f"/v1/mastery/sessions/{started['id']}", headers=headers).json()
-        assert saved['catalog_version'] == 'foundation-2026-09'
+        assert saved['catalog_version'] == 'open-oer-foundation-2026-09'
     finally:
         client.__exit__(None, None, None)
 

@@ -354,7 +354,7 @@ class CatalogSubjectResponse(BaseModel):
 class CurriculumCatalog(BaseModel):
     version: str
     grade: int = Field(ge=1, le=12)
-    board: str = 'unconfirmed'
+    board: str = 'open-oer-foundation'
     subjects: list[CatalogSubjectResponse]
 
 

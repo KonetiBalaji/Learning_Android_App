@@ -1,9 +1,10 @@
-"""Current product catalog and prerequisite policy, not a board curriculum mapping."""
+"""Approved open-OER foundation catalog and prerequisite policy."""
 
 from dataclasses import dataclass
 
 
-CATALOG_VERSION = 'foundation-2026-09'
+CATALOG_VERSION = 'open-oer-foundation-2026-09'
+CATALOG_BOARD = 'open-oer-foundation'
 SUPPORTED_GRADES = frozenset({8})
 
 

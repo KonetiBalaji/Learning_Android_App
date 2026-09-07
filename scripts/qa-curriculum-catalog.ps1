@@ -26,7 +26,7 @@ EnterField 1 'qa-password-long-enough'
 TapText 'Create account'
 FindText 'Select your grade' 30|Out-Null
 TapText "Grade`n8"
-$label='Catalog foundation-2026-09 · Board alignment unconfirmed'
+$label='Open OER Grade 8 Foundation · Catalog open-oer-foundation-2026-09'
 FindText $label 30 -Scroll|Out-Null
 $login=Invoke-RestMethod 'http://127.0.0.1:8000/v1/auth/login' -Method Post -ContentType 'application/json' -Body (@{email=$email;password='qa-password-long-enough'}|ConvertTo-Json)
 $headers=@{Authorization="Bearer $($login.access_token)"}

@@ -95,7 +95,7 @@ from .guardian_access import (
     access_history_csv,
     record_guardian_account_deletion,
 )
-from .learning_path import CATALOG, CATALOG_VERSION, SUPPORTED_GRADES, catalog_chapter, unlocks_dependent_chapter
+from .learning_path import CATALOG, CATALOG_BOARD, CATALOG_VERSION, SUPPORTED_GRADES, catalog_chapter, unlocks_dependent_chapter
 from .ai_usage import consume_ai_operation
 from .operational_logging import OperationalLoggingMiddleware
 from .runtime_readiness import verify_runtime_readiness
@@ -218,7 +218,7 @@ def ready(settings: Settings = Depends(get_settings)):
 def curriculum_catalog(grade: int = Query(ge=1, le=12), _: str = Depends(current_user_id)) -> CurriculumCatalog:
     if grade not in SUPPORTED_GRADES:
         raise HTTPException(status_code=422, detail='The reviewed curriculum catalog currently starts with Grade 8')
-    return CurriculumCatalog(version=CATALOG_VERSION, grade=grade, board='unconfirmed',
+    return CurriculumCatalog(version=CATALOG_VERSION, grade=grade, board=CATALOG_BOARD,
                              subjects=[{'id': subject.id, 'title': subject.title,
                                         'chapters': [chapter.__dict__ for chapter in subject.chapters]}
                                        for subject in CATALOG])

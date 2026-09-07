@@ -12,12 +12,12 @@ class CurriculumCatalogTest {
             LearningSubject("english", "English", "Aa", 0),
             LearningSubject("social", "Social Studies", "◎", 0),
         )
-        return CurriculumCatalogClient("foundation-2026-09", grade, "unconfirmed", subjects,
+        return CurriculumCatalogClient("open-oer-foundation-2026-09", grade, "open-oer-foundation", subjects,
             subjects.associate { it.id to listOf(MasteryChapter("intro", "Introduction")) })
     }
 
     @Test fun acceptsExactVersionedGradeScopedCatalog() {
-        assertEquals("foundation-2026-09", validatedCatalog(catalog(), 8).version)
+        assertEquals("open-oer-foundation-2026-09", validatedCatalog(catalog(), 8).version)
     }
 
     @Test fun rejectsWrongGradeBoardSubjectOrderAndMissingChapterMap() {

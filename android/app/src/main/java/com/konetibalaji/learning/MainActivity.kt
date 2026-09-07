@@ -297,7 +297,7 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
         Text("The curriculum catalog is unavailable. Reconnect, then refresh.", color = MaterialTheme.colorScheme.error)
         PrimaryButton("Refresh curriculum and progress", onClick = onRefresh)
     }
-    state.catalogVersion?.let { Text("Catalog $it · Board alignment ${state.catalogBoard ?: "unconfirmed"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    state.catalogVersion?.let { Text("Open OER Grade 8 Foundation · Catalog $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     state.progressSnapshot?.badges?.takeIf { it.isNotEmpty() }?.let { badges ->
         Text("Earned badges", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         badges.forEach { badge ->

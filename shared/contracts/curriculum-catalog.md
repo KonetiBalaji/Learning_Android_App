@@ -3,18 +3,21 @@
 ## Contract
 
 `GET /v1/catalog?grade=8` is authenticated and currently accepts Grade 8 only. It
-returns a version, the requested grade, an explicit board-alignment state, and an
-ordered subject/chapter graph. The current version is `foundation-2026-09` with
-board `unconfirmed`. It contains the existing 17 foundation topics across
+returns a version, the requested grade, an explicit curriculum identity, and an
+ordered subject/chapter graph. The current version is
+`open-oer-foundation-2026-09` with identity `open-oer-foundation`. It contains
+the existing 17 foundation topics across
 Mathematics, Science, English and Social Studies, including each of the four
 existing immediate prerequisites.
 
-This is a product catalog, not an authoritative national, state or examination-
+The user approved this application-authored, open-content Grade 8 launch scope on
+2026-09-07. The content is licensed under CC BY 4.0 as described in
+`CURRICULUM-LICENSE.md`. It is not an authoritative national, state or examination-
 board curriculum. Grades 1-7 and 9-12 are planned expansion, but the backend
 rejects their catalog and diagnostic requests with 422 before provider selection
 or session creation. This prevents the Grade 8 foundation set from being
-misrepresented as reviewed material for another grade. Board-specific replacement
-and educator review remain CUR-01 acceptance gates.
+misrepresented as reviewed material for another grade. Educator review and
+physical-device UAT remain acceptance gates.
 
 The backend now rejects a diagnostic subject/chapter pair that is absent from this
 catalog before selecting or calling any AI provider and before creating a session.
