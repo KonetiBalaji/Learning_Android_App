@@ -294,9 +294,20 @@ feedback, reached 5/5 results, and deleted only the duplicate document afterward
 The candidate's focused ledger is machine-valid with DOC-01, DOC-03 and QA-01 PASS;
 the broader v19 UAT record remains pending and explicit user acceptance is unchanged.
 
+An isolated co-installed v21 debug harness then completed the destructive
+AndroidKeyStore recovery exercise without risking the signed learner session. A
+disposable account signed in, selected Grade 8 and survived a cold restart. Deleting
+only the harness session key caused the next launch to reject the saved ciphertext,
+show the safe sign-in recovery message and remain unauthenticated. Password
+reauthentication returned to the Mathematics dashboard. The disposable account and
+QA package were deleted, Install via USB was restored to off, and the signed v21 app
+still cold-started authenticated at version code 21. This advances AUTH-01 to
+physical-device QA verified; it is not exact-release-package key invalidation or
+explicit user UAT acceptance.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
-| AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
+| AUTH-01 | Email registration and login | Physical-device QA verified with isolated key-loss harness | Registration/login and cold-start restoration are automated. On the Xiaomi device, the co-installed v21 QA package restored an authenticated account, safely rejected an orphaned encrypted session after its package-scoped key was deleted, and reauthenticated successfully. The signed learner app remained installed and authenticated. Exact-release-package OEM key invalidation and explicit user acceptance remain open |
 | AUTH-02 | Google login | Partial | Backend exchange, five-minute one-use nonce binding and Android Credential Manager wiring are implemented; disabled-build device QA passes. OAuth configuration, real sign-in, configured-device lifecycle recovery and user acceptance remain missing |
 | CUR-01 | Grade 1–12, subject and chapter selection | Candidate v19 physical-device verified for approved launch scope | The user approved Grade 8 as the initial boundary and an application-authored open-content curriculum. Signed v19 displayed Mathematics, Science, English and Social Studies, all five Mathematics chapters, and the CC BY 4.0 `open-oer-foundation-2026-09` identity without a false board claim. Grades 1–7/9–12 are later scope and educator approval remains open |
 | ASM-01 | Diagnostic and correct-answer progression | Candidate v19 physical-device verified | Signed v19 exercised an incorrect angle answer, remediation, fresh practice, a 4/4 rewrite, return to the next diagnostic and correct remaining answers leading to 100% Geometry mastery. Transaction replay/conflict, owner scope and undisclosed-answer protections remain automated; broader live curriculum review remains open |

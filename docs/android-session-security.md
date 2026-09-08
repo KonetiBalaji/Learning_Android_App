@@ -77,8 +77,19 @@ session alias while leaving its ciphertext in place. The next cold start must re
 decryption, clear credentials and require a fresh login. The receiver is absent from
 release APKs, and cannot affect the installed signed learner package.
 
-The isolated staging build passed Android JVM tests, lint and debug assembly. Xiaomi
-then rejected installation of the new application ID with
-`INSTALL_FAILED_USER_RESTRICTED`; the existing signed app remained installed and
-untouched. Physical registration, key invalidation, recovery and disposable-account
-deletion remain pending until the device allows installation via USB for a new app.
+The isolated staging build passed Android JVM tests, lint and debug assembly. On
+2026-09-08 the QA package was installed beside signed candidate v21 after the Xiaomi
+USB-install countdown and Play Protect prompts were handled. A disposable account
+signed in on the physical device, selected Grade 8 and restored its authenticated
+dashboard after a force-stop. The debug receiver then deleted only the QA package's
+AndroidKeyStore alias. Its next cold start rejected the orphaned ciphertext, displayed
+`Unable to restore the saved session. Please sign in.`, and did not restore the
+dashboard. Password reauthentication and Grade 8 dashboard loading succeeded.
+
+The disposable backend account and QA package were deleted afterward, and the
+temporary Install via USB switch was restored to off. A final cold start confirmed
+that the separate signed v21 package remained installed at version code 21 and kept
+its authenticated Mathematics dashboard. Private XML evidence is retained under
+`artifacts/private-release/v21/`. This is physical-device QA of an isolated debug
+harness, not proof that the OEM invalidated the production package's key, hardware-
+backed certification, or explicit user UAT acceptance.
