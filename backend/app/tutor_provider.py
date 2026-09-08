@@ -388,6 +388,14 @@ class ResilientTutorProvider:
             logging.getLogger(__name__).warning('Primary tutor lesson unavailable: %s', safe_reason)
             fallback = self.fallback.explain(grade, item, selected_option)
             if is_deterministic_diagnostic_item(item):
+                interests = tuple(getattr(self.primary, 'interests', ()))
+                if interests and not any(
+                    interest.casefold() in fallback.worked_example.casefold()
+                    for interest in interests
+                ):
+                    fallback = fallback.model_copy(update={
+                        'worked_example': f'Using your {interests[0]} interest as a theme: {fallback.worked_example}'
+                    })
                 return fallback
             # Existing generated sessions may predate the teaching-review gate.
             # Re-review stored support now instead of assuming legacy content is safe.

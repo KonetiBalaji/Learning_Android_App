@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from app.config import get_settings
 from app.database import connection
 from app.mastery_service import FRACTION_DIAGNOSTIC, tutor_for
-from app.tutor_provider import DeterministicTutorProvider, OpenAITutorProvider
+from app.tutor_provider import DeterministicTutorProvider, OpenAITutorProvider, ResilientTutorProvider
 from test_mastery_loop import registered_client
 
 
@@ -107,3 +107,18 @@ def test_existing_interest_personalization_is_not_duplicated():
     lesson = provider.explain(8, item, '1/2')
     assert lesson.worked_example.startswith('Space theme:')
     assert 'Using your space interest as a theme:' not in lesson.worked_example
+
+
+def test_review_failure_keeps_interest_visible_in_deterministic_fallback():
+    item = FRACTION_DIAGNOSTIC[0]
+    primary = SimpleNamespace(
+        name='openai',
+        interests=('space',),
+        explain=lambda *args: (_ for _ in ()).throw(RuntimeError('review unavailable')),
+    )
+    provider = ResilientTutorProvider(primary, DeterministicTutorProvider())
+
+    lesson = provider.explain(8, item, '1/2')
+
+    assert lesson.worked_example.startswith('Using your space interest as a theme:')
+    assert lesson.practice_prompt == item.practice_prompt
