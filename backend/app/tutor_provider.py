@@ -191,7 +191,8 @@ class OpenAITutorProvider:
                 "those supplied facts; do not enrich them with outside biological, historical, geographic, "
                 "cultural, grammar, sports, music, nature, or travel facts. The worked example must preserve "
                 "the verified example's reasoning, quantities and conclusion. "
-                "When relevant, frame the worked example using one supplied interest. Do not force an analogy, "
+                "When one or more learner interests are supplied, frame the worked example using exactly one "
+                "of those interests. The interest must be visible in the worked-example wording. Do not force an analogy, "
                 "infer personal traits, change the mathematical method, or change the practice question. "
                 "An interest may only neutrally relabel an existing quantity; omit it if that would add a fact. "
                 "In fraction examples explicitly identify the same whole and equal-sized parts throughout. "
@@ -211,6 +212,14 @@ class OpenAITutorProvider:
             text={"format": {"type": "json_schema", "name": "tutor_intervention", "strict": True, "schema": schema}},
         )
         lesson = TutorIntervention.model_validate(json.loads(response.output_text)).model_copy(update={'practice_prompt': item.practice_prompt})
+        # Personalization is a user-visible contract, not merely a prompt hint. If the model
+        # omits every supplied interest, add a fact-free thematic frame without changing the
+        # reviewed method, quantities, answer, or practice question.
+        interests = tuple(getattr(self, 'interests', ()))
+        if interests and not any(interest.casefold() in lesson.worked_example.casefold() for interest in interests):
+            lesson = lesson.model_copy(update={
+                'worked_example': f'Using your {interests[0]} interest as a theme: {lesson.worked_example}'
+            })
         from .tutor_lesson_review import review_tutor_lesson
         return review_tutor_lesson(self.client, self.model, grade, item, selected_option, lesson)
 

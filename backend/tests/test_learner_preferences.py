@@ -70,6 +70,7 @@ def test_personalized_prompt_preserves_practice_question_and_disables_response_s
     lesson = provider.explain(8, item, '1/2')
     generated, reviewed = captured
     assert 'sports' in generated['input']
+    assert 'must be visible in the worked-example wording' in generated['instructions']
     assert 'Do not force an analogy' in generated['instructions']
     assert 'explain the next step neutrally' in generated['instructions']
     assert 'Do not assume how they made the error' in generated['instructions']
@@ -82,3 +83,27 @@ def test_personalized_prompt_preserves_practice_question_and_disables_response_s
     assert generated['store'] is reviewed['store'] is False
     assert 'Independently audit' in reviewed['instructions']
     assert lesson.practice_prompt == item.practice_prompt
+    assert lesson.worked_example.startswith('Using your sports interest as a theme:')
+
+
+def test_existing_interest_personalization_is_not_duplicated():
+    item = FRACTION_DIAGNOSTIC[0]
+    provider = OpenAITutorProvider.__new__(OpenAITutorProvider)
+    provider.model = 'test-model'
+    provider.interests = ('space',)
+    captured = []
+    def create(**kwargs):
+        captured.append(kwargs)
+        if len(captured) == 1:
+            payload = tutor_for(item).model_dump()
+            payload['worked_example'] = f'Space theme: {payload["worked_example"]}'
+        else:
+            payload = {key: True for key in (
+                'accurate', 'method_consistent', 'example_correct', 'grade_suitable',
+                'concept_matches', 'neutral_tone', 'hint_actionable', 'no_unsupported_claims',
+                'source_bounded')}
+        return SimpleNamespace(output_text=json.dumps(payload))
+    provider.client = SimpleNamespace(responses=SimpleNamespace(create=create))
+    lesson = provider.explain(8, item, '1/2')
+    assert lesson.worked_example.startswith('Space theme:')
+    assert 'Using your space interest as a theme:' not in lesson.worked_example
