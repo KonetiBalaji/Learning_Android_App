@@ -2,6 +2,7 @@
 from datetime import UTC, datetime
 import hashlib
 import hmac
+import logging
 import secrets
 import sqlite3
 import time
@@ -33,6 +34,29 @@ class GoogleChallenge(BaseModel):
 
 MAX_GOOGLE_CHALLENGES = 10_000
 GOOGLE_CHALLENGE_SECONDS = 300
+logger = logging.getLogger(__name__)
+
+
+def google_validation_reason(error: Exception) -> str:
+    """Return a privacy-safe rejection category; never log token data or claims."""
+    message = str(error).lower()
+    if 'audience' in message:
+        return 'audience'
+    if 'expired' in message:
+        return 'expired'
+    if 'too early' in message or 'issued in the future' in message:
+        return 'issued_at'
+    if 'issuer' in message:
+        return 'issuer'
+    if 'certificate' in message or 'signature' in message or 'key id' in message:
+        return 'signature'
+    if 'nonce' in message:
+        return 'nonce'
+    if 'subject' in message:
+        return 'subject'
+    if 'email' in message:
+        return 'email'
+    return type(error).__name__
 
 
 def nonce_digest(nonce: str) -> str:
@@ -89,6 +113,7 @@ def google_login(credentials: GoogleCredentials, settings: Settings = Depends(ge
     except exceptions.TransportError as error:
         raise HTTPException(503, 'Google sign-in is temporarily unavailable') from error
     except (ValueError, TypeError, KeyError, exceptions.GoogleAuthError) as error:
+        logger.warning('Google identity token rejected: %s', google_validation_reason(error))
         raise HTTPException(401, 'Invalid Google sign-in token') from error
     try:
         with connection(settings.database_path) as db:

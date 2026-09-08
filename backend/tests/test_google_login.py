@@ -9,7 +9,19 @@ from google.auth.exceptions import TransportError
 
 from app.config import get_settings
 from app.database import connection
+from app.google_login import google_validation_reason
 from test_mastery_loop import registered_client
+
+
+@pytest.mark.parametrize(('error', 'reason'), [
+    (ValueError('Audience does not match'), 'audience'),
+    (ValueError('Token expired'), 'expired'),
+    (ValueError('Token used too early'), 'issued_at'),
+    (ValueError('Invalid nonce'), 'nonce'),
+    (ValueError('private opaque failure'), 'ValueError'),
+])
+def test_google_validation_reason_is_bounded_and_privacy_safe(error, reason):
+    assert google_validation_reason(error) == reason
 
 
 @pytest.fixture
