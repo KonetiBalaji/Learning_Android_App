@@ -7,6 +7,7 @@ class ApiTimeoutTest {
     @Test fun reviewedGenerationHasBoundedExtraTimeWithoutSlowingOrdinaryReads() {
         assertEquals(135_000, apiReadTimeout("POST", "/v1/mastery/diagnostics"))
         assertEquals(135_000, apiReadTimeout("POST", "/v1/documents/id/quizzes"))
+        assertEquals(135_000, apiReadTimeout("POST", "/v1/mastery/sessions/id/diagnostic-answer"))
         assertEquals(135_000, apiReadTimeout("POST", "/v1/mastery/sessions/id/practice"))
         assertEquals(135_000, apiReadTimeout("POST", "/v1/mastery/sessions/id/rewrite"))
         assertEquals(60_000, apiReadTimeout("GET", "/v1/quizzes/id/questions/id/source"))
