@@ -34,6 +34,7 @@ class GoogleChallenge(BaseModel):
 
 MAX_GOOGLE_CHALLENGES = 10_000
 GOOGLE_CHALLENGE_SECONDS = 300
+GOOGLE_CLOCK_SKEW_SECONDS = 60
 logger = logging.getLogger(__name__)
 
 
@@ -88,7 +89,10 @@ def verified_google_identity(token: str, audience: str, expected_nonce: str) -> 
         def fetch(*args, **kwargs):
             kwargs['timeout'] = 5
             return transport(*args, **kwargs)
-        claims = id_token.verify_oauth2_token(token, fetch, audience=audience)
+        claims = id_token.verify_oauth2_token(
+            token, fetch, audience=audience,
+            clock_skew_in_seconds=GOOGLE_CLOCK_SKEW_SECONDS,
+        )
     # Defense in depth for required claims, including mocked/provider regressions.
     if claims.get('iss') not in {'accounts.google.com', 'https://accounts.google.com'} or claims.get('aud') != audience:
         raise ValueError('Invalid issuer or audience')

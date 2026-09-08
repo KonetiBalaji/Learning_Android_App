@@ -83,6 +83,16 @@ def test_bad_claims_never_create_an_identity(google, changes):
         assert db.execute('SELECT COUNT(*) FROM google_accounts').fetchone()[0] == 0
 
 
+def test_google_token_allows_only_bounded_clock_skew(google):
+    client, _, _, credentials = google
+    assert client.post(
+        '/v1/auth/google', json=credentials(iat=int(time.time()) + 45)
+    ).status_code == 200
+    assert client.post(
+        '/v1/auth/google', json=credentials(iat=int(time.time()) + 61)
+    ).status_code == 401
+
+
 def test_bad_signature_disabled_config_and_provider_failure(google, monkeypatch):
     client, _, token, credentials = google
     request = credentials()
