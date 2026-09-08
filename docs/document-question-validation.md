@@ -60,6 +60,14 @@ return immediately rather than entering the validation-only regeneration path.
 Regression evidence on 2026-09-08: focused provider/retry tests passed 39/39 and
 the full backend suite passed 721 tests with one skip. The controlled live
 Medium True/False diagnostic then generated five synthetic questions in about
-71 seconds and passed grounding, blind-answer review and quality review. A new
-signed candidate and physical-device retest are still required before DOC-03 can
-pass UAT.
+71 seconds and passed grounding, blind-answer review and quality review.
+
+Signed candidate `0.3.0-uat.15` (version code 17, commit `82477a8`) then passed
+the physical-device retest on a Xiaomi 21091116I running Android 13. With all
+three chapters selected, custom count 5, Medium difficulty and True/False format,
+the staging request returned HTTP 201 in 68.664 seconds. Android presented five
+distinct questions with exact chapter and character-range sources, accepted all
+five responses, and displayed `5 / 5 correct`. The candidate-bound private UAT
+record closes the v16 binary-generation issue. This proves the corrected DOC-03
+journey for this candidate and synthetic source; it does not establish broad
+provider availability, curriculum approval or production acceptance.

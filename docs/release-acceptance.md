@@ -196,6 +196,16 @@ accessibility/usability/contrast acceptance (`UX-01`). The private record and it
 screenshots remain outside Git. Agent-run device evidence is not explicit user UAT
 acceptance and the temporary staging tunnel is not production deployment.
 
+Signed candidate `0.3.0-uat.15` (version code 17) at commit `82477a8` adds a
+candidate-bound physical-device retest for DOC-03. The Xiaomi device configured
+all three chapters of the owned synthetic Grade 8 photosynthesis source with
+custom count 5, Medium difficulty and True/False format. The reviewed live request
+returned HTTP 201 in 68.664 seconds, exposed five distinct questions with exact
+source ranges, accepted all responses and displayed `5 / 5 correct`. GitHub Quality
+Gate run `34254950763` passed all four jobs for the same revision. The private v17
+record remains pending overall because the other acceptance rows must be reconciled
+for this exact candidate and the human/calibration/production gates remain open.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
@@ -245,13 +255,13 @@ text/range with the authenticated endpoint, and captured the readable dialog. Se
 labelled the original physical page containing the exact sentence. Complex layouts,
 hostile-PDF stress, physical-device accessibility and UAT remain open, so DOC-01
 stays partial.
-| DOC-03 | Question count, difficulty and question-type configuration | QA verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; wrong and correct binary grading, restart recovery and continuation through Android |
+| DOC-03 | Question count, difficulty and question-type configuration | Candidate v17 physical-device verified | Preset/custom count and configuration recovery on API 36; easy/medium/hard/mixed difficulty plus multiple-choice/true-false/yes-no backend evaluation; signed v17 generated and completed five custom-count Medium True/False questions from a synthetic owned source in 68.664 seconds. Broader source/provider sampling and explicit user acceptance remain open |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling, learning badges and targeted loading/empty/offline/retry flows. Signed candidate v12 completed keyboard/switch traversal and the TalkBack tutorial, then exposed the interactive tutor screen while the real TalkBack service was active. Human full-screen spoken traversal, usability and non-text contrast acceptance remain pending |
 | DATA-01 | Durable state and account isolation | QA verified | Server-owned resume contracts, encrypted credentials, two-account progress/preferences/document isolation, sign-out/sign-in and forced-process restart are backend tested and API 36 verified; multi-device races, physical-device and UAT remain |
 | SEC-01 | Deletion and retention | QA verified | Active learning/document lifetimes, immediate deletion queue, crash-orphan grace, guardian-invitation cleanup and 30-day backup expiry are explicit, bounded and displayed from authenticated server configuration. Format-2 backup timestamp/preview/prune and active-data deletion are automated; production scheduling/storage-provider deletion, legal review and UAT remain |
 | SEC-02 | Production hardening | Partial | HTTPS release guard, hosted-booted TLS proxy with bounded body/slow-client/per-IP controls and a private API port, pre-parser declared/streamed request-body admission, locked non-root/read-only-root four-worker/two-container same-host smoke, bounded round-robin authenticated traffic gate, independent APK/hash/deployment-identity plus database/upload readiness verifier, schedulable privacy-safe deployment identity/readiness/latency probe, offline backup checks, persistent authentication peer throttle, atomic per-account daily AI-operation caps, enforced per-call provider output-token ceilings, privacy-safe correlated request events, spawned parser timeout/output isolation, Windows Job Object memory caps, fail-fast atomic cross-worker parser admission with crash recovery and API 36-verified support IDs implemented; trusted production certificate/edge behavior, cross-host/network-filesystem safety, long-duration load, provider project currency budget, deployed probe/alert channel, log sink and deployment recovery still need verification |
 | UP-01 | Traceable OpenMAIC adaptation | QA verified | OA-01 grading, OA-02 owner-material quotas and OA-03 bounded native action/highlight patterns across all 17 Grade 8 catalog chapters are pinned, licensed and tested. A machine-readable contract verifies the pins, source list, retained license, local implementation paths and explicit exclusions; this is selective adaptation, not a port |
-| QA-01 | Automated regression suite | QA verified | GitHub run 34238794596 at commit `2b75d4b` passed repository hygiene, 716 backend tests with one skip, the locked production-container smoke test, and Android JVM/lint/debug assembly from a clean hosted runner with its verification artifact uploaded. Existing API 36 emulator and signed-v12 physical-device journeys supplement the gate; explicit user acceptance remains separate |
+| QA-01 | Automated regression suite | QA verified | GitHub run 34254950763 at commit `82477a8` passed repository hygiene, 721 backend tests with one skip, the locked production-container smoke test, and Android regression/artifact upload. Signed candidate v17 passed manifest/hash/signing/readiness verification and installed on the Xiaomi device as version code 17; explicit user acceptance remains separate |
 | UAT-01 | User acceptance | Partial | Signed candidate v12 has a machine-validated physical-device record with 22 PASS and 3 PENDING requirements. The issue list is empty, but acoustic, calibrated-readiness and human accessibility decisions remain open; explicit user acceptance cannot be inferred from agent-run evidence |
 | PROD-01 | Production deployment | Missing | Private APK distribution confirmed; a host-neutral locked non-root container and hosted production-mode smoke are implemented, and candidate verification requires matching health plus database/schema/write and upload-volume readiness. User-confirmed host/domain, staging deployment, rollback, secrets and remaining operational checks are still missing |
 
