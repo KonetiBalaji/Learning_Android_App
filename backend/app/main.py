@@ -643,10 +643,12 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
             consume_ai_operation(settings, user_id)
             try:
                 generated = generate_document_questions(document["extracted_text"], selected, generation_ids, request.question_count, settings, request.difficulty, request.question_type)
-            except QuestionGenerationUnavailable:
+            except QuestionGenerationUnavailable as error:
                 # A strict grounding or independent-review rejection can discard an
-                # otherwise healthy model response. Regenerate once for the same
-                # user operation, then let the outer handler fail closed.
+                # otherwise healthy completed model response. Regenerate once for
+                # the same user operation, but never repeat a transport timeout.
+                if not isinstance(error.__cause__, ValueError):
+                    raise
                 generated = generate_document_questions(document["extracted_text"], selected, generation_ids, request.question_count, settings, request.difficulty, request.question_type)
         elif settings.ai_mode == 'deterministic':
             if request.question_type != 'multiple_choice':

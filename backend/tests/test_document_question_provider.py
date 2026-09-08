@@ -41,6 +41,7 @@ def test_generation_requires_grounding_and_separate_blind_review(monkeypatch):
     assert result[0].concept == 'Mitochondria'
     assert f'0-{len(TEXT)}' in result[0].source_reference
     assert all(call['store'] is False for call in calls)
+    assert 'timeout' not in calls[0]  # The client owns the generation boundary.
     assert 'server reconstructs the exact supporting quote' in calls[0]['instructions']
     assert json.loads(calls[0]['input'])['passages']['cells'] == [{'id': 0, 'text': TEXT}]
     reviewed = json.loads(calls[1]['input'])['questions'][0]
@@ -176,7 +177,10 @@ def test_quiz_creation_regenerates_once_after_strict_review_rejection(monkeypatc
             nonlocal calls
             calls += 1
             if calls == 1:
-                raise provider.QuestionGenerationUnavailable('rejected synthetic batch')
+                try:
+                    raise ValueError('strict review rejected questions')
+                except ValueError as cause:
+                    raise provider.QuestionGenerationUnavailable('rejected synthetic batch') from cause
             return [GeneratedQuestion(prompt=f'Question {index}: Which structure releases usable energy for cellular work?',
                 options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'],
                 correct_option='Mitochondria', explanation=TEXT,
@@ -207,7 +211,10 @@ def test_quiz_creation_fails_closed_after_one_regeneration(monkeypatch, tmp_path
         def reject(*args):
             nonlocal calls
             calls += 1
-            raise provider.QuestionGenerationUnavailable('rejected synthetic batch')
+            try:
+                raise ValueError('strict review rejected questions')
+            except ValueError as cause:
+                raise provider.QuestionGenerationUnavailable('rejected synthetic batch') from cause
 
         monkeypatch.setattr('app.main.generate_document_questions', reject)
         monkeypatch.setenv('LEARNING_AI_MODE', 'openai')
@@ -217,5 +224,31 @@ def test_quiz_creation_fails_closed_after_one_regeneration(monkeypatch, tmp_path
         assert calls == 2
         with connection(get_settings().database_path) as db:
             assert db.execute('SELECT COUNT(*) FROM quizzes').fetchone()[0] == 0
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_quiz_creation_does_not_repeat_transport_failure(monkeypatch, tmp_path):
+    from test_mastery_loop import registered_client
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        doc = client.post('/v1/documents', headers=headers,
+            files={'file': ('notes.txt', TEXT * 3)}).json()
+        calls = 0
+
+        def timeout(*args):
+            nonlocal calls
+            calls += 1
+            try:
+                raise TimeoutError('synthetic timeout')
+            except TimeoutError as cause:
+                raise provider.QuestionGenerationUnavailable('provider unavailable') from cause
+
+        monkeypatch.setattr('app.main.generate_document_questions', timeout)
+        monkeypatch.setenv('LEARNING_AI_MODE', 'openai')
+        response = client.post(f"/v1/documents/{doc['id']}/quizzes", headers=headers,
+            json={'chapter_ids': [doc['chapters'][0]['id']], 'question_count': 5})
+        assert response.status_code == 503
+        assert calls == 1
     finally:
         client.__exit__(None, None, None)
