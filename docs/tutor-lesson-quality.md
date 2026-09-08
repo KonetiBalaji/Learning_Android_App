@@ -52,6 +52,16 @@ each practice task matches its own declared concept. The full backend suite pass
 tests with one existing Windows privilege skip. The catalog-wide live result remains
 unaccepted; see `catalog-diagnostic-evaluation.md` for failures and exact limitations.
 
+Physical-device UAT on signed candidate v14 exposed a separate cross-question hint
+defect: a generated Algebra practice prompt asked for `4x - 3 = 13`, while its hint
+reused the preceding example's `subtract 5` and `divide by 2` operands. Equation and
+substitution interventions now replace example-specific hints with method guidance
+that explicitly refers to the current practice question and contains no stale
+operands. Regression tests cover both a generated two-step equation and the curated
+substitution item. The focused tutor/mastery suite passed 58 tests and the complete
+backend suite passed 718 tests with one Windows permission skip. A new signed
+candidate and exact-candidate rerun remain required before `TUT-02` can pass UAT.
+
 Reproduce from `backend` with `python scripts/evaluate_tutor_lessons.py --live`
 and `python scripts/evaluate_diagnostic.py --live`. Both refuse metered work without
 `--live`. Limits remain: generator and reviewer use the same model family, four

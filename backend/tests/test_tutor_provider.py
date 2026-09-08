@@ -6,7 +6,7 @@ import pytest
 from app.mastery_service import (DETERMINISTIC_DIAGNOSTICS, DiagnosticItem,
                                  FRACTION_DIAGNOSTIC, diagnostic_bank,
                                  parse_diagnostic_bank, serialize_diagnostic_bank,
-                                 validate_diagnostic_bank)
+                                 tutor_for, validate_diagnostic_bank)
 from app.tutor_provider import DeterministicTutorProvider, ResilientTutorProvider, RewriteAssessment, TutorLessonUnavailable
 
 
@@ -21,6 +21,35 @@ class BrokenProvider:
 
     def diagnostic_bank(self, grade, subject_id, chapter_id):
         raise TimeoutError("provider unavailable")
+
+
+def test_equation_tutor_does_not_reuse_example_specific_numbers_in_practice_hint():
+    item = DiagnosticItem(
+        prompt="Solve for x: 2x + 5 = 17.", options=("6", "11", "3", "-6"),
+        correct_option="6", concept="Solving two-step linear equations",
+        explanation="Subtract 5, then divide by 2.",
+        worked_example="For 3x + 2 = 14, subtract 2 and divide by 3.",
+        hint="Undo the addition first (subtract 5), then undo the multiplication (divide by 2).",
+        practice_prompt="Solve for x: 4x - 3 = 13", practice_answers=("4",),
+        answer_mode="number",
+    )
+
+    lesson = tutor_for(item)
+
+    assert lesson.practice_prompt == "Solve for x: 4x - 3 = 13"
+    assert "subtract 5" not in lesson.hint.lower()
+    assert "divide by 2" not in lesson.hint.lower()
+    assert "inverse operations" in lesson.hint.lower()
+
+
+def test_substitution_tutor_hint_refers_to_current_practice_values():
+    item = diagnostic_bank("math", "algebra")[2]
+
+    lesson = tutor_for(item)
+
+    assert lesson.practice_prompt == "Find 3k + 2 when k = 4."
+    assert "m with 5" not in lesson.hint.lower()
+    assert "value given in this practice question" in lesson.hint.lower()
 
 
 def test_teaching_falls_back_but_grading_outage_cannot_award_mastery() -> None:

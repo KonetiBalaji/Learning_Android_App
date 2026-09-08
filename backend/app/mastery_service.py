@@ -478,8 +478,23 @@ def public_question(item: DiagnosticItem, ordinal: int, total: int) -> AdaptiveQ
     return AdaptiveQuestion(ordinal=ordinal + 1, total=total, prompt=item.prompt, options=list(item.options), concept=item.concept)
 
 
+def practice_safe_hint(item: DiagnosticItem) -> str:
+    """Avoid carrying example-specific operands into a different practice item."""
+    concept = item.concept.casefold()
+    if "equation" in concept:
+        return ("Use inverse operations one step at a time. Keep both sides balanced, "
+                "undo the constant term, then divide by the variable's coefficient.")
+    if "substitution" in concept:
+        return ("Replace the variable with the value given in this practice question, "
+                "then calculate using the order of operations.")
+    return item.hint
+
+
 def tutor_for(item: DiagnosticItem) -> TutorIntervention:
-    return TutorIntervention(title=item.concept, explanation=item.explanation, worked_example=item.worked_example, hint=item.hint, practice_prompt=item.practice_prompt)
+    return TutorIntervention(title=item.concept, explanation=item.explanation,
+                             worked_example=item.worked_example,
+                             hint=practice_safe_hint(item),
+                             practice_prompt=item.practice_prompt)
 
 
 def normalize_fraction_response(value: str) -> str:
