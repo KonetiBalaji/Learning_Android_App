@@ -167,7 +167,9 @@ class OpenAITutorProvider:
         return generate_tutor_answer(self.client, self.model, grade, item, question, history)
 
     def __init__(self, api_key: str, model: str, interests: tuple[str, ...] = ()) -> None:
-        self.client = OpenAI(api_key=api_key, timeout=20.0, max_retries=1)
+        # Interactive requests already have explicit per-call deadlines and a
+        # deterministic fallback. SDK retries can silently double those waits.
+        self.client = OpenAI(api_key=api_key, timeout=20.0, max_retries=0)
         self.model = model
         self.interests = interests
 

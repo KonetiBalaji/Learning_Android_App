@@ -11,6 +11,7 @@ from app.tutor_provider import RewriteAssessment
 from app.mastery_service import parse_diagnostic_bank, tutor_for
 from app.config import get_settings
 from app.database import connection
+import app.tutor_provider as tutor_provider_module
 from test_mastery_loop import registered_client
 
 
@@ -41,6 +42,24 @@ def provider_with(*payloads):
     responses = Responses(payloads)
     provider.client = SimpleNamespace(responses=responses)
     return provider, responses
+
+
+def test_openai_tutor_disables_hidden_sdk_retries(monkeypatch):
+    captured = {}
+
+    def fake_openai(**options):
+        captured.update(options)
+        return SimpleNamespace()
+
+    monkeypatch.setattr(tutor_provider_module, 'OpenAI', fake_openai)
+
+    OpenAITutorProvider('sk-test-placeholder', 'test-model')
+
+    assert captured == {
+        'api_key': 'sk-test-placeholder',
+        'timeout': 20.0,
+        'max_retries': 0,
+    }
 
 
 SAFE_HINT_REVIEW = {'accurate': True, 'relevant': True, 'useful_without_answer': True}
