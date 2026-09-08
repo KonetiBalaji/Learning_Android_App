@@ -4,6 +4,7 @@ import pytest
 
 from app import document_question_provider as provider
 from app.ai_limits import DOCUMENT_GENERATION_OUTPUT_TOKENS, REVIEW_OUTPUT_TOKENS
+from app.quiz_service import GeneratedQuestion
 from app.schemas import Chapter
 
 TEXT = 'Mitochondria release usable energy for cellular work.'
@@ -157,6 +158,63 @@ def test_failed_provider_does_not_persist_a_quiz(monkeypatch, tmp_path):
             json={'chapter_ids': [doc['chapters'][0]['id']], 'question_count': 5})
         assert response.status_code == 503
         assert 'private upstream' not in response.text
+        with connection(get_settings().database_path) as db:
+            assert db.execute('SELECT COUNT(*) FROM quizzes').fetchone()[0] == 0
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_quiz_creation_regenerates_once_after_strict_review_rejection(monkeypatch, tmp_path):
+    from test_mastery_loop import registered_client
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        doc = client.post('/v1/documents', headers=headers,
+            files={'file': ('notes.txt', TEXT * 3)}).json()
+        calls = 0
+
+        def generate(*args):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise provider.QuestionGenerationUnavailable('rejected synthetic batch')
+            return [GeneratedQuestion(prompt=f'Question {index}: Which structure releases usable energy for cellular work?',
+                options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'],
+                correct_option='Mitochondria', explanation=TEXT,
+                source_reference=f"{doc['chapters'][0]['title']} (source characters 0-{len(TEXT)})",
+                chapter_id=doc['chapters'][0]['id'], concept='Mitochondria') for index in range(5)]
+
+        monkeypatch.setattr('app.main.generate_document_questions', generate)
+        monkeypatch.setenv('LEARNING_AI_MODE', 'openai')
+        response = client.post(f"/v1/documents/{doc['id']}/quizzes", headers=headers,
+            json={'chapter_ids': [doc['chapters'][0]['id']], 'question_count': 5})
+        assert response.status_code == 201
+        assert response.json()['question_count'] == 5
+        assert calls == 2
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_quiz_creation_fails_closed_after_one_regeneration(monkeypatch, tmp_path):
+    from test_mastery_loop import registered_client
+    from app.config import get_settings
+    from app.database import connection
+    client, headers = registered_client(monkeypatch, tmp_path)
+    try:
+        doc = client.post('/v1/documents', headers=headers,
+            files={'file': ('notes.txt', TEXT * 3)}).json()
+        calls = 0
+
+        def reject(*args):
+            nonlocal calls
+            calls += 1
+            raise provider.QuestionGenerationUnavailable('rejected synthetic batch')
+
+        monkeypatch.setattr('app.main.generate_document_questions', reject)
+        monkeypatch.setenv('LEARNING_AI_MODE', 'openai')
+        response = client.post(f"/v1/documents/{doc['id']}/quizzes", headers=headers,
+            json={'chapter_ids': [doc['chapters'][0]['id']], 'question_count': 5})
+        assert response.status_code == 503
+        assert calls == 2
         with connection(get_settings().database_path) as db:
             assert db.execute('SELECT COUNT(*) FROM quizzes').fetchone()[0] == 0
     finally:

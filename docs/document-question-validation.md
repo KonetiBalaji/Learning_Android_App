@@ -34,3 +34,21 @@ Limitations: same-model review can share errors with generation and is not a
 guarantee of correctness. Broad adversarial/domain evaluation, explanation accuracy,
 curriculum alignment, legacy quiz remediation and device end-to-end testing remain.
 This addresses the known generator defect, not full DOC-01/UAT/production acceptance.
+
+## Bounded regeneration after strict rejection
+
+Physical-device UAT on candidate v15 reproduced two consecutive 503 responses
+while requesting five Medium True/False questions from a valid, previously used
+synthetic Grade 8 source. The upload, selection and earlier 10-question quiz were
+healthy; both failures occurred after 46–52 seconds inside live generation or its
+strict reviews.
+
+The server now regenerates a rejected document-question batch once within the same
+user operation. A second failure still returns 503, writes no quiz, and exposes no
+provider detail. This is deliberately bounded: it improves recovery from a single
+malformed, ambiguous or review-rejected model response without weakening grounding,
+answer review, quality review, storage atomicity, or user-level AI quotas.
+
+Regression evidence on 2026-09-08: focused provider/retry tests passed 38/38 and
+the full backend suite passed 720 tests with one skip. A new signed candidate and
+physical-device retest are still required before DOC-03 can pass UAT.

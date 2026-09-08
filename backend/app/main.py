@@ -641,7 +641,13 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
         generation_ids = [chapter.id for chapter in selected]
         if settings.ai_mode == 'openai':
             consume_ai_operation(settings, user_id)
-            generated = generate_document_questions(document["extracted_text"], selected, generation_ids, request.question_count, settings, request.difficulty, request.question_type)
+            try:
+                generated = generate_document_questions(document["extracted_text"], selected, generation_ids, request.question_count, settings, request.difficulty, request.question_type)
+            except QuestionGenerationUnavailable:
+                # A strict grounding or independent-review rejection can discard an
+                # otherwise healthy model response. Regenerate once for the same
+                # user operation, then let the outer handler fail closed.
+                generated = generate_document_questions(document["extracted_text"], selected, generation_ids, request.question_count, settings, request.difficulty, request.question_type)
         elif settings.ai_mode == 'deterministic':
             if request.question_type != 'multiple_choice':
                 raise ValueError('This offline generator supports multiple choice only; binary questions require live generation')
