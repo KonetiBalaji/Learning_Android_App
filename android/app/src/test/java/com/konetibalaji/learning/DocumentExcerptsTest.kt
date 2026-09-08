@@ -37,6 +37,16 @@ class DocumentExcerptsTest {
         assertEquals(2, canonicalExcerpts(listOf(one, DocumentExcerpt("a", 4, 7))).size)
     }
 
+    @Test fun overlapHasAnActionableLearnerMessage() {
+        val failure = assertThrows(OverlappingDocumentExcerptsException::class.java) {
+            canonicalExcerpts(listOf(DocumentExcerpt("chapter", 0, 20), DocumentExcerpt("chapter", 10, 30)))
+        }
+        assertEquals(
+            "This passage overlaps your current excerpt. Clear the selection to replace it, or choose a different passage.",
+            failure.message,
+        )
+    }
+
     @Test fun requestIdentityChangesWithScopeButNotExcerptOrder() {
         fun identity(excerpts: List<DocumentExcerpt>) = quizCreationFingerprint("doc", listOf("a"), 5, "easy", "multiple_choice", excerpts)
         val ranges = listOf(DocumentExcerpt("a", 0, 4), DocumentExcerpt("a", 10, 15))

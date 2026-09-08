@@ -6,11 +6,17 @@ import org.json.JSONObject
 
 data class DocumentExcerpt(val chapterId: String, val start: Int, val end: Int)
 
+class OverlappingDocumentExcerptsException : IllegalArgumentException(
+    "This passage overlaps your current excerpt. Clear the selection to replace it, or choose a different passage."
+)
+
 fun canonicalExcerpts(values: List<DocumentExcerpt>): List<DocumentExcerpt> {
     require(values.size <= 50) { "Choose at most 50 excerpts" }
     val sorted = values.sortedWith(compareBy({ it.start }, { it.end }, { it.chapterId }))
     require(sorted.all { it.chapterId.isNotBlank() && it.start >= 0 && it.end > it.start }) { "Invalid excerpt boundaries" }
-    require(sorted.zipWithNext().all { (left, right) -> left.end <= right.start }) { "Excerpts overlap or repeat. Clear the selection to replace them." }
+    if (!sorted.zipWithNext().all { (left, right) -> left.end <= right.start }) {
+        throw OverlappingDocumentExcerptsException()
+    }
     return sorted
 }
 

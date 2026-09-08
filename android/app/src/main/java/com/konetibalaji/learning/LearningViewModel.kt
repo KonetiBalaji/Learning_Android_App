@@ -851,6 +851,7 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                 val message = when (failure) {
                     is ApiFailure -> apiFailureDisplay(failure)
                     is DocumentUploadException -> failure.message
+                    is OverlappingDocumentExcerptsException -> failure.message
                     is CorruptQuizCreationIdentityException -> "The saved quiz retry record is damaged. It may refer to a request whose response was lost. Keep it unless you are ready to discard that local retry record and start a new quiz request."
                     is IOException -> "Could not reach the learning service. Check your connection and try again."
                     else -> "Something went wrong. Please try again."
