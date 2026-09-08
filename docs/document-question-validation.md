@@ -88,5 +88,15 @@ blind answer review and quality review still receive no retry metadata, all orig
 grounding and demand checks remain fail-closed, and transport errors remain
 non-retriable. A controlled live reproduction subsequently produced five reviewed
 Medium True/False questions. Focused regression passed 38 tests and the full backend
-suite passed 726 tests with one platform skip. Exact signed-candidate Android
-retesting is still required before DOC-01 or DOC-03 can be closed for the new build.
+suite passed 726 tests with one platform skip.
+
+The first signed-candidate retest showed the guided retry correcting assumptions but
+still failing Medium demand. Generation now requires every Medium binary item to use
+a short source-grounded scenario or relationship; direct restatements and synonym
+swaps remain Easy. Candidate `0.3.0-uat.19` (version code 21, commit `2f50da1`)
+returned HTTP 201 in 76.011 seconds on the physical Xiaomi device. Android displayed
+five distinct Medium True/False application questions with exact source ranges,
+accepted all five answers, showed grounded feedback after each, and finished at
+`5 / 5 correct`. The duplicate document was deleted while the original remained.
+This closes DOC-01 and DOC-03 for that exact synthetic-source candidate; broader
+content, provider availability and educator acceptance remain.
