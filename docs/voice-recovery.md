@@ -143,5 +143,21 @@ review and presence of the named voice-review nodes in TalkBack. It does not pro
 gesture/spoken traversal order, microphone permission, spoken-word accuracy,
 locale quality, acoustic output, a physical device or user acceptance.
 
+## Signed v21 physical recognition launch, 2026-09-08
+
+The signed v21 app created a fresh reviewed Fractions diagnostic on the physical
+Xiaomi, entered the grounded tutor lesson after an incorrect answer, and opened the
+real Google recognition activity from **Speak my tutor question**. The provider
+displayed its live-listening UI and then its genuine `Didn't catch that` retry state.
+A computer-generated spoken phrase was not captured acoustically, so no successful
+transcription is claimed. Android Back returned to the same empty conversation and
+the app displayed `Voice input cancelled. Your typed answer is unchanged.` without
+sending a question. Private evidence is retained as `v21-speech-ui.xml/png` and
+`v21-speech-return.xml` under the candidate directory.
+
+This verifies exact-candidate provider launch and cancellation recovery on the
+physical device. Exact-v21 successful microphone transcription still requires a
+person speaking within range of the phone and remains an acceptance gate.
+
 Official references: [TTS initialization and lifecycle](https://developer.android.com/reference/android/speech/tts/TextToSpeech)
 and [recognition activity availability](https://developer.android.com/reference/android/speech/RecognizerIntent).
