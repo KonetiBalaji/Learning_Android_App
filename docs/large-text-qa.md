@@ -31,3 +31,18 @@ audits, physical-device/small-screen/landscape coverage and actual UAT remain op
 Screenshots at scroll boundaries may show partially off-screen cards; inspected
 fully visible cards did not clip their text inside the card. Layout fixes do not
 complete curriculum coverage or parent/teacher access requirements.
+
+## Physical-device check, 2026-09-08
+
+Signed candidate `0.3.0-uat.19` was exercised on the 1080x2400 Xiaomi Android 13
+device at system font scale 1.3. The Grade 8 subject dashboard reflowed from two
+columns to a readable single column; headings, progress labels and cards remained
+inside their containers and the page remained scrollable. The Settings screen was
+then visually inspected in both dark and light app themes at the same scale. Its
+navigation, theme control, grade/interests controls and retention card remained
+readable without horizontal clipping. The original dark preference and font scale
+1.0 were restored and the app relaunched successfully.
+
+This is physical-device visual and hierarchy evidence for two representative
+screens, not a complete contrast measurement, landscape test, TalkBack spoken
+traversal or human usability acceptance. UX-01 therefore remains partial.
