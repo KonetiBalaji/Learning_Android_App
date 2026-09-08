@@ -95,6 +95,31 @@ def test_numeric_review_accepts_equivalent_key_and_sets_number_mode():
     assert generated.practice_answers == ('1/2', '0.5') and generated.answer_mode == 'number'
 
 
+def test_angle_prompt_accepts_bare_number_when_degrees_are_implied():
+    provider, _ = provider_with(
+        {'practice_prompt': 'In triangle ABC, ∠A = 47° and ∠B = 63°. What is ∠C?',
+         'practice_answer': '70°', 'hint': 'Subtract the two known angles from 180°.'},
+        {'answers': ['70°'], 'valid': True, 'topic_matches': True,
+         'grade_suitable': True, 'format_constraint': 'exact'}, SAFE_HINT_REVIEW,
+    )
+    generated = provider.fresh_practice(8, 'math', 'geometry', FRACTION_DIAGNOSTIC[0],
+                                        2, (FRACTION_DIAGNOSTIC[0].practice_prompt,))
+    assert generated.practice_answers == ('70°', '70')
+    assert generated.answer_mode == 'exact'
+
+
+def test_angle_prompt_preserves_explicit_decimal_places():
+    provider, _ = provider_with(
+        {'practice_prompt': 'Find angle Z. Give your answer to two decimal places.',
+         'practice_answer': '58.50°', 'hint': 'Subtract the known angles from 180°.'},
+        {'answers': ['58.50°'], 'valid': True, 'topic_matches': True,
+         'grade_suitable': True, 'format_constraint': 'exact'}, SAFE_HINT_REVIEW,
+    )
+    generated = provider.fresh_practice(8, 'math', 'geometry', FRACTION_DIAGNOSTIC[0],
+                                        2, (FRACTION_DIAGNOSTIC[0].practice_prompt,))
+    assert generated.practice_answers == ('58.50°',)
+
+
 def test_blind_agreement_allows_only_harmless_short_answer_decoration():
     provider, _ = provider_with(
         {'practice_prompt': "Which organelle contains most of a cell's DNA?",

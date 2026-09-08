@@ -47,6 +47,27 @@ class FreshPracticeRejected(ValueError):
         super().__init__(code)
 
 
+def _implied_degree_variants(prompt: str, answers: tuple[str, ...]) -> tuple[str, ...]:
+    """Accept a bare number when an angle prompt already implies degrees.
+
+    Explicit precision/representation instructions still require the reviewed
+    form exactly. This is intentionally limited to numeric answers carrying a
+    degree suffix; it does not relax units generally.
+    """
+    if requires_exact_numeric_format(prompt) or not re.search(r"(?:\bangle\b|∠)", prompt, re.IGNORECASE):
+        return ()
+    variants: list[str] = []
+    for answer in answers:
+        match = re.fullmatch(
+            r"\s*([+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))\s*(?:°|degrees?)\.?\s*",
+            answer,
+            re.IGNORECASE,
+        )
+        if match and match.group(1) not in answers and match.group(1) not in variants:
+            variants.append(match.group(1))
+    return tuple(variants)
+
+
 def _agreement_form(value: str) -> str:
     """Normalize only harmless presentation added to a short review answer."""
     compact = normalize_answer(value).strip(' .!?')
@@ -361,7 +382,8 @@ class OpenAITutorProvider:
         hint_review = PracticeHintReview.model_validate_json(hint_review_response.output_text)
         if not (hint_review.accurate and hint_review.relevant and hint_review.useful_without_answer):
             raise FreshPracticeRejected('hint_review_invalid')
-        accepted_answers = reviewed_answers
+        accepted_answers = reviewed_answers + _implied_degree_variants(
+            generated.practice_prompt, reviewed_answers)
         if not response_matches(generated.practice_answer, reviewed_answers, mode)[0]:
             accepted_answers += (generated.practice_answer.strip(' .!?'),)
         return replace(item, practice_prompt=generated.practice_prompt, practice_answers=accepted_answers,
