@@ -14,6 +14,15 @@ feature to UAT accepted or production verified. All release gates below remain o
 
 ## Acceptance ledger
 
+Physical-device UAT on signed candidate `0.3.0-uat.3` exposed a rewrite-grading
+context defect after repeated coaching: the learner correctly applied the concept
+to the fresh practice question, but the provider prompt identified only the older
+diagnostic as an application target and returned 3/4. The grading contract now
+supplies the current practice prompt and accepted answers and explicitly treats it
+as an equal application target. Focused regression covers differing diagnostic and
+practice quantities. TUT-04 remains QA verified, not UAT accepted, until the fixed
+candidate is rebuilt and the physical-device rewrite passes.
+
 Live tutor-conversation smoke checked one lesson question and two unsupported
 requests. It exposed misleading navigation/assessment guidance despite correct
 scope flags; unsupported replies now use a fixed truthful recovery message.

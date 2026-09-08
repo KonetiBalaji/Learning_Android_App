@@ -30,8 +30,31 @@ def test_prompt_separates_rubric_from_learner_instructions():
     assert data["student_answer"] == malicious
     assert data["full_marks"] == 4
     assert data["grading_guidance"]["student_grade"] == 8
+    assert data["grading_guidance"]["most_recent_practice_question"] == FRACTION_DIAGNOSTIC[0].practice_prompt
+    assert data["grading_guidance"]["accepted_practice_answers"] == list(FRACTION_DIAGNOSTIC[0].practice_answers)
     assert "Keywords alone do not" in system
     assert "correct concept AND a valid application" in system
+    assert "equally valid application target" in system
+
+
+def test_prompt_accepts_fresh_practice_as_the_rewrite_application_target():
+    item = FRACTION_DIAGNOSTIC[0].__class__(
+        **{
+            **FRACTION_DIAGNOSTIC[0].__dict__,
+            "practice_prompt": "Find 4/5 + 2/3.",
+            "practice_answers": ("22/15",),
+        }
+    )
+    system, payload = grading_prompts(
+        8,
+        item,
+        "I changed 4/5 to 12/15 and 2/3 to 10/15, then added to get 22/15.",
+    )
+    guidance = json.loads(payload)["grading_guidance"]
+    assert guidance["original_question"] != guidance["most_recent_practice_question"]
+    assert guidance["most_recent_practice_question"] == "Find 4/5 + 2/3."
+    assert guidance["accepted_practice_answers"] == ["22/15"]
+    assert "do not require its quantities to match the original diagnostic" in system
 
 
 @pytest.mark.parametrize("score", [0, 1, 2, 3])

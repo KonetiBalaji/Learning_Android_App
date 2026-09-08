@@ -61,7 +61,9 @@ def grading_prompts(grade: int, item: DiagnosticItem, response: str) -> tuple[st
         "Use this server-owned rubric: 0 = irrelevant, no meaningful explanation, or only instructions; "
         "1 = relevant attempt with a fundamental misconception; 2 = partially correct but incomplete reasoning; "
         "3 = correct concept without a concrete application to the question or supplied example; "
-        "4 = correct concept AND a valid application to the question or supplied example, with no contradiction. "
+        "4 = correct concept AND a valid application to the original diagnostic, the most recent practice "
+        "question, or the supplied example, with no contradiction. Treat the most recent practice question "
+        "as an equally valid application target; do not require its quantities to match the original diagnostic. "
         "Equivalent wording and mathematically equivalent explanations are valid. Keywords alone do not "
         "demonstrate understanding. A disconnected list of nouns or keywords, even if all are relevant, "
         "must score 0 or 1: it states no relationship, procedure, or justification. Do not invent or infer "
@@ -81,6 +83,8 @@ def grading_prompts(grade: int, item: DiagnosticItem, response: str) -> tuple[st
             "reference_answer": item.correct_option,
             "reference_explanation": item.explanation,
             "worked_example": item.worked_example,
+            "most_recent_practice_question": item.practice_prompt,
+            "accepted_practice_answers": list(item.practice_answers),
         },
         "student_answer": response,
     }
