@@ -8,11 +8,12 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
 const val SESSION_RESTORE_ERROR = "Unable to restore the saved session. Please sign in."
+const val SESSION_KEY_ALIAS = "learn-smart-session-v1"
 fun sessionRestoreError(readOperationFailed: Boolean, encryptedReadFailed: Boolean): String? =
     SESSION_RESTORE_ERROR.takeIf { readOperationFailed || encryptedReadFailed }
 
 /** Call on an IO dispatcher. No plaintext fallback; migrations commit atomically. */
-class SessionTokenStore(private val preferences: SharedPreferences, private val alias: String = "learn-smart-session-v1") {
+class SessionTokenStore(private val preferences: SharedPreferences, private val alias: String = SESSION_KEY_ALIAS) {
     @Volatile var lastReadFailed: Boolean = false
         private set
 

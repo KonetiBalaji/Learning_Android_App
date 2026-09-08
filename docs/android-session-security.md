@@ -61,3 +61,24 @@ assembly.
 
 References: [Android Keystore](https://developer.android.com/privacy-and-security/keystore)
 and [backup controls](https://developer.android.com/identity/data/autobackup).
+
+## Isolated physical-device invalidation harness
+
+Debug builds can now opt into a separate application ID with
+`-PdebugApplicationIdSuffix=authqa` and an explicit HTTP(S) staging origin with
+`-PdebugApiBaseUrl=...`. This allows the QA app and signed learner app to coexist;
+the QA package has separate preferences, AndroidKeyStore entries and account state.
+Neither option changes the release application ID or release endpoint rules.
+
+The debug source set alone contains an exported QA receiver for
+`com.konetibalaji.learning.debug.INVALIDATE_SESSION_KEY`. It refuses to act unless
+an encrypted session exists, then deletes only the debug package's AndroidKeyStore
+session alias while leaving its ciphertext in place. The next cold start must reject
+decryption, clear credentials and require a fresh login. The receiver is absent from
+release APKs, and cannot affect the installed signed learner package.
+
+The isolated staging build passed Android JVM tests, lint and debug assembly. Xiaomi
+then rejected installation of the new application ID with
+`INSTALL_FAILED_USER_RESTRICTED`; the existing signed app remained installed and
+untouched. Physical registration, key invalidation, recovery and disposable-account
+deletion remain pending until the device allows installation via USB for a new app.

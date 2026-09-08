@@ -21,5 +21,12 @@
                 <action android:name="com.konetibalaji.learning.debug.DISABLE_SPEECH_FIXTURE" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".DebugSessionKeyInvalidationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.konetibalaji.learning.debug.INVALIDATE_SESSION_KEY" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -14,8 +14,17 @@ val releaseKeyAlias = providers.environmentVariable("LEARN_SMART_RELEASE_KEY_ALI
 val releaseKeyPassword = providers.environmentVariable("LEARN_SMART_RELEASE_KEY_PASSWORD").orNull
 // Public OAuth audience, never an OpenAI key or OAuth client secret.
 val googleServerClientId = providers.gradleProperty("googleServerClientId").orNull.orEmpty().trim()
+val debugApiBaseUrl = providers.gradleProperty("debugApiBaseUrl").orNull?.trim()
+    ?: "http://10.0.2.2:8000"
+val debugApplicationIdSuffix = providers.gradleProperty("debugApplicationIdSuffix").orNull?.trim()
 require(googleServerClientId.isEmpty() || Regex("[0-9]+-[A-Za-z0-9_-]+\\.apps\\.googleusercontent\\.com").matches(googleServerClientId)) {
     "googleServerClientId must be a Google web OAuth client ID, or omitted to disable Google sign-in"
+}
+require(runCatching { URI(debugApiBaseUrl) }.getOrNull()?.let {
+    it.scheme in setOf("http", "https") && !it.host.isNullOrBlank() && it.userInfo == null
+} == true) { "debugApiBaseUrl must be an HTTP(S) origin without credentials" }
+require(debugApplicationIdSuffix == null || Regex("[a-z][a-z0-9_]*").matches(debugApplicationIdSuffix)) {
+    "debugApplicationIdSuffix must be a single lowercase application-id segment"
 }
 val validateReleaseEndpoint = tasks.register("validateReleaseEndpoint") {
     doLast {
@@ -86,7 +95,8 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")
+            if (debugApplicationIdSuffix != null) applicationIdSuffix = ".$debugApplicationIdSuffix"
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
             manifestPlaceholders["cleartextAllowed"] = "true"
         }
         release {
