@@ -275,6 +275,16 @@ anonymized grant/revocation history. This advances PARENT-01 with exact-candidat
 physical-device and API evidence, but guardian Android UI, real-world identity and
 child-consent policy, notification policy and human acceptance remain open.
 
+The exact-v19 owned-material retest uploaded a fresh TXT through the Xiaomi system
+picker, detected all three sections, selected the entire document and requested five
+Medium True/False questions. Two live generation attempts each returned the bounded
+temporary-service screen after about 55 seconds with distinct support IDs while the
+staging health endpoint remained ready; no partial quiz was exposed. The duplicate
+was then permanently deleted through the named confirmation and the original stayed
+in the library. This verifies upload, configuration, failure recovery and cleanup,
+but DOC-01 and DOC-03 remain pending because v19 did not reach generated questions,
+feedback or results. The private ledger records the open provider-generation issue.
+
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
 | AUTH-01 | Email registration and login | QA verified | Physical-device/user acceptance and OEM AndroidKeyStore invalidation exercise |
@@ -293,7 +303,7 @@ child-consent policy, notification policy and human acceptance remain open.
 | PROG-03 | Per-uploaded-document learning progress | Candidate v19 physical-device verified | Signed v19 displayed three completed quizzes, 20 answers, 100% overall accuracy, per-section counts and a strongest grounded concept. Its seven-day report showed 52 responses, 65% accuracy, five mastered chapters, 58m 6s presence and the uncalibrated-not-exam-prediction limitation. Broader provider quality and user review remain open |
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Candidate v19 boundary partially verified | Signed v19 displayed the learner consent boundary and single-use-code flow on the physical Xiaomi device. A disposable separate guardian account read only aggregate dashboard/report data, self-revocation immediately returned 404, account deletion anonymized the learner-visible audit history, and no active access remained. Guardian Android UI, real-world identity/child-consent and notification policy, production-scale latency and human acceptance remain open |
 | PARENT-02 | Exam readiness prediction | Partial | The product truthfully labels this as an uncalibrated learning indicator, excludes guided practice and withholds a level until 10 independent diagnostic/rewrite answers span 2 chapters. Signed candidate v12 displayed the same limitation to learner and guardian. A fail-closed holdout evaluator now validates de-identified records and reports Brier score, calibration-in-the-large and expected calibration error, but always requires review. A matched external outcome dataset plus educator/statistical review and UAT approval remain required; see `docs/readiness-calibration-protocol.md` |
-| DOC-01 | Upload/analyze/select/quiz/feedback/results | Candidate v18 physical-device verified | Signed v18 uploaded a fresh owned TXT through the Xiaomi system picker, detected three sections, generated an entire-document quiz, displayed exact source references and grounded feedback, and reached results. File limits/corruption, parser isolation/capacity, PDF ceilings and recovery remain automated; complex layouts and broader device paths remain open |
+| DOC-01 | Upload/analyze/select/quiz/feedback/results | Candidate v19 retest pending | Signed v19 uploaded and analyzed a fresh owned TXT, selected the entire source and preserved safe retry/cleanup behavior, but two live generation attempts returned bounded 503 recovery screens. Signed v18 completed the full quiz/feedback/results journey; exact-v19 completion remains required |
 | DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Candidate v19 physical-device verified | Signed v19 selected both PDF chapters in entire-document mode, replaced whole chapters with a reviewed topic passage, then replaced that excerpt with physical page 1 resolved to exact source characters. The overlap retest displayed the fixed actionable message from commit `9a4ac03`. Highlighted-excerpt breadth, semantic curriculum scale and multilingual relevance remain open |
 
 Document quiz results now expose the learner's selected answer, correct answer,
@@ -324,7 +334,7 @@ text/range with the authenticated endpoint, and captured the readable dialog. Se
 labelled the original physical page containing the exact sentence. Complex layouts,
 hostile-PDF stress, physical-device accessibility and UAT remain open, so DOC-01
 stays partial.
-| DOC-03 | Question count, difficulty and question-type configuration | Candidate v18 physical-device verified | Signed v18 generated five Medium True/False questions across the complete owned three-section source in 59.959 seconds, displayed the requested labels and exact source ranges, and completed at 5/5. Preset/custom recovery and the broader difficulty/type matrix remain automated; broader provider sampling remains open |
+| DOC-03 | Question count, difficulty and question-type configuration | Candidate v19 retest pending | Signed v19 retained the requested five-question, Medium, True/False, entire-document configuration, but the live provider returned 503 twice before a quiz existed. Signed v18 completed this configuration at 5/5; exact-v19 completion remains required |
 | UX-01 | Mobile-first cards, badges, theme, accessibility | Partial | API 36 verifies both themes, large text, small-screen scrolling, learning badges and targeted loading/empty/offline/retry flows. Signed candidate v12 completed keyboard/switch traversal and the TalkBack tutorial, then exposed the interactive tutor screen while the real TalkBack service was active. Human full-screen spoken traversal, usability and non-text contrast acceptance remain pending |
 | DATA-01 | Durable state and account isolation | Candidate v19 physical-device verified | Signed v19 restored the authenticated PDF at the exact Chapter 1 source-character excerpt after Android force-stop and cold launch. Two-account isolation remains automated; multi-device races and broader explicit user acceptance remain open |
 | SEC-01 | Deletion and retention | Candidate v19 physical-device verified | Signed v19 displayed the active-data/document, 24-hour crash-file, 30-day invitation and 30-day backup retention rules, then permanently deleted only the synthetic PDF through the named confirmation flow while retaining the original TXT. Backup prune and active-data cleanup remain automated; production scheduling/storage-provider deletion and legal review remain open |
