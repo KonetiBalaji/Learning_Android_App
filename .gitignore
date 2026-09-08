@@ -3,6 +3,7 @@
 **/build/
 local.properties
 captures/
+artifacts/
 *.apk
 *.aab
 
