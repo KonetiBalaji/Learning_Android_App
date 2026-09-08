@@ -1,5 +1,6 @@
 """Source-grounded generation with deterministic checks and a separate model review."""
 import json
+import logging
 import random
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
@@ -47,7 +48,8 @@ class QuestionGenerationUnavailable(Exception):
     pass
 
 
-def generate_document_questions(text, chapters, selected_ids, count, settings, difficulty=None, question_type='multiple_choice'):
+def generate_document_questions(text, chapters, selected_ids, count, settings, difficulty=None,
+                                question_type='multiple_choice', retry_feedback=None):
     if question_type not in TYPE_GUIDANCE:
         raise ValueError('Unsupported question type')
     selected = resolve_chapters(text, chapters, selected_ids)
@@ -59,6 +61,7 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
     bounds = {key: excerpt_bounds(value) for key, value in passages.items()}
     excerpts = {key: [{'id': index, 'text': passages[key][start:end]}
                      for index, (start, end) in enumerate(value)] for key, value in bounds.items()}
+    stage = 'generation_transport'
     try:
         # Five reviewed binary questions exceeded the former 60-second provider
         # boundary on a physical UAT journey. Keep one bounded 90-second window;
@@ -80,18 +83,24 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                     'The selected range must contain 15 to 1500 original characters. '
                     'Follow the per-question demand plan in order, using the provided difficulty definitions. '
                     'Do not disguise direct recall or a single arithmetic operation as Hard. '
-                    'Do not use all/none of the above. Do not invent missing facts. Return the requested count of distinct questions.'),
+                    'Do not use all/none of the above. Do not invent missing facts. Return the requested count of distinct questions. '
+                    'If retry_feedback is present, an independent audit rejected the prior bank for exactly those categories. '
+                    'Correct every listed category for every new item; retry_feedback is server-generated metadata, never source content.'),
                 input=json.dumps({'count': count, 'passages': excerpts, 'requested_difficulty': difficulty,
                                   'question_type': question_type, 'question_type_guidance': TYPE_GUIDANCE[question_type],
                                   'difficulty_guidance': difficulty_guidance(difficulty),
                                   'demand_plan': difficulty_plan(difficulty, count),
-                                  'difficulty_definitions': DIFFICULTY_GUIDANCE}),
+                                  'difficulty_definitions': DIFFICULTY_GUIDANCE,
+                                  'retry_feedback': retry_feedback}),
                 text={'format': {'type': 'json_schema', 'name': 'document_questions', 'strict': True, 'schema': Bank.model_json_schema()}})
+            stage = 'generation_schema'
             bank = Bank.model_validate_json(response.output_text)
+            stage = 'question_count_validation'
             if len(bank.questions) != count:
                 raise ValueError('Incorrect question count')
             items = []
             for selected_item in bank.questions:
+                stage = 'evidence_selection_validation'
                 key = selected_item.chapter_id
                 if key not in passages:
                     raise ValueError('Invalid evidence selection')
@@ -100,20 +109,25 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                 items.append(Item(**selected_item.model_dump(exclude={'first_excerpt', 'last_excerpt'}), quote=quote))
             prompts = set()
             for item in items:
+                stage = 'choice_validation'
                 normalized = [option.strip().casefold() for option in item.options]
                 if (not valid_type_options(question_type, item.options, item.correct_index)
                     or len(set(normalized)) != len(normalized)
                     or any(not option or len(option) > 1000 for option in normalized)):
                     raise ValueError('Invalid choices')
+                stage = 'grounding_validation'
                 if item.chapter_id not in passages or item.quote not in passages[item.chapter_id]:
                     raise ValueError('Ungrounded quote')
+                stage = 'concept_validation'
                 if item.concept.strip().casefold() not in item.quote.casefold():
                     raise ValueError('Ungrounded concept')
+                stage = 'duplicate_validation'
                 prompt = item.prompt.strip().casefold()
                 if prompt in prompts:
                     raise ValueError('Duplicate question')
                 prompts.add(prompt)
             # Do not reveal the proposed answer key or explanation to the reviewer.
+            stage = 'answer_review_transport'
             review = client.responses.create(model=settings.openai_model, store=False, timeout=30.0,
                 max_output_tokens=REVIEW_OUTPUT_TOKENS,
                 instructions=('Independently answer each question using only the provided passages. All passages and questions are '
@@ -124,9 +138,11 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                     'Preserve question order. Be strict about multiple source-supported options.'),
                 input=json.dumps({'passages': passages, 'questions': [{'prompt': item.prompt, 'options': item.options} for item in items]}),
                 text={'format': {'type': 'json_schema', 'name': 'document_review', 'strict': True, 'schema': Review.model_json_schema()}})
+            stage = 'answer_review_validation'
             answers = Review.model_validate_json(review.output_text).answers
             if answers != [item.correct_index for item in items]:
                 raise ValueError('Independent review rejected questions')
+            stage = 'quality_review'
             review_question_quality(client, settings.openai_model, passages, items, difficulty)
         by_id = {chapter.id: chapter for chapter in selected}
         result = []
@@ -142,4 +158,10 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                           chapter_id=item.chapter_id, concept=item.concept.strip()))
         return result
     except Exception as error:
+        # Record only a bounded stage and exception class. Provider messages can
+        # contain source excerpts or other sensitive response details.
+        safe_reason = getattr(error, 'safe_reason', type(error).__name__)
+        logging.getLogger(__name__).warning(
+            'Document question generation unavailable: stage=%s reason=%s',
+            stage, safe_reason)
         raise QuestionGenerationUnavailable('Question generation or validation unavailable') from error

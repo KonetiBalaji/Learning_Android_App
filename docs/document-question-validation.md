@@ -71,3 +71,22 @@ five responses, and displayed `5 / 5 correct`. The candidate-bound private UAT
 record closes the v16 binary-generation issue. This proves the corrected DOC-03
 journey for this candidate and synthetic source; it does not establish broad
 provider availability, curriculum approval or production acceptance.
+
+## Audit-guided regeneration
+
+Candidate v19 later reproduced two bounded 503 responses for the same five-question
+Medium True/False journey while health remained ready. A privacy-safe controlled
+probe established that transport, credentials and quota were healthy: the completed
+bank was rejected by the independent quality audit. The former retry discarded that
+information and submitted the identical generation request again.
+
+Provider failures now log only a bounded pipeline stage and exception class. Quality
+rejections additionally expose only the failed boolean category names, never model
+text, source passages, prompts, answers or provider messages. A validation-rejected
+retry receives those server-generated category names and explicitly corrects them;
+blind answer review and quality review still receive no retry metadata, all original
+grounding and demand checks remain fail-closed, and transport errors remain
+non-retriable. A controlled live reproduction subsequently produced five reviewed
+Medium True/False questions. Focused regression passed 38 tests and the full backend
+suite passed 726 tests with one platform skip. Exact signed-candidate Android
+retesting is still required before DOC-01 or DOC-03 can be closed for the new build.

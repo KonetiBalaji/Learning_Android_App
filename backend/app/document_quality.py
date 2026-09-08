@@ -21,6 +21,14 @@ class QualityReview(BaseModel):
     items: list[ItemQuality] = Field(min_length=1, max_length=20)
 
 
+class QuestionQualityRejected(ValueError):
+    """A bounded, source-free quality rejection suitable for operational logs."""
+
+    def __init__(self, failed_checks: tuple[str, ...]):
+        self.safe_reason = ','.join(failed_checks)
+        super().__init__('Quality review rejected questions')
+
+
 def review_question_quality(client, model, passages, items, difficulty):
     plan = difficulty_plan(difficulty, len(items))
     response = client.responses.create(model=model, store=False, timeout=30.0,
@@ -44,9 +52,15 @@ def review_question_quality(client, model, passages, items, difficulty):
         text={'format': {'type': 'json_schema', 'name': 'document_quality', 'strict': True,
                          'schema': QualityReview.model_json_schema()}})
     reviewed = QualityReview.model_validate_json(response.output_text).items
-    if len(reviewed) != len(items) or any(
-        item.item_index != index or not all((item.demand_matches, item.assumptions_supported,
-                                            item.citation_complete, item.explanation_correct))
-        for index, item in enumerate(reviewed)
-    ):
-        raise ValueError('Quality review rejected questions')
+    failures = []
+    if len(reviewed) != len(items):
+        failures.append('item_count')
+    for index, item in enumerate(reviewed):
+        if item.item_index != index:
+            failures.append('item_index')
+        for field in ('demand_matches', 'assumptions_supported', 'citation_complete',
+                      'explanation_correct'):
+            if not getattr(item, field):
+                failures.append(field)
+    if failures:
+        raise QuestionQualityRejected(tuple(sorted(set(failures))))

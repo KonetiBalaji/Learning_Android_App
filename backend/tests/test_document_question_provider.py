@@ -10,7 +10,8 @@ from app.schemas import Chapter
 TEXT = 'Mitochondria release usable energy for cellular work.'
 
 
-def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text=TEXT, question_type='multiple_choice'):
+def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text=TEXT,
+        question_type='multiple_choice', retry_feedback=None):
     item = item or dict(prompt='Which structure releases usable energy for cellular work?',
         options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'], correct_index=0,
         explanation=TEXT, chapter_id='cells', first_excerpt=0, last_excerpt=0)
@@ -30,7 +31,8 @@ def run(monkeypatch, item=None, review=None, difficulty=None, quality=None, text
             return SimpleNamespace(output_text=next(outputs))
     monkeypatch.setattr(provider, 'OpenAI', Client)
     result = provider.generate_document_questions(text, [Chapter(id='cells', title='Cells', start_character=0,
-        end_character=len(text), confidence=1)], ['cells'], 1, SimpleNamespace(openai_api_key='synthetic', openai_model='synthetic'), difficulty, question_type)
+        end_character=len(text), confidence=1)], ['cells'], 1, SimpleNamespace(openai_api_key='synthetic', openai_model='synthetic'), difficulty, question_type,
+        retry_feedback=retry_feedback)
     return result, calls
 
 
@@ -76,6 +78,20 @@ def test_invented_concept_label_fails_closed(monkeypatch):
     assert str(error.value.__cause__) == 'Ungrounded concept'
 
 
+def test_generation_failure_logs_only_safe_stage_and_exception_class(monkeypatch, caplog):
+    private_detail = 'private generated response must not reach logs'
+    item = dict(prompt='Which structure releases usable energy for cellular work?',
+        options=['Mitochondria', 'Membrane', 'Ribosome', 'Cell wall'], correct_index=0,
+        explanation=TEXT, chapter_id='cells', concept=private_detail,
+        first_excerpt=0, last_excerpt=0)
+
+    with caplog.at_level('WARNING'), pytest.raises(provider.QuestionGenerationUnavailable):
+        run(monkeypatch, item=item)
+
+    assert 'stage=concept_validation reason=ValueError' in caplog.text
+    assert private_detail not in caplog.text
+
+
 @pytest.mark.parametrize('kind,options', [('true_false', ['True', 'False']), ('yes_no', ['Yes', 'No'])])
 @pytest.mark.parametrize('answer', [0, 1])
 def test_binary_choices_keep_canonical_order_and_answer(monkeypatch, kind, options, answer):
@@ -113,6 +129,13 @@ def test_difficulty_guidance_reaches_generation_without_changing_blind_review(mo
         'easy' if difficulty == 'mixed' else difficulty)
 
 
+def test_safe_quality_feedback_reaches_only_regeneration_prompt(monkeypatch):
+    _, calls = run(monkeypatch, retry_feedback='citation_complete,demand_matches')
+    assert json.loads(calls[0]['input'])['retry_feedback'] == 'citation_complete,demand_matches'
+    assert 'retry_feedback' not in json.loads(calls[1]['input'])
+    assert 'retry_feedback' not in json.loads(calls[2]['input'])
+
+
 @pytest.mark.parametrize('field', ['demand_matches', 'assumptions_supported', 'citation_complete', 'explanation_correct'])
 def test_each_quality_failure_rejects_otherwise_accepted_answers(monkeypatch, field):
     verdict = dict(item_index=0, demand_matches=True, assumptions_supported=True,
@@ -121,6 +144,15 @@ def test_each_quality_failure_rejects_otherwise_accepted_answers(monkeypatch, fi
     with pytest.raises(provider.QuestionGenerationUnavailable) as error:
         run(monkeypatch, quality=[verdict])
     assert str(error.value.__cause__) == 'Quality review rejected questions'
+
+
+def test_quality_rejection_logs_only_bounded_failed_checks(monkeypatch, caplog):
+    verdict = dict(item_index=0, demand_matches=False, assumptions_supported=True,
+                   citation_complete=False, explanation_correct=True)
+    with caplog.at_level('WARNING'), pytest.raises(provider.QuestionGenerationUnavailable):
+        run(monkeypatch, quality=[verdict])
+    assert 'stage=quality_review reason=citation_complete,demand_matches' in caplog.text
+    assert TEXT not in caplog.text
 
 
 @pytest.mark.parametrize('quality', [[], [{}], [dict(item_index=1, demand_matches=True,
@@ -173,12 +205,16 @@ def test_quiz_creation_regenerates_once_after_strict_review_rejection(monkeypatc
             files={'file': ('notes.txt', TEXT * 3)}).json()
         calls = 0
 
-        def generate(*args):
+        feedback = []
+
+        def generate(*args, **kwargs):
             nonlocal calls
             calls += 1
+            feedback.append(kwargs.get('retry_feedback'))
             if calls == 1:
                 try:
-                    raise ValueError('strict review rejected questions')
+                    from app.document_quality import QuestionQualityRejected
+                    raise QuestionQualityRejected(('citation_complete', 'demand_matches'))
                 except ValueError as cause:
                     raise provider.QuestionGenerationUnavailable('rejected synthetic batch') from cause
             return [GeneratedQuestion(prompt=f'Question {index}: Which structure releases usable energy for cellular work?',
@@ -194,6 +230,7 @@ def test_quiz_creation_regenerates_once_after_strict_review_rejection(monkeypatc
         assert response.status_code == 201
         assert response.json()['question_count'] == 5
         assert calls == 2
+        assert feedback == [None, 'citation_complete,demand_matches']
     finally:
         client.__exit__(None, None, None)
 
@@ -208,7 +245,7 @@ def test_quiz_creation_fails_closed_after_one_regeneration(monkeypatch, tmp_path
             files={'file': ('notes.txt', TEXT * 3)}).json()
         calls = 0
 
-        def reject(*args):
+        def reject(*args, **kwargs):
             nonlocal calls
             calls += 1
             try:
