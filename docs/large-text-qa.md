@@ -46,3 +46,14 @@ readable without horizontal clipping. The original dark preference and font scal
 This is physical-device visual and hierarchy evidence for two representative
 screens, not a complete contrast measurement, landscape test, TalkBack spoken
 traversal or human usability acceptance. UX-01 therefore remains partial.
+
+TalkBack was subsequently enabled on the same physical candidate with the prior
+disabled accessibility state recorded. Android reported the real TalkBack service
+both enabled and bound with spoken, haptic and audible feedback; system audio-focus
+events confirmed accessibility speech output. Touch focus plus double-tap activated
+the Mathematics subject card, and the resulting hierarchy exposed the Mathematics
+heading plus Fractions, Decimals, Percentages, Algebra and Geometry with their
+progress. The service list and global accessibility switch were restored to their
+original disabled values and Android reported no bound services afterward. This is
+service-active physical navigation evidence, not human acceptance of every spoken
+label, focus order or gesture across the full app.
