@@ -250,7 +250,15 @@ confirmed that range as the active excerpt, and found an exact all-topic-words
 passage. Adding that overlapping passage was safely rejected internally, but the UI
 showed only a generic error instead of its available recovery instruction. Commit
 `9a4ac03` gives this known local validation a fixed learner-safe message; a new
-signed-candidate physical-device retest is required before closing DOC-02.
+signed-candidate physical-device retest was required before closing DOC-02.
+
+Signed candidate `0.3.0-uat.17` (version code 19) at commit `2d078b8` closes that
+DOC-02 defect on the Xiaomi device. The exact build restored its persisted PDF
+excerpt after upgrade, selected both detected chapters in entire-document mode,
+replaced that scope with a reviewed topic passage, then replaced the topic excerpt
+with physical PDF page 1 resolved to source characters 0–287. Repeating the overlap
+displayed the fixed clear-or-choose-different message. The private v19 ledger remains
+pending overall because the other candidate rows have not been rerun on this APK.
 
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
@@ -271,7 +279,7 @@ signed-candidate physical-device retest is required before closing DOC-02.
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts, read-only reports, bounded indexed seven-day history loading, learner-visible grant/revocation history, and a learner-owned privacy-bounded CSV system-picker export are verified; history is atomic and minimizes deleted guardian identity; real-world identity/child-consent and notification policy, production-scale latency, physical-device and UAT remain open |
 | PARENT-02 | Exam readiness prediction | Partial | The product truthfully labels this as an uncalibrated learning indicator, excludes guided practice and withholds a level until 10 independent diagnostic/rewrite answers span 2 chapters. Signed candidate v12 displayed the same limitation to learner and guardian. A fail-closed holdout evaluator now validates de-identified records and reports Brier score, calibration-in-the-large and expected calibration error, but always requires review. A matched external outcome dataset plus educator/statistical review and UAT approval remain required; see `docs/readiness-calibration-protocol.md` |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Candidate v18 physical-device verified | Signed v18 uploaded a fresh owned TXT through the Xiaomi system picker, detected three sections, generated an entire-document quiz, displayed exact source references and grounded feedback, and reached results. File limits/corruption, parser isolation/capacity, PDF ceilings and recovery remain automated; complex layouts and broader device paths remain open |
-| DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Candidate v18 failed; fix pending retest | Signed v18 verified entire/multiple-section TXT selection plus three-page PDF indexing, exact page-to-source resolution, confirmed physical-page excerpt mode and an all-topic-words verbatim result. The expected overlapping-excerpt rejection surfaced only a generic error; commit `9a4ac03` adds the actionable clear-or-choose-different message. A new signed-candidate retest, highlighted-excerpt breadth and multilingual relevance remain open |
+| DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Candidate v19 physical-device verified | Signed v19 selected both PDF chapters in entire-document mode, replaced whole chapters with a reviewed topic passage, then replaced that excerpt with physical page 1 resolved to exact source characters. The overlap retest displayed the fixed actionable message from commit `9a4ac03`. Highlighted-excerpt breadth, semantic curriculum scale and multilingual relevance remain open |
 
 Document quiz results now expose the learner's selected answer, correct answer,
 grounded explanation and source reference for each completed incorrect response;
