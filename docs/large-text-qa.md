@@ -57,3 +57,26 @@ progress. The service list and global accessibility switch were restored to thei
 original disabled values and Android reported no bound services afterward. This is
 service-active physical navigation evidence, not human acceptance of every spoken
 label, focus order or gesture across the full app.
+
+## Physical-device landscape and contrast check, 2026-09-08
+
+The same signed v21 app was forced to landscape while retaining its authenticated
+dark-theme account. The Grade 8 dashboard rendered two subject cards per row; a
+real vertical scroll exposed English, Social Studies, all three earned badges and
+the four report/document/settings actions. Settings then exposed its theme, grade,
+interests, retention, sign-out and delete-account controls through normal scrolling.
+No inspected heading, card, label or action was horizontally clipped. XML and PNG
+evidence is retained under `artifacts/private-release/v21/v21-landscape-*`.
+
+Exact flat colors sampled from the physical dark screenshots were checked with the
+WCAG relative-luminance formula. Representative text/background ratios were
+14.35:1 for on-surface text, 10.91:1 for secondary text and 9.33:1 for primary text;
+the active progress color measured 6.13:1 against its track. The earlier physical
+light screenshot measured 16.32:1, 8.93:1 and 6.01:1 for the same representative
+text roles. These exceed 4.5:1 for normal text and 3:1 for the active graphical
+indicator. This is a bounded sampled-color check, not an exhaustive pixel audit.
+
+The original portrait orientation, automatic rotation, dark theme and font scale
+were restored. UX-01 now has physical large-text, dark/light, landscape, bounded
+contrast and real TalkBack navigation evidence. It remains partial pending the
+product owner's full-screen spoken focus-order and usability acceptance.

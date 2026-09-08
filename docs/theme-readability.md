@@ -34,3 +34,12 @@ Verification on 2026-09-03:
 Still required: every learning screen in both themes, dialog visuals, large fonts,
 TalkBack labels/focus, physical devices, older API levels and human usability review.
 These checks do not constitute user UAT or production acceptance.
+
+On 2026-09-08 signed candidate v21 added physical Xiaomi evidence. Exact dominant
+theme colors sampled from the dark dashboard/settings screenshots produced WCAG
+ratios of 14.35:1 for on-surface text against the background, 10.91:1 for secondary
+text, 9.33:1 for primary text and 6.13:1 for the active progress indicator against
+its track. The prior physical light-theme screenshot measured 16.32:1, 8.93:1 and
+6.01:1 for the corresponding text roles. These samples pass the normal-text and
+active non-text thresholds; they do not constitute an exhaustive screen/dialog or
+human contrast audit.
