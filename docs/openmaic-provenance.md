@@ -140,3 +140,16 @@ OA-01 through OA-03 do not claim a complete port.
   Accessibility Test Framework checks and service-active TalkBack hierarchy evidence.
   This proves bounded application-owned interactivity, not generated scenes,
   curriculum-board alignment, physical-device usability or UAT.
+
+## Release provenance revalidation, 2026-09-08
+
+The release review fetched all eight source files declared by OA-01 through OA-03
+directly from `raw.githubusercontent.com/THU-MAIC/OpenMAIC` at each manifest-pinned
+40-character commit. SHA-256 was computed over the returned bytes and every value
+matched `shared/contracts/openmaic-adaptations.json`. The upstream `LICENSE` at
+`f6cf8fd4b74ac83ea969e88b6dc2c974931b4d65` also matched the retained license digest.
+`pytest tests/test_openmaic_provenance.py -q` then passed both local contract tests.
+
+This closes the release provenance review for the three declared selective
+adaptations. It does not convert them into Git cherry-picks, copied modules, a full
+OpenMAIC port, or approval of deliberately excluded capabilities.
