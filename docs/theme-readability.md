@@ -11,6 +11,11 @@ backgrounds now adapt to dark mode. Practice success and tip cards use paired
 container/content colors. Error dialogs now render inside the app's theme.
 The light success accent was darkened for readable text.
 
+Progress indicators now use the active theme's `surfaceVariant` track instead of
+a fixed pale track. Automated checks require at least 3:1 contrast between the
+primary/success indicators and their track in both light and dark themes, as well
+as between primary interactive outlines and the surface.
+
 Verification on 2026-09-03:
 
 - Android build/lint and 32 JVM tests passed. Two new tests require at least 4.5:1
@@ -27,5 +32,5 @@ Verification on 2026-09-03:
   and the corrected selector passed on rerun.
 
 Still required: every learning screen in both themes, dialog visuals, large fonts,
-TalkBack labels/focus, non-text contrast, physical devices and older API levels.
+TalkBack labels/focus, physical devices, older API levels and human usability review.
 These checks do not constitute user UAT or production acceptance.

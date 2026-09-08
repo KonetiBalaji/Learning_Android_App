@@ -288,7 +288,7 @@ private fun SubjectsScreen(state: AppUiState, onSelect: (LearningSubject) -> Uni
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(subject.icon, style = MaterialTheme.typography.headlineLarge, color = Indigo)
                 Text(subject.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                LinearProgressIndicator(progress = { (progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = Success, trackColor = Color(0xFFE2E8F0))
+                LinearProgressIndicator(progress = { (progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = Success, trackColor = MaterialTheme.colorScheme.surfaceVariant)
                 Text(if (progress == null) "No assessment yet" else "$progress% assessed progress", color = Muted, style = MaterialTheme.typography.labelMedium)
             }
         }
@@ -332,7 +332,7 @@ private fun ChapterScreen(state: AppUiState, onSelect: (MasteryChapter) -> Unit,
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(chapter.title, fontWeight = FontWeight.Bold, color = if (effectivelyLocked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
                     if (effectivelyLocked) Text("Master the previous chapter to unlock", color = Muted, style = MaterialTheme.typography.bodySmall)
-                    else if (progress == 0) Text("New chapter", color = Indigo, style = MaterialTheme.typography.bodySmall) else LinearProgressIndicator(progress = { progress / 100f }, color = Success, trackColor = Color(0xFFE2E8F0), modifier = Modifier.fillMaxWidth())
+                    else if (progress == 0) Text("New chapter", color = Indigo, style = MaterialTheme.typography.bodySmall) else LinearProgressIndicator(progress = { progress / 100f }, color = Success, trackColor = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth())
                 }
                 if (!effectivelyLocked && progress > 0) Text("$progress%", color = Muted, fontWeight = FontWeight.Bold)
             }
@@ -346,7 +346,7 @@ private fun DiagnosticScreen(state: AppUiState, onSelect: (String) -> Unit, onSu
     Page {
         RewriteAssessmentFeedback(state)
         Text("${state.subject?.title ?: "SUBJECT"}  ›  ${state.masteryChapter?.title ?: "CHAPTER"}".uppercase(), style = MaterialTheme.typography.labelLarge, color = Indigo, fontWeight = FontWeight.Bold)
-        LinearProgressIndicator(progress = { state.adaptiveOrdinal / state.adaptiveTotal.toFloat() }, modifier = Modifier.fillMaxWidth(), color = Indigo, trackColor = Color(0xFFE2E8F0))
+        LinearProgressIndicator(progress = { state.adaptiveOrdinal / state.adaptiveTotal.toFloat() }, modifier = Modifier.fillMaxWidth(), color = Indigo, trackColor = MaterialTheme.colorScheme.surfaceVariant)
         Header("Diagnostic quiz", "Question ${state.adaptiveOrdinal} of ${state.adaptiveTotal}", "Choose the answer that makes sense to you.")
         Text(question.prompt, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         question.options.forEach { option -> AnswerChoice(option, state.selectedDiagnosticAnswer == option) { onSelect(option) }
@@ -615,7 +615,7 @@ private fun ParentDashboard(state: AppUiState, onBack: () -> Unit) = Page {
     val displaySubjects = snapshot?.subjects?.map { (id, progress) -> id.replaceFirstChar(Char::uppercase) to progress } ?: emptyList()
     if (displaySubjects.isEmpty()) Text("No assessment yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
     displaySubjects.forEach { (subject, progress) ->
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(subject, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); Text("$progress%", color = Success, fontWeight = FontWeight.Bold) }; LinearProgressIndicator(progress = { progress / 100f }, color = Success, trackColor = Color(0xFFE2E8F0), modifier = Modifier.fillMaxWidth()) } }
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(subject, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); Text("$progress%", color = Success, fontWeight = FontWeight.Bold) }; LinearProgressIndicator(progress = { progress / 100f }, color = Success, trackColor = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) } }
     }
     Header("Focus next", "Current weak areas", snapshot?.weakAreas?.joinToString(" · ")?.ifBlank { "No unresolved weak areas recorded. Continue assessing and practising." } ?: "Complete a diagnostic to identify focus areas")
     TipCard("Suggested next step", snapshot?.recommendations?.joinToString("\n") ?: "Start a diagnostic to personalize your learning path.")
