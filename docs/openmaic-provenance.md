@@ -6,6 +6,10 @@ The entries below identify actual source-informed adaptations made afterward.
 The same pins, source paths, retained license, local implementation paths and
 explicit exclusions are machine-checked from
 `shared/contracts/openmaic-adaptations.json`.
+The contract also records SHA-256 digests for every inspected upstream source and
+the retained license. On 2026-09-08 each file was fetched directly from the official
+repository at its pinned revision without cloning; every path resolved, and the
+retained local MIT license exactly matched the upstream license digest.
 
 ## OA-01: Short-answer scoring and feedback
 

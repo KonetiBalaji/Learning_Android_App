@@ -1,4 +1,5 @@
 import json
+import hashlib
 import re
 from pathlib import Path
 
@@ -12,12 +13,16 @@ def test_selective_openmaic_adaptations_remain_pinned_licensed_and_resolvable():
     assert contract["upstream_repository"] == "https://github.com/THU-MAIC/OpenMAIC"
     license_text = (ROOT / contract["license_file"]).read_text(encoding="utf-8")
     assert "MIT License" in license_text and "THU-MAIC" in license_text
+    assert hashlib.sha256((ROOT / contract["license_file"]).read_bytes()).hexdigest() == contract["license_sha256"]
 
     adaptations = contract["adaptations"]
     assert [item["id"] for item in adaptations] == ["OA-01", "OA-02", "OA-03"]
     for item in adaptations:
         assert re.fullmatch(r"[0-9a-f]{40}", item["revision"])
         assert item["sources"] and len(item["sources"]) == len(set(item["sources"]))
+        assert set(item["source_sha256"]) == set(item["sources"])
+        assert all(re.fullmatch(r"[0-9a-f]{64}", digest)
+                   for digest in item["source_sha256"].values())
         assert item["excluded"] and len(item["excluded"]) == len(set(item["excluded"]))
         for local_path in item["local_implementations"]:
             resolved = (ROOT / local_path).resolve()

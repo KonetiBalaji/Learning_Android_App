@@ -1,6 +1,7 @@
 {
   "upstream_repository": "https://github.com/THU-MAIC/OpenMAIC",
   "license_file": "third_party/OpenMAIC-LICENSE.txt",
+  "license_sha256": "ba252563743227138231604c9138dd400faca5a10c3cf206b466e5466c565a19",
   "adaptations": [
     {
       "id": "OA-01",
@@ -8,6 +9,9 @@
       "sources": [
         "app/api/quiz-grade/route.ts"
       ],
+      "source_sha256": {
+        "app/api/quiz-grade/route.ts": "ce18c43e13abf00b7774e6b798b8d5f6507c72c717a06e736160c5338c3127aa"
+      },
       "local_implementations": [
         "backend/app/rewrite_grading.py",
         "backend/app/tutor_provider.py"
@@ -27,6 +31,11 @@
         "lib/persistence/owner-materials.ts",
         "app/api/materials/route.ts"
       ],
+      "source_sha256": {
+        "lib/server/agent-runtime/config.ts": "8b8ee46346829fa67ea10918a6c0c6337db8b9b4e2876dc9b3c3e4a236e47ca2",
+        "lib/persistence/owner-materials.ts": "b739381fea16b225dd8408ec39ed22de8d272518b5885b5d597e93ec8fb0af67",
+        "app/api/materials/route.ts": "30a4061e50419a22ba6734b14c9da1949e0d1b6660d17b9a46847b4ae9e59904"
+      },
       "local_implementations": [
         "backend/app/config.py",
         "backend/app/database.py",
@@ -47,6 +56,12 @@
         "lib/store/canvas.ts",
         "lib/action/engine.ts"
       ],
+      "source_sha256": {
+        "lib/orchestration/types.ts": "59a5f2ed35960d406c30fd0b5f50191ef5962e2074e596feb0b09091cd48eaae",
+        "lib/orchestration/tool-schemas.ts": "169c95fb3906d58547bf205056e93dcaead3b6d8cec70d5ee385b630df0ebd2c",
+        "lib/store/canvas.ts": "df06ee90d109e6624657e56638ea3a35e841bc3f8158af3b5b862120eb2f6f48",
+        "lib/action/engine.ts": "42571c0ecf062b0044880b7f57d73b95eaaaf848fa5f475930a535ed7b2e9fb3"
+      },
       "local_implementations": [
         "android/app/src/main/java/com/konetibalaji/learning/InteractiveLessonExplorer.kt",
         "android/app/src/main/java/com/konetibalaji/learning/FractionExplorer.kt",
