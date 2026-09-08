@@ -8,6 +8,8 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[0-9]+(?:\.[0-9]+){1,3}(?:[-+][A-Za-z0-9.-]+)?$')]
     [string]$VersionName,
+    [ValidatePattern('^$|^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$')]
+    [string]$GoogleServerClientId = '',
     [string]$OutputDirectory = 'artifacts\private-release',
     [string]$SigningProfile = (Join-Path $env:USERPROFILE '.learnsmart\release\signing-profile.clixml')
 )
@@ -78,7 +80,17 @@ if (Test-Path -LiteralPath $existingManifest -PathType Leaf) {
 
 Push-Location (Join-Path $repo 'android')
 try {
-    & .\gradlew.bat clean assembleRelease "-PreleaseApiBaseUrl=$BackendUrl" "-PreleaseVersionCode=$VersionCode" "-PreleaseVersionName=$VersionName"
+    $gradleArguments = @(
+        'clean',
+        'assembleRelease',
+        "-PreleaseApiBaseUrl=$BackendUrl",
+        "-PreleaseVersionCode=$VersionCode",
+        "-PreleaseVersionName=$VersionName"
+    )
+    if (-not [string]::IsNullOrWhiteSpace($GoogleServerClientId)) {
+        $gradleArguments += "-PgoogleServerClientId=$GoogleServerClientId"
+    }
+    & .\gradlew.bat @gradleArguments
     if ($LASTEXITCODE -ne 0) { throw 'Release APK build failed.' }
 } finally { Pop-Location }
 

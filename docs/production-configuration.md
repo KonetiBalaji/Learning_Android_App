@@ -28,7 +28,10 @@ Set the following through the chosen host's secret/configuration facility:
   client input. Direct Windows development runs fail fast above one worker because
   Uvicorn shared-socket multiprocessing is not reliable there
 
-Optional Google sign-in and throttle settings remain as documented elsewhere.
+Optional Google sign-in uses one public Web OAuth client ID as the token audience.
+Set the same value in backend `LEARNING_GOOGLE_CLIENT_ID` and pass it to the APK
+builder as `-GoogleServerClientId`. See `google-login-setup.md`. Throttle settings
+remain optional.
 Never place the JWT secret or provider key in Git, the Android APK, a deployment
 manifest, command-line arguments, logs or health-check output.
 
