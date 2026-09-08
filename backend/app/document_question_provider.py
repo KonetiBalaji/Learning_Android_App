@@ -45,7 +45,9 @@ class Review(BaseModel):
 
 
 class QuestionGenerationUnavailable(Exception):
-    pass
+    def __init__(self, message, *, safe_stage=None):
+        self.safe_stage = safe_stage
+        super().__init__(message)
 
 
 def generate_document_questions(text, chapters, selected_ids, count, settings, difficulty=None,
@@ -82,6 +84,9 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
                     'The server reconstructs the exact supporting quote; do not transcribe or invent quote text. '
                     'The selected range must contain 15 to 1500 original characters. '
                     'Follow the per-question demand plan in order, using the provided difficulty definitions. '
+                    'For every Medium binary item, write a short source-grounded scenario or relationship whose truth '
+                    'requires applying one explicitly supported principle; a direct fact restatement or synonym swap is Easy, not Medium. '
+                    'When the demand plan contains repeated Medium entries, every item must independently meet this rule. '
                     'Do not disguise direct recall or a single arithmetic operation as Hard. '
                     'Do not use all/none of the above. Do not invent missing facts. Return the requested count of distinct questions. '
                     'If retry_feedback is present, an independent audit rejected the prior bank for exactly those categories. '
@@ -164,4 +169,5 @@ def generate_document_questions(text, chapters, selected_ids, count, settings, d
         logging.getLogger(__name__).warning(
             'Document question generation unavailable: stage=%s reason=%s',
             stage, safe_reason)
-        raise QuestionGenerationUnavailable('Question generation or validation unavailable') from error
+        raise QuestionGenerationUnavailable(
+            'Question generation or validation unavailable', safe_stage=stage) from error

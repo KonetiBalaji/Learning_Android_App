@@ -76,6 +76,7 @@ def test_invented_concept_label_fails_closed(monkeypatch):
     with pytest.raises(provider.QuestionGenerationUnavailable) as error:
         run(monkeypatch, item=item)
     assert str(error.value.__cause__) == 'Ungrounded concept'
+    assert error.value.safe_stage == 'concept_validation'
 
 
 def test_generation_failure_logs_only_safe_stage_and_exception_class(monkeypatch, caplog):
@@ -132,6 +133,7 @@ def test_difficulty_guidance_reaches_generation_without_changing_blind_review(mo
 def test_safe_quality_feedback_reaches_only_regeneration_prompt(monkeypatch):
     _, calls = run(monkeypatch, retry_feedback='citation_complete,demand_matches')
     assert json.loads(calls[0]['input'])['retry_feedback'] == 'citation_complete,demand_matches'
+    assert 'a direct fact restatement or synonym swap is Easy, not Medium' in calls[0]['instructions']
     assert 'retry_feedback' not in json.loads(calls[1]['input'])
     assert 'retry_feedback' not in json.loads(calls[2]['input'])
 

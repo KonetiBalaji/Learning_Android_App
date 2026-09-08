@@ -649,7 +649,7 @@ def create_quiz(document_id: str, request: QuizRequest, user_id: str = Depends(c
                 # the same user operation, but never repeat a transport timeout.
                 if not isinstance(error.__cause__, ValueError):
                     raise
-                retry_feedback = getattr(error.__cause__, 'safe_reason', None)
+                retry_feedback = getattr(error.__cause__, 'safe_reason', None) or error.safe_stage
                 generated = generate_document_questions(document["extracted_text"], selected, generation_ids,
                     request.question_count, settings, request.difficulty, request.question_type,
                     retry_feedback=retry_feedback)
