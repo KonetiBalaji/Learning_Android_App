@@ -212,8 +212,20 @@ Its private record currently contains 9 PASS, 1 FAIL and 15 PENDING requirement
 rows. The failure is TUT-02: a reviewed fresh Geometry prompt implied degrees but
 rejected the correct bare response `70` because its stored key included a degree
 suffix. Commit `7fab856` adds the narrowly scoped implied-degree variant while
-preserving explicit precision and representation constraints; a new signed-
-candidate physical-device retest is required before closing the issue.
+preserving explicit precision and representation constraints.
+
+Signed candidate `0.3.0-uat.16` (version code 18) at commit `28bc891` closes that
+TUT-02 defect on the physical Xiaomi device. A newly reviewed prompt asked for the
+third angle when the other angles were 35 degrees and 85 degrees; the persisted
+answer bank contained `60°` and bare `60`, and the app accepted typed `60` and
+advanced to rewrite. A separate explicit-precision journey rejected `58.5` when
+two decimal places were required and accepted `67.360 degrees` when three decimal
+places were required. This verifies that commit `7fab856` fixes implied-degree
+answers without relaxing explicit formatting. The exact APK also entered active
+read-aloud, and the product owner confirmed the voice was clear. TUT-06 remains
+partial until the exact-v18 microphone journey and the rest of the verbal flow are
+accepted. The private v18 ledger is pending overall because its remaining rows,
+external readiness calibration and production deployment are still open.
 
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
@@ -222,11 +234,11 @@ candidate physical-device retest is required before closing the issue.
 | CUR-01 | Grade 1–12, subject and chapter selection | Candidate v17 physical-device verified for approved launch scope | The user approved Grade 8 as the initial boundary and an application-authored open-content curriculum. Signed v17 displayed Mathematics, Science, English and Social Studies and visibly identified the CC BY 4.0 `open-oer-foundation-2026-09` catalog without a false board claim. Grades 1–7/9–12 are later scope and educator approval remains open |
 | ASM-01 | Diagnostic and correct-answer progression | QA verified | Transactional response replay, conflicting/stale rejection, owner scope, restart recovery, undisclosed-answer protection and correct/wrong/remediation/all-question transitions are backend tested and API 36 verified; live curriculum/UAT remain |
 | TUT-01 | Age-appropriate tutor explanations and worked examples | Candidate v17 physical-device verified | A wrong Geometry answer on signed v17 produced the checked staged triangle-angle lesson, a distinct worked example and next-step hint. Strict review rejected unsupported live claims and the app safely displayed its bounded fallback. Broader ages, educator calibration and explicit user acceptance remain open |
-| TUT-02 | Fresh practice, hints and repeated coaching | Candidate v17 failed; fix pending retest | Signed v17 generated new aligned Geometry practice and hints, but rejected bare `70` for a prompt whose reviewed key carried `70°` although the prompt already implied degrees. Commit `7fab856` accepts only the harmless bare-number variant for implied-degree angle prompts and retains exact formatting when decimal places or another representation are explicit. New signed-candidate device retest, broader curriculum and educator/user review remain open |
+| TUT-02 | Fresh practice, hints and repeated coaching | Candidate v18 physical-device verified | Signed v18 accepted bare `60` for a reviewed 35°/85° triangle prompt that implied degrees, then advanced to rewrite. A separate explicit-precision journey rejected an under-specified decimal answer and accepted the required three-decimal representation. This closes the v17 defect through commit `7fab856`; broader curriculum and educator/user review remain open |
 | TUT-03 | Interest-personalized examples | Partial | Profile/prompt path plus Android save/clear/restart, post-commit failure recovery and account isolation are API 36 verified; broader live example quality and educator/UAT review remain |
 | TUT-04 | Written explanation assessment | QA verified | Strict four-point rubric, server-owned feedback, persistence/failure tests and two 20/20 live synthetic runs across Math, Science, English and Geography cover false-pass patterns; calibration, educator review and UAT remain |
 | TUT-05 | Interactive examples and visible AI teacher | Candidate v17 physical-device verified | Signed v17 exposed the learner-controlled staged Geometry walkthrough and native triangle explorer. Changing from base 6/height 4 to base 8/height 5 recalculated area 20, identified perpendicular height and stated that exploration cannot submit or change mastery. Catalog-wide specialized explorers remain automated; spoken accessibility, educator and explicit user acceptance remain open |
-| TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversation, read-aloud lifecycle/animation and voice-input recovery are automated. Signed v17 entered the active read-aloud state and exposed Stop reading plus the device-speech-service disclosure. A real microphone transcription was previously verified on v12; exact-v17 human acoustic clarity, microphone journey and final acceptance remain pending |
+| TUT-06 | Verbal questions and spoken animated explanations | Partial | Conversation, read-aloud lifecycle/animation and voice-input recovery are automated. Signed v18 entered active read-aloud, exposed Stop reading and the device-speech-service disclosure, and the product owner confirmed the audible voice was clear. A real microphone transcription was previously verified on v12; exact-v18 microphone journey and final end-to-end verbal acceptance remain pending |
 | MAST-01 | Mastery, time spent, next chapter unlock | QA verified | All stored assessment items must resolve before durable mastery; API 36 verifies remediation/restart/completion, graph-based unlock/relock recovery, bounded foreground presence and honest weekly display; physical-device/accessibility/UAT remain |
 | PROG-01 | Real student subject/chapter progress | Candidate v17 physical-device verified | Static percentages are absent; signed v17 restored Fractions, Decimals, Percentages, Algebra and Geometry at 100% from server-backed progress. Owner isolation, zero state and recovery remain automated; explicit user acceptance remains open |
 | PROG-02 | Weak concepts and personalized learning path | Candidate v17 physical-device verified | Signed v17 returned from the document journey to the Grade 8 dashboard with 100% assessed Mathematics progress and three earned badges. Recurring-error/remediation rules and prerequisite-aware continuation remain automated; educator and explicit user review remain open |
