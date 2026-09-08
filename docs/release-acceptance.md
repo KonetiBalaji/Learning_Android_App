@@ -244,7 +244,13 @@ True/False questions across the entire source in 59.959 seconds, displayed exact
 source references and feedback, and completed at 5/5. The duplicate was subsequently
 deleted through the named irreversible-confirmation dialog while the original stayed
 in the library. This advances DOC-01, DOC-03 and SEC-01 for v18; DOC-02 remains open
-for its full selection-mode matrix on this candidate.
+for its full selection-mode matrix on this candidate. A subsequent signed-v18 PDF
+journey indexed three physical pages, resolved page 1 to exact source characters,
+confirmed that range as the active excerpt, and found an exact all-topic-words
+passage. Adding that overlapping passage was safely rejected internally, but the UI
+showed only a generic error instead of its available recovery instruction. Commit
+`9a4ac03` gives this known local validation a fixed learner-safe message; a new
+signed-candidate physical-device retest is required before closing DOC-02.
 
 | ID | Requirement | Current status | Required acceptance evidence |
 | --- | --- | --- | --- |
@@ -265,7 +271,7 @@ for its full selection-mode matrix on this candidate.
 | PARENT-01 | Parent/teacher dashboard and weekly reports | Partial | Consent-linked separate accounts, read-only reports, bounded indexed seven-day history loading, learner-visible grant/revocation history, and a learner-owned privacy-bounded CSV system-picker export are verified; history is atomic and minimizes deleted guardian identity; real-world identity/child-consent and notification policy, production-scale latency, physical-device and UAT remain open |
 | PARENT-02 | Exam readiness prediction | Partial | The product truthfully labels this as an uncalibrated learning indicator, excludes guided practice and withholds a level until 10 independent diagnostic/rewrite answers span 2 chapters. Signed candidate v12 displayed the same limitation to learner and guardian. A fail-closed holdout evaluator now validates de-identified records and reports Brier score, calibration-in-the-large and expected calibration error, but always requires review. A matched external outcome dataset plus educator/statistical review and UAT approval remain required; see `docs/readiness-calibration-protocol.md` |
 | DOC-01 | Upload/analyze/select/quiz/feedback/results | Candidate v18 physical-device verified | Signed v18 uploaded a fresh owned TXT through the Xiaomi system picker, detected three sections, generated an entire-document quiz, displayed exact source references and grounded feedback, and reached results. File limits/corruption, parser isolation/capacity, PDF ceilings and recovery remain automated; complex layouts and broader device paths remain open |
-| DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Partial | Entire-document, detected chapter/section, highlighted excerpt and physical PDF-page selection are API 36 verified. Exact phrase and bounded all-important-term custom-topic retrieval are API 36 verified with explicit verbatim review, TalkBack-exposed result/action nodes, restart, retry, exact-range generation, owner and chapter isolation. The bounded quota-controlled embedding fallback is live-provider and API 36 verified, including verbatim review, TalkBack nodes, explicit selection and restart persistence. Paragraph-aware segmentation excludes unrelated neighboring prose; an executable live holdout passes eight multi-subject synonym cases and rejects four unrelated controls. Curriculum-scale/multilingual relevance, physical-device breadth and UAT remain open |
+| DOC-02 | Entire document, multiple chapters, section, page range and topic selection | Candidate v18 failed; fix pending retest | Signed v18 verified entire/multiple-section TXT selection plus three-page PDF indexing, exact page-to-source resolution, confirmed physical-page excerpt mode and an all-topic-words verbatim result. The expected overlapping-excerpt rejection surfaced only a generic error; commit `9a4ac03` adds the actionable clear-or-choose-different message. A new signed-candidate retest, highlighted-excerpt breadth and multilingual relevance remain open |
 
 Document quiz results now expose the learner's selected answer, correct answer,
 grounded explanation and source reference for each completed incorrect response;
