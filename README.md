@@ -1,4 +1,4 @@
-# Learning Android App
+# Saras — Learning Android App
 
 An AI-powered interactive study and quiz application that transforms a student's own study material into a grounded, chapter-based learning experience.
 
@@ -8,7 +8,11 @@ The product loop is:
 
 ## Project status
 
-This repository currently contains the product plan and documentation-only project scaffolding. Application and backend implementation will be added incrementally after the foundation is agreed.
+The core Android learning loop and local backend are implemented. Students can upload PDF/DOCX/TXT material, review detected chapters, select sections/pages/topics, practice one question at a time, read immediate feedback and sources, review mistakes, retry incorrect questions, and track chapter progress. Accounts, documents, and quizzes persist across restarts.
+
+The default **local practice mode** needs no API key. It generates exact-passage recall questions and clearly identifies its limitations. The optional OpenAI adapter and AI difficulty controls are implemented and tested with simulated provider responses; live generation awaits the user's API key and model configuration. No live AI request has been made.
+
+The user-supplied **Saras Logos** email establishes the Saras brand name. The supplied Modern and Heritage artwork has not yet been imported because attachment retrieval was interrupted; the launcher currently uses a temporary book symbol.
 
 ## MVP goal
 
@@ -21,29 +25,22 @@ The first release should support:
 5. Presenting one question at a time with immediate teaching feedback.
 6. Showing quiz results and allowing incorrect questions to be reviewed.
 
-## Planned repository structure
+## Repository structure
 
 ```text
-android/                  Kotlin Android client
-├── app/                  Application entry point and navigation
-├── core/                 Shared Android infrastructure
-├── data/                 Repositories and data sources
-├── domain/               Use cases and domain models
-├── feature/              Feature-specific UI and state
-└── ui/                   Design system and shared Compose UI
-
-backend/                  Secure server-side application
-├── api/                  HTTP API and authentication boundary
-├── document-processing/  Upload, extraction, validation, and structure detection
-├── ai/                   Prompting, generation, and response validation
-├── retrieval/            Chunking, indexing, embeddings, and grounded retrieval
-├── progress/             Quiz history and learning analytics
-└── tests/                Backend test suites
-
-shared/contracts/         API schemas and cross-service contracts
+android/app/src/main/     Compose UI, ViewModel, repository, and domain rules
+android/app/src/test/     JVM tests
+android/app/src/androidTest/  Emulator learning-flow test
+android/gradle/           Pinned Gradle wrapper
+backend/study/            API, extraction, retrieval, quiz rules, provider, storage
+backend/tests/            Backend and simulated-provider tests
+shared/contracts/         Generated OpenAPI request and response schemas
+shared/sample-study-material.txt  Sample for a ten-question practice session
 docs/                     Architecture, API, and product documentation
-scripts/                  Developer and maintenance utilities
+scripts/                  Start, build, test, and contract-export utilities
 ```
+
+The original empty scaffold directories remain available for future module extraction; active backend code currently lives in `backend/study/` and active Android code in the application module.
 
 ## Architecture direction
 
@@ -67,9 +64,45 @@ Questions and explanations must be grounded in the selected material and retain 
 - Protect uploaded documents and give users deletion controls.
 - Design interfaces and contracts so future flashcards, tutor chat, adaptive learning, OCR, and additional clients can be added without rewriting the MVP.
 
-## Getting started
+## Run locally on Windows
 
-Read [INSTRUCTIONS.md](INSTRUCTIONS.md) before adding implementation. The current branch contains no runnable Android or backend application yet.
+Requirements: Python 3.11+, JDK 17, and Android SDK 35 (or Android Studio). A local toolchain used for verification is available under ignored `work/toolchain/` on this machine; `scripts/build-android.ps1` detects it automatically.
 
-The full product requirements are in [Initial_plan.md](Initial_plan.md).
+Start the backend from the repository root:
+
+```powershell
+.\scripts\start-backend.ps1
+```
+
+The server listens at `http://127.0.0.1:8000`; interactive API docs are at `/docs`. Android Emulator reaches this server using `http://10.0.2.2:8000`, the app's default server URL. Create an account in the app, then upload `shared/sample-study-material.txt` to try a ten-question session. Usernames require 3+ letters/digits/`_.-`; passwords require 10+ characters. The APK is a client and still needs the backend running.
+
+Open `android/` in Android Studio, or build and verify:
+
+```powershell
+.\scripts\build-android.ps1
+.\scripts\test-backend.ps1
+```
+
+Debug APK: `android/app/build/outputs/apk/debug/app-debug.apk`. For a physical device, use an HTTPS backend, or `adb reverse tcp:8000 tcp:8000` and set the debug app's server URL to `http://127.0.0.1:8000`. Release builds require HTTPS. No provider credential belongs in the APK.
+
+Backend dependencies are specified in `backend/requirements.txt`; the verified environment is pinned in `backend/requirements-lock.txt`. The first start script creates `.venv/`. To reproduce exact versions, install the lock file with `.venv/Scripts/python -m pip install -r backend/requirements-lock.txt`.
+
+## AI setup later
+
+Local mode does not read or require an API key. When ready, configure the ignored `.env.local` with `STUDY_GENERATION_MODE=openai`, an authorized `OPENAI_API_KEY`, and `OPENAI_MODEL` for a model supporting Responses structured outputs. The start script loads `.env.local` if present. The server then enables semantic generation and all difficulty levels. Live provider access, output quality, and model availability still need validation at that stage. `.env.example` documents configuration names without credentials.
+
+## Automated verification
+
+Backend tests cover uploads and extraction failures, nested chapter boundaries, quote validation, answer transitions and retries, persistence, ownership, encryption, retention, account deletion, and simulated provider success/failure/review. Android JVM tests cover answer gating and count validation. The emulator instrumentation test covers a full ten-question session, source viewing, activity recreation, results, mistake review, and retrying incorrect questions. It uses a disposable backend on port **18763**, which must be running separately with `STUDY_DATA_DIR` pointing to test storage:
+
+```powershell
+$env:STUDY_DATA_DIR = "$PWD/work/ui-test-data"
+.venv/Scripts/python -m uvicorn study.api:create_app --factory --app-dir backend --host 127.0.0.1 --port 18763
+# In another PowerShell session with an emulator running:
+.\scripts\build-android.ps1 -ConnectedTests
+```
+
+This is a locally runnable MVP, not a deployed public service. Production deployment requires the operational safeguards listed in [implementation notes](docs/architecture/implementation.md). PDF OCR and semantic embeddings remain future enhancements.
+
+Read [INSTRUCTIONS.md](INSTRUCTIONS.md), [API usage](docs/api/usage.md), and the full [product requirements](Initial_plan.md) for context.
 
