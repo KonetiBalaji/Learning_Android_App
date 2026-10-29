@@ -29,6 +29,8 @@ data class StudyState(
     val progress: JSONObject? = null,
     val source: JSONObject? = null,
     val aiMode: Boolean = false,
+    val flashcards: List<JSONObject> = emptyList(),
+    val dueOnly: Boolean = true,
 )
 
 class StudyViewModel(application: Application) : AndroidViewModel(application) {
@@ -169,6 +171,36 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         mutable.update { it.copy(source = passage) }
     }
     fun hideSource() { mutable.update { it.copy(source = null) } }
+
+    private suspend fun loadCards(dueOnly: Boolean) {
+        val cards = JSONArray(repository.call("/flashcards?due_only=$dueOnly")).objects()
+        mutable.update { it.copy(flashcards = cards, dueOnly = dueOnly, screen = "flashcards") }
+    }
+
+    fun showFlashcards(dueOnly: Boolean = true) = run { loadCards(dueOnly) }
+
+    fun makeFlashcards(mistakesOnly: Boolean = false) = run {
+        val quiz = state.value.quiz ?: return@run
+        repository.call("/quizzes/${quiz.getString("id")}/flashcards", "POST", JSONObject().put("mistakes_only", mistakesOnly))
+        loadCards(true)
+    }
+
+    fun rateFlashcard(card: JSONObject, quality: Int) {
+        val requestId = java.util.UUID.randomUUID().toString()
+        val version = card.getJSONObject("review").getInt("version")
+        run {
+            repository.call("/flashcards/${card.getString("id")}/reviews", "POST",
+                JSONObject().put("quality", quality).put("expected_version", version).put("request_id", requestId))
+            loadCards(state.value.dueOnly)
+        }
+    }
+
+    fun showCardSource(card: JSONObject) = run {
+        val documentId = card.getString("document_id")
+        val document = JSONObject(repository.call("/documents/$documentId"))
+        val source = JSONObject(repository.call("/documents/$documentId/passages/${card.getString("source_id")}"))
+        mutable.update { it.copy(document = document, source = source) }
+    }
 
     fun signOut() = run {
         try { repository.call("/auth/session", "DELETE") }

@@ -78,6 +78,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     listOf("home" to "Library", "progress" to "Progress", "settings" to "Settings").forEach { (screen, label) ->
                         TextButton(enabled = !state.busy, onClick = { model.navigate(screen) }) { Text(label, fontWeight = if (state.screen == screen) FontWeight.Bold else FontWeight.Normal) }
                     }
+                    TextButton(enabled = !state.busy, onClick = { model.showFlashcards() }) { Text("Review") }
                 }
             }
         }
@@ -149,6 +150,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     TextButton(onClick = { model.navigate("results") }) { Text("Back to results") }
                 }
                 "progress" -> Progress(state, model)
+                "flashcards" -> Flashcards(state, model)
                 "settings" -> {
                     Title("Your study space", "Privacy and account settings")
                     PracticeNotice(state.aiMode)
@@ -315,6 +317,36 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
         OutlinedButton(onClick = model::retryMistakes, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Retry incorrect questions") }
     }
     OutlinedButton(onClick = { model.navigate("configure") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Choose material & practice again") }
+    Button(onClick = { model.makeFlashcards() }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Create flashcards for spaced review") }
+    if (result.getInt("incorrect") > 0) TextButton(onClick = { model.makeFlashcards(true) }, enabled = !state.busy) { Text("Make cards from mistakes only") }
+}
+
+@Composable private fun Flashcards(state: StudyState, model: StudyViewModel) {
+    Title("Make it stick", if (state.dueOnly) "Cards ready for spaced review" else "All your source-backed flashcards")
+    if (state.flashcards.isEmpty()) {
+        Info("Nothing due right now", "Create flashcards from a completed quiz. Your ratings determine when each card returns.")
+        if (state.dueOnly) OutlinedButton(onClick = { model.showFlashcards(false) }, enabled = !state.busy) { Text("Browse all cards") }
+        return
+    }
+    var position by rememberSaveable { mutableIntStateOf(0) }
+    val card = state.flashcards[position.coerceIn(0, state.flashcards.lastIndex)]
+    val review = card.getJSONObject("review")
+    var revealed by rememberSaveable(card.getString("id"), review.getInt("version")) { mutableStateOf(false) }
+    Text("${state.flashcards.size} cards ${if (state.dueOnly) "ready" else "saved"}", style = MaterialTheme.typography.labelLarge)
+    Text(card.getString("front"), style = MaterialTheme.typography.titleLarge)
+    if (!revealed) Button(onClick = { revealed = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Reveal answer") }
+    else {
+        Info(card.getString("back"), card.getString("explanation"))
+        TextButton(onClick = { model.showCardSource(card) }, enabled = !state.busy) { Text("Read source passage") }
+        Text("How well did you recall it?", style = MaterialTheme.typography.titleMedium)
+        listOf(0 to "Again — I forgot", 3 to "Hard — serious effort", 4 to "Good — after a pause", 5 to "Easy — immediate recall").forEach { (quality, label) ->
+            OutlinedButton(onClick = { model.rateFlashcard(card, quality) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(label) }
+        }
+        Text("Hard and Again stay in today’s learning queue. Good and Easy schedule the next review.", style = MaterialTheme.typography.bodySmall)
+    }
+    if (state.flashcards.size > 1) TextButton(onClick = { position = (position + 1) % state.flashcards.size }, enabled = !state.busy) { Text("Skip to another card") }
+    TextButton(onClick = { model.showFlashcards(!state.dueOnly) }, enabled = !state.busy) { Text(if (state.dueOnly) "Browse all cards" else "Show due cards") }
+    if (state.results != null) TextButton(onClick = { model.navigate("results") }, enabled = !state.busy) { Text("Back to results") }
 }
 
 @Composable private fun Progress(state: StudyState, model: StudyViewModel) {

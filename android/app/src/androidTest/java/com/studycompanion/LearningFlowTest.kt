@@ -110,6 +110,14 @@ class LearningFlowTest {
         }
         rule.onNodeWithText("90%").assertExists()
         screenshot("06-results")
+        rule.onNodeWithText("Create flashcards for spaced review").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "flashcards" && !model.state.value.busy }
+        assertEquals(10, model.state.value.flashcards.size)
+        rule.onNodeWithText("Reveal answer").performScrollTo().performClick()
+        screenshot("08-spaced-review")
+        rule.onNodeWithText("Good — after a pause").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.flashcards.size == 9 && !model.state.value.busy }
+        rule.onNodeWithText("Back to results").performScrollTo().performClick()
         rule.onNodeWithText("Review mistakes").performScrollTo().performClick()
         rule.onNodeWithText("Learn from the tricky ones").assertExists()
         screenshot("07-mistake-review")
