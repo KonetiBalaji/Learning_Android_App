@@ -39,3 +39,9 @@ secrets/
 .DS_Store
 Thumbs.db
 
+# Local runtime and build verification
+work/
+.study-data/
+backend/.study-data/
+*.sqlite3*
+

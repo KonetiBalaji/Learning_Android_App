@@ -1,0 +1,1391 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Study Companion",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/{action}": {
+      "post": {
+        "summary": "Authenticate",
+        "operationId": "authenticate_auth__action__post",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "register",
+                "login"
+              ],
+              "type": "string",
+              "title": "Action"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/session": {
+      "delete": {
+        "summary": "Logout",
+        "operationId": "logout_auth_session_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/account": {
+      "delete": {
+        "summary": "Delete Account",
+        "operationId": "delete_account_account_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/documents": {
+      "get": {
+        "summary": "Documents",
+        "operationId": "documents_documents_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentMetadata"
+                  },
+                  "type": "array",
+                  "title": "Response Documents Documents Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Upload",
+        "operationId": "upload_documents_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_documents_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMetadata"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/documents/{identifier}": {
+      "get": {
+        "summary": "Document",
+        "operationId": "document_documents__identifier__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMetadata"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Document",
+        "operationId": "delete_document_documents__identifier__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{identifier}/passages/{passage_id}": {
+      "get": {
+        "summary": "Passage",
+        "operationId": "passage_documents__identifier__passages__passage_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "passage_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Passage Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Passage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{identifier}/quizzes": {
+      "post": {
+        "summary": "Create Quiz",
+        "operationId": "create_quiz_documents__identifier__quizzes_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quizzes/{identifier}": {
+      "get": {
+        "summary": "Get Quiz",
+        "operationId": "get_quiz_quizzes__identifier__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quizzes/{identifier}/answers": {
+      "post": {
+        "summary": "Answer",
+        "operationId": "answer_quizzes__identifier__answers_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Answer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quizzes/{identifier}/next": {
+      "post": {
+        "summary": "Next Question",
+        "operationId": "next_question_quizzes__identifier__next_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Advance"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quizzes/{identifier}/results": {
+      "get": {
+        "summary": "Quiz Results",
+        "operationId": "quiz_results_quizzes__identifier__results_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Results"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quizzes/{identifier}/retry": {
+      "post": {
+        "summary": "Retry",
+        "operationId": "retry_quizzes__identifier__retry_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/progress": {
+      "get": {
+        "summary": "Progress",
+        "operationId": "progress_progress_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Progress"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Advance": {
+        "properties": {
+          "expected_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected_index"
+        ],
+        "title": "Advance"
+      },
+      "Answer": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "choice": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Choice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id",
+          "choice"
+        ],
+        "title": "Answer"
+      },
+      "Body_upload_documents_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_documents_post"
+      },
+      "ConceptResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "correct",
+          "total"
+        ],
+        "title": "ConceptResult"
+      },
+      "Credentials": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 3,
+            "pattern": "^[a-zA-Z0-9_.-]+$",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 10,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Credentials"
+      },
+      "DocumentMetadata": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "created": {
+            "type": "number",
+            "title": "Created"
+          },
+          "page_count": {
+            "type": "integer",
+            "title": "Page Count"
+          },
+          "has_real_pages": {
+            "type": "boolean",
+            "title": "Has Real Pages"
+          },
+          "structure_confidence": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "uncertain"
+            ],
+            "title": "Structure Confidence"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/Section"
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "filename",
+          "created",
+          "page_count",
+          "has_real_pages",
+          "structure_confidence",
+          "sections"
+        ],
+        "title": "DocumentMetadata"
+      },
+      "DocumentProgress": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SectionProgress"
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "sections"
+        ],
+        "title": "DocumentProgress"
+      },
+      "Feedback": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "selected": {
+            "type": "integer",
+            "title": "Selected"
+          },
+          "correct": {
+            "type": "boolean",
+            "title": "Correct"
+          },
+          "answer": {
+            "type": "integer",
+            "title": "Answer"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id",
+          "selected",
+          "correct",
+          "answer",
+          "explanation",
+          "quote"
+        ],
+        "title": "Feedback"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "History": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "incorrect": {
+            "type": "integer",
+            "title": "Incorrect"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "accuracy": {
+            "type": "integer",
+            "title": "Accuracy"
+          },
+          "concepts": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptResult"
+            },
+            "type": "array",
+            "title": "Concepts"
+          },
+          "mistakes": {
+            "items": {
+              "$ref": "#/components/schemas/Mistake"
+            },
+            "type": "array",
+            "title": "Mistakes"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "created": {
+            "type": "number",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "correct",
+          "incorrect",
+          "total",
+          "accuracy",
+          "concepts",
+          "mistakes",
+          "document_id",
+          "created"
+        ],
+        "title": "History"
+      },
+      "Mistake": {
+        "properties": {
+          "question": {
+            "$ref": "#/components/schemas/PublicQuestion"
+          },
+          "feedback": {
+            "$ref": "#/components/schemas/Feedback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "feedback"
+        ],
+        "title": "Mistake"
+      },
+      "Passage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "section_id": {
+            "type": "string",
+            "title": "Section Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "page",
+          "section_id",
+          "text"
+        ],
+        "title": "Passage"
+      },
+      "Progress": {
+        "properties": {
+          "quizzes_completed": {
+            "type": "integer",
+            "title": "Quizzes Completed"
+          },
+          "questions_answered": {
+            "type": "integer",
+            "title": "Questions Answered"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentProgress"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/History"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "in_progress": {
+            "items": {
+              "$ref": "#/components/schemas/QuizSnapshot"
+            },
+            "type": "array",
+            "title": "In Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quizzes_completed",
+          "questions_answered",
+          "accuracy",
+          "documents",
+          "history",
+          "in_progress"
+        ],
+        "title": "Progress"
+      },
+      "PublicQuestion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Choices"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "multiple_choice",
+              "true_false",
+              "yes_no"
+            ],
+            "title": "Type"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "concept": {
+            "type": "string",
+            "title": "Concept"
+          },
+          "section_id": {
+            "type": "string",
+            "title": "Section Id"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "prompt",
+          "choices",
+          "type",
+          "source_id",
+          "concept",
+          "section_id",
+          "difficulty",
+          "page"
+        ],
+        "title": "PublicQuestion"
+      },
+      "QuizRequest": {
+        "properties": {
+          "selection": {
+            "$ref": "#/components/schemas/Selection"
+          },
+          "count": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "default": 10
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "easy",
+              "medium",
+              "hard",
+              "mixed"
+            ],
+            "title": "Difficulty",
+            "default": "easy"
+          },
+          "question_type": {
+            "type": "string",
+            "enum": [
+              "multiple_choice",
+              "true_false",
+              "yes_no"
+            ],
+            "title": "Question Type",
+            "default": "multiple_choice"
+          }
+        },
+        "type": "object",
+        "title": "QuizRequest"
+      },
+      "QuizSnapshot": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "local_practice",
+              "openai"
+            ],
+            "title": "Mode"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicQuestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Feedback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "document_id",
+          "index",
+          "count",
+          "mode",
+          "complete",
+          "question",
+          "feedback"
+        ],
+        "title": "QuizSnapshot"
+      },
+      "Results": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "incorrect": {
+            "type": "integer",
+            "title": "Incorrect"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "accuracy": {
+            "type": "integer",
+            "title": "Accuracy"
+          },
+          "concepts": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptResult"
+            },
+            "type": "array",
+            "title": "Concepts"
+          },
+          "mistakes": {
+            "items": {
+              "$ref": "#/components/schemas/Mistake"
+            },
+            "type": "array",
+            "title": "Mistakes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "correct",
+          "incorrect",
+          "total",
+          "accuracy",
+          "concepts",
+          "mistakes"
+        ],
+        "title": "Results"
+      },
+      "Section": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "Section"
+      },
+      "SectionProgress": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "questions_answered": {
+            "type": "integer",
+            "title": "Questions Answered"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "questions_answered",
+          "accuracy"
+        ],
+        "title": "SectionProgress"
+      },
+      "Selection": {
+        "properties": {
+          "section_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Section Ids"
+          },
+          "page_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Start"
+          },
+          "page_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page End"
+          },
+          "topic": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Topic",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Selection"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
