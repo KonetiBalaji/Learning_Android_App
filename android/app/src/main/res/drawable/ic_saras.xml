@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Temporary book symbol. The supplied brand artwork has not yet been imported. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#246B5C" android:pathData="M0,0h108v108h-108z" />
+    <path android:fillColor="#FFFEFA" android:pathData="M26,30c11,-3 20,-1 28,5c8,-6 17,-8 28,-5v46c-11,-3 -20,-1 -28,5c-8,-6 -17,-8 -28,-5z" />
+    <path android:strokeColor="#246B5C" android:strokeWidth="3" android:pathData="M54,36v43M33,42h13M33,50h13M33,58h13M62,42h13M62,50h13M62,58h13" />
+</vector>
