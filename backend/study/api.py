@@ -16,6 +16,7 @@ from .quizzes import GenerationError, generate_local, public_question
 from .storage import Store
 from .provider import configured_provider
 from .models import DocumentMetadata, Passage, Progress, QuizSnapshot, Results
+from .flashcards import from_question, public_card, review as rate_flashcard
 
 
 class Credentials(BaseModel):
@@ -44,6 +45,16 @@ class Answer(BaseModel):
 
 class Advance(BaseModel):
     expected_index: int = Field(ge=0)
+
+
+class CardCreation(BaseModel):
+    mistakes_only: bool = False
+
+
+class CardRating(BaseModel):
+    quality: int = Field(ge=0, le=5, strict=True)
+    expected_version: int = Field(ge=0)
+    request_id: str = Field(min_length=8, max_length=100)
 
 
 def create_app(data_dir: Path | None = None):
@@ -315,5 +326,43 @@ def create_app(data_dir: Path | None = None):
                     "documents": document_progress,
                     "history": [{"document_id": q["document_id"], "created": q["created"], **results(q)} for q in completed],
                     "in_progress": [snapshot(q) for q in quizzes if q["index"] < len(q["questions"])]}
+
+    @app.post("/quizzes/{identifier}/flashcards", status_code=201)
+    def create_flashcards(identifier: str, body: CardCreation, user=Depends(owner)):
+        with store.lock:
+            quiz = record(identifier, user, "quiz")
+            results(quiz)
+            cards = []
+            for question, response in zip(quiz["questions"], quiz["answers"]):
+                if body.mistakes_only and response["correct"]:
+                    continue
+                card = from_question(quiz["document_id"], question)
+                existing = store.get(card["id"], user, "flashcard")
+                if existing is None:
+                    store.save(card["id"], user, "flashcard", quiz["document_id"], card["created"], card)
+                cards.append(public_card(existing or card))
+            return cards
+
+    @app.get("/flashcards")
+    def flashcards(document_id: str | None = None, due_only: bool = True, user=Depends(owner)):
+        with store.lock:
+            if document_id is not None:
+                record(document_id, user, "document")
+            cards = store.all(user, "flashcard")
+            now = time.time()
+            return [public_card(card) for card in sorted(cards, key=lambda card: (card["review"]["due_at"], card["id"]))
+                    if (document_id is None or card["document_id"] == document_id)
+                    and (not due_only or card["repeat_today"] or card["review"]["due_at"] <= now)]
+
+    @app.post("/flashcards/{identifier}/reviews")
+    def rate_card(identifier: str, body: CardRating, user=Depends(owner)):
+        with store.lock:
+            card = record(identifier, user, "flashcard")
+            try:
+                updated = rate_flashcard(card, body.quality, body.expected_version, body.request_id, time.time())
+            except ValueError as error:
+                raise HTTPException(409, str(error))
+            store.save(identifier, user, "flashcard", card["document_id"], card["created"], updated)
+            return public_card(updated)
 
     return app
