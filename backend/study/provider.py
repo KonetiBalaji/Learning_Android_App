@@ -9,6 +9,10 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from .quizzes import GenerationError, validate
 
 
+class ProviderUnavailable(GenerationError):
+    """Availability failure; distinct from unsafe or invalid generated content."""
+
+
 class GeneratedQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     prompt: str
@@ -62,9 +66,11 @@ class OpenAIProvider:
                     "max_output_tokens": 16000,
                 })
                 if response.status_code == 401:
-                    raise GenerationError("The server's AI credential was rejected. Contact the server administrator.")
+                    raise ProviderUnavailable("The server's AI credential was rejected. Contact the server administrator.")
                 if response.status_code == 429:
-                    raise GenerationError("The AI provider is busy or its quota is exhausted. Retry later.")
+                    raise ProviderUnavailable("The AI provider is busy or its quota is exhausted. Retry later.")
+                if response.status_code in (403, 404) or response.status_code >= 500:
+                    raise ProviderUnavailable("The configured AI service is unavailable. Contact the server administrator or retry later.")
                 response.raise_for_status()
                 body = response.json()
                 if body.get("status") != "completed":
@@ -76,6 +82,8 @@ class OpenAIProvider:
                 return output_type.model_validate_json(text)
         except GenerationError:
             raise
+        except httpx.RequestError as error:
+            raise ProviderUnavailable("The AI service could not be reached. Please retry later.") from error
         except (httpx.HTTPError, ValidationError, ValueError, KeyError, TypeError) as error:
             # Never return provider response bodies, headers, or secrets to clients/logs.
             raise GenerationError("AI generation failed or returned invalid output. Please retry.") from error

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from .documents import MAX_BYTES, MAX_TEXT, DocumentError, extract, retrieve, structure
 from .quizzes import GenerationError, generate_local, public_question
 from .storage import Store
-from .provider import configured_provider
+from .provider import ProviderUnavailable, configured_provider
 from .models import DocumentMetadata, Passage, Progress, QuizSnapshot, Results
 from .flashcards import from_question, public_card, review as rate_flashcard
 from .processing import analyze_upload, update_review_state
@@ -388,7 +388,7 @@ def create_app(data_dir: Path | None = None):
         if not done and len(quiz["answers"]) > index:
             feedback = quiz["answers"][index]
         return {"id": quiz["id"], "document_id": quiz["document_id"], "index": index, "count": len(quiz["questions"]),
-                "mode": quiz.get("mode", "local_practice"), "complete": done, "question": None if done else public_question(quiz["questions"][index]), "feedback": feedback}
+                "mode": quiz.get("mode", "local_practice"), "notice": quiz.get("notice"), "complete": done, "question": None if done else public_question(quiz["questions"][index]), "feedback": feedback}
 
     @app.post("/documents/{identifier}/quizzes", status_code=201, response_model=QuizSnapshot)
     def create_quiz(identifier: str, body: QuizRequest, user=Depends(owner)):
@@ -406,15 +406,21 @@ def create_app(data_dir: Path | None = None):
                 passages = [passage for passage in passages if passage["id"] in supported]
                 if not passages:
                     raise DocumentError("No supported passages match that topic. Broaden the topic or selected material.")
-            generator = provider.generate if provider else generate_local
-            questions = generator(passages, body.count, body.question_type, body.difficulty)
+            actual_mode, notice = mode, None
+            try:
+                generator = provider.generate if provider else generate_local
+                questions = generator(passages, body.count, body.question_type, body.difficulty)
+            except ProviderUnavailable:
+                questions = generate_local(passages, body.count, body.question_type, "easy")
+                actual_mode = "local_practice"
+                notice = "AI is unavailable. This quiz uses local passage recall at Easy difficulty, rather than the requested AI difficulty."
         except (DocumentError, GenerationError) as error:
             raise HTTPException(422, str(error))
         with store.lock:
             current = record(identifier, user, "document")  # Do not resurrect data deleted during generation.
             if current.get("source_revision", 0) != doc.get("source_revision", 0):
                 raise HTTPException(409, "The source changed during generation. Start the quiz again using the confirmed text.")
-            quiz = {"id": str(uuid.uuid4()), "document_id": identifier, "mode": mode, "questions": questions, "index": 0, "answers": [], "created": time.time()}
+            quiz = {"id": str(uuid.uuid4()), "document_id": identifier, "mode": actual_mode, "notice": notice, "questions": questions, "index": 0, "answers": [], "created": time.time()}
             store.save(quiz["id"], user, "quiz", identifier, quiz["created"], quiz)
             current["source_locked"] = True
             store.save(identifier, user, "document", identifier, current["created"], current)
@@ -471,7 +477,7 @@ def create_app(data_dir: Path | None = None):
             if not response["correct"]:
                 mistakes.append({"question": public_question(question), "feedback": response})
         return {"id": quiz["id"], "correct": correct, "incorrect": len(quiz["answers"]) - correct,
-                "total": len(quiz["answers"]), "accuracy": round(100 * correct / len(quiz["answers"])),
+                "notice": quiz.get("notice"), "total": len(quiz["answers"]), "accuracy": round(100 * correct / len(quiz["answers"])),
                 "concepts": [{"id": k, "correct": v[0], "total": v[1]} for k, v in concepts.items()], "mistakes": mistakes}
 
     @app.get("/quizzes/{identifier}/results", response_model=Results)
@@ -487,7 +493,7 @@ def create_app(data_dir: Path | None = None):
             questions = [q for q, a in zip(previous["questions"], previous["answers"]) if not a["correct"]]
             if not questions:
                 raise HTTPException(422, "No incorrect questions to retry.")
-            quiz = {"id": str(uuid.uuid4()), "document_id": previous["document_id"], "mode": previous.get("mode", "local_practice"), "questions": questions, "index": 0, "answers": [], "created": time.time()}
+            quiz = {"id": str(uuid.uuid4()), "document_id": previous["document_id"], "mode": previous.get("mode", "local_practice"), "notice": previous.get("notice"), "questions": questions, "index": 0, "answers": [], "created": time.time()}
             store.save(quiz["id"], user, "quiz", quiz["document_id"], quiz["created"], quiz)
             return snapshot(quiz)
 

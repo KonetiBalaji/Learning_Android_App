@@ -51,6 +51,7 @@ class QuizSnapshot(BaseModel):
     index: int
     count: int
     mode: Literal["local_practice", "openai"]
+    notice: str | None = None
     complete: bool
     question: PublicQuestion | None
     feedback: Feedback | None
@@ -69,6 +70,7 @@ class Mistake(BaseModel):
 
 class Results(BaseModel):
     id: str
+    notice: str | None = None
     correct: int
     incorrect: int
     total: int

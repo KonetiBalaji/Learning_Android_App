@@ -1424,6 +1424,17 @@
             "type": "string",
             "title": "Id"
           },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          },
           "correct": {
             "type": "integer",
             "title": "Correct"
@@ -1727,6 +1738,17 @@
             ],
             "title": "Mode"
           },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          },
           "complete": {
             "type": "boolean",
             "title": "Complete"
@@ -1770,6 +1792,17 @@
           "id": {
             "type": "string",
             "title": "Id"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
           },
           "correct": {
             "type": "integer",
