@@ -161,7 +161,7 @@ def create_app(data_dir: Path | None = None):
         token = secrets.token_urlsafe(32)
         store.db.execute("INSERT INTO sessions VALUES (?,?,?)", (hashlib.sha256(token.encode()).hexdigest(), user, time.time() + 30 * 86400))
         store.db.commit()
-        return {"token": token, "expires_in": 30 * 86400}
+        return {"token": token, "owner_id": user, "expires_in": 30 * 86400}
 
     @app.get("/health")
     def health():
@@ -209,6 +209,10 @@ def create_app(data_dir: Path | None = None):
             store.db.execute("DELETE FROM users WHERE id=?", (user,))
             store.db.commit()
 
+    @app.get("/account")
+    def account_identity(user=Depends(owner)):
+        return {"owner_id": user}
+
     def metadata(doc):
         return {k: v for k, v in doc.items() if k != "passages" and not k.startswith("_")}
 
@@ -235,6 +239,16 @@ def create_app(data_dir: Path | None = None):
     def document(identifier: str, user=Depends(owner)):
         with store.lock:
             return metadata(record(identifier, user, "document"))
+
+    @app.get("/documents/{identifier}/offline-bundle")
+    def offline_bundle(identifier: str, user=Depends(owner)):
+        with store.lock:
+            doc = record(identifier, user, "document")
+            if doc.get("processing_state", "ready") != "ready":
+                raise HTTPException(409, "Confirm uncertain scanned text before saving offline material.")
+            return {"schema_version": 1, "owner_id": user, "document": metadata(doc),
+                    "source_fingerprint": fingerprint(doc["passages"]), "passages": doc["passages"],
+                    "cached_at": time.time(), "expires_at": doc["created"] + 30 * 86400}
 
     @app.get("/documents/{identifier}/next-practice")
     def next_practice(identifier: str, user=Depends(owner)):
