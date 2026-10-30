@@ -8,6 +8,7 @@ import com.studycompanion.data.ApiException
 import com.studycompanion.data.SessionStore
 import com.studycompanion.data.StudyRepository
 import com.studycompanion.data.objects
+import com.studycompanion.data.strings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,9 +29,17 @@ data class StudyState(
     val results: JSONObject? = null,
     val progress: JSONObject? = null,
     val source: JSONObject? = null,
+    val sourceDocument: JSONObject? = null,
     val aiMode: Boolean = false,
     val flashcards: List<JSONObject> = emptyList(),
     val dueOnly: Boolean = true,
+    val ocrPages: List<JSONObject> = emptyList(),
+    val ocrPage: JSONObject? = null,
+    val studyConfig: JSONObject = JSONObject(),
+    val searchSelection: JSONObject = JSONObject(),
+    val searchQuery: String = "",
+    val searchHits: List<JSONObject>? = null,
+    val recommendation: JSONObject? = null,
 )
 
 class StudyViewModel(application: Application) : AndroidViewModel(application) {
@@ -97,13 +106,76 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() = run { loadHome() }
 
-    fun openDocument(doc: JSONObject) { mutable.update { it.copy(document = doc, screen = "configure", error = null) } }
+    private fun setDocumentContext(document: JSONObject) {
+        mutable.update { current ->
+            if (current.document?.optString("id") == document.getString("id")) current.copy(document = document)
+            else current.copy(document = document, studyConfig = JSONObject(), searchSelection = JSONObject(), searchHits = null, recommendation = null)
+        }
+    }
+
+    fun openDocument(doc: JSONObject) { mutable.update {
+        val sameDocument = it.document?.optString("id") == doc.getString("id")
+        it.copy(document = doc, screen = "configure", error = null, studyConfig = JSONObject(), searchSelection = JSONObject(), searchHits = null,
+            quiz = if (sameDocument) it.quiz else null, results = if (sameDocument) it.results else null, recommendation = null)
+    } }
+
+    private fun configuration(ids: Set<String>, count: Int, kind: String, difficulty: String, first: String, last: String, topic: String) =
+        JSONObject().put("section_ids", JSONArray(ids.toList())).put("count", count.toString()).put("kind", kind).put("difficulty", difficulty)
+            .put("first", first).put("last", last).put("topic", topic)
+
+    fun openSearch(ids: Set<String>, count: Int, kind: String, difficulty: String, first: String, last: String, topic: String) {
+        val selection = JSONObject().put("section_ids", JSONArray(ids.toList()))
+        if (first.isNotBlank() || last.isNotBlank()) {
+            val start = first.toIntOrNull()
+            val end = last.toIntOrNull()
+            if (start == null || end == null) {
+                mutable.update { it.copy(error = "Enter a valid first and last page before searching.") }
+                return
+            }
+            selection.put("page_start", start).put("page_end", end)
+        }
+        mutable.update { it.copy(screen = "search", searchSelection = selection, searchQuery = topic, searchHits = null,
+            studyConfig = configuration(ids, count, kind, difficulty, first, last, topic)) }
+    }
+
+    fun search(query: String) = run {
+        val doc = state.value.document ?: return@run
+        val response = JSONObject(repository.call("/documents/${doc.getString("id")}/search", "POST",
+            JSONObject().put("query", query.trim()).put("selection", state.value.searchSelection)))
+        mutable.update { it.copy(searchQuery = query.trim(), searchHits = response.getJSONArray("hits").objects()) }
+    }
+
+    fun practiceSearchTopic() {
+        val config = JSONObject(state.value.studyConfig.toString()).put("topic", state.value.searchQuery)
+        mutable.update { it.copy(studyConfig = config, screen = "configure") }
+    }
+
+    private suspend fun loadOcrPage(pageNumber: Int? = null) {
+        val document = state.value.document ?: return
+        val id = document.getString("id")
+        val pages = JSONArray(repository.call("/documents/$id/ocr-pages")).objects()
+        val page = pages.find { it.getInt("page") == pageNumber } ?: pages.find { !it.getBoolean("reviewed") } ?: pages.firstOrNull()
+        val detail = page?.let { JSONObject(repository.call("/documents/$id/ocr-pages/${it.getInt("page")}")) }
+        mutable.update { it.copy(ocrPages = pages, ocrPage = detail, screen = "ocr", source = null) }
+    }
+
+    fun openOcrReview(pageNumber: Int? = null) = run { loadOcrPage(pageNumber) }
+
+    fun confirmOcr(text: String) = run {
+        val document = state.value.document ?: return@run
+        val page = state.value.ocrPage ?: return@run
+        val updated = JSONObject(repository.call("/documents/${document.getString("id")}/ocr-pages/${page.getInt("page")}/review", "POST", JSONObject().put("text", text)))
+        mutable.update { it.copy(document = updated) }
+        loadHome()
+        if (updated.getString("processing_state") == "ready") mutable.update { it.copy(screen = "configure", ocrPage = null) }
+        else loadOcrPage()
+    }
 
     fun upload(uri: Uri) = run {
         mutable.update { it.copy(uploadProgress = 0) }
         val document = repository.upload(uri) { amount -> mutable.update { it.copy(uploadProgress = amount) } }
         loadHome()
-        mutable.update { it.copy(document = document, screen = "configure") }
+        mutable.update { it.copy(document = document, screen = "configure", studyConfig = JSONObject(), searchSelection = JSONObject(), searchHits = null, quiz = null, results = null, recommendation = null) }
     }
 
     fun deleteDocument(id: String) = run {
@@ -115,6 +187,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startQuiz(sectionIds: Set<String>, count: Int, kind: String, difficulty: String, first: String, last: String, topic: String) = run {
         val doc = state.value.document ?: return@run
+        mutable.update { it.copy(studyConfig = configuration(sectionIds, count, kind, difficulty, first, last, topic)) }
         val selection = JSONObject().put("section_ids", JSONArray(sectionIds.toList())).put("topic", topic.trim())
         if (first.isNotBlank() || last.isNotBlank()) {
             require(first.toIntOrNull() != null && last.toIntOrNull() != null) { "Enter a valid first and last page." }
@@ -127,6 +200,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun acceptQuiz(quiz: JSONObject) {
         session.activeQuiz = quiz.getString("id")
         mutable.update { it.copy(quiz = quiz, screen = "quiz", results = null, source = null) }
+        mutable.update { current -> current.copy(document = current.document?.let { JSONObject(it.toString()).put("source_locked", true) }) }
         if (quiz.getBoolean("complete")) {
             val results = JSONObject(repository.call("/quizzes/${quiz.getString("id")}/results"))
             mutable.update { it.copy(results = results, screen = "results") }
@@ -138,7 +212,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     fun resume(id: String) = run {
         val quiz = JSONObject(repository.call("/quizzes/$id"))
         val doc = JSONObject(repository.call("/documents/${quiz.getString("document_id")}"))
-        mutable.update { it.copy(document = doc) }
+        setDocumentContext(doc)
         acceptQuiz(quiz)
     }
 
@@ -158,19 +232,39 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         acceptQuiz(JSONObject(repository.call("/quizzes/${quiz.getString("id")}/retry", "POST")))
     }
 
+    fun recommendPractice() = run {
+        val id = state.value.document?.getString("id") ?: return@run
+        val advice = JSONObject(repository.call("/documents/$id/next-practice"))
+        mutable.update { it.copy(recommendation = advice, screen = "adaptive") }
+    }
+
+    fun startRecommendedPractice() {
+        val advice = state.value.recommendation ?: return
+        startQuiz(advice.getJSONArray("section_ids").strings().toSet(), advice.getInt("count"), advice.getString("question_type"), advice.getString("difficulty"), "", "", "")
+    }
+
     fun showResults(id: String) = run {
         val quiz = JSONObject(repository.call("/quizzes/$id"))
         val doc = JSONObject(repository.call("/documents/${quiz.getString("document_id")}"))
-        mutable.update { it.copy(document = doc) }
+        setDocumentContext(doc)
         acceptQuiz(quiz)
     }
 
     fun showSource(sourceId: String) = run {
         val documentId = state.value.document?.getString("id") ?: return@run
         val passage = JSONObject(repository.call("/documents/$documentId/passages/$sourceId"))
-        mutable.update { it.copy(source = passage) }
+        mutable.update { it.copy(source = passage, sourceDocument = it.document) }
     }
-    fun hideSource() { mutable.update { it.copy(source = null) } }
+    fun hideSource() { mutable.update { it.copy(source = null, sourceDocument = null) } }
+
+    fun openOriginalScan() = run {
+        val source = state.value.source ?: return@run
+        val document = state.value.sourceDocument ?: state.value.document ?: return@run
+        val same = document.getString("id") == state.value.document?.optString("id")
+        mutable.update { it.copy(document = document, quiz = if (same) it.quiz else null, results = if (same) it.results else null,
+            studyConfig = if (same) it.studyConfig else JSONObject(), searchSelection = if (same) it.searchSelection else JSONObject(), searchHits = if (same) it.searchHits else null) }
+        loadOcrPage(source.getInt("page"))
+    }
 
     private suspend fun loadCards(dueOnly: Boolean) {
         val cards = JSONArray(repository.call("/flashcards?due_only=$dueOnly")).objects()
@@ -199,7 +293,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         val documentId = card.getString("document_id")
         val document = JSONObject(repository.call("/documents/$documentId"))
         val source = JSONObject(repository.call("/documents/$documentId/passages/${card.getString("source_id")}"))
-        mutable.update { it.copy(document = document, source = source) }
+        mutable.update { it.copy(sourceDocument = document, source = source) }
     }
 
     fun signOut() = run {

@@ -7,6 +7,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +21,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -131,7 +138,17 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     }
                     TextButton(onClick = model::refresh, enabled = !state.busy) { Text("Refresh library") }
                 }
-                "configure" -> state.document?.let { doc -> Configure(doc, state.busy, state.aiMode, model) { confirmation = "document" } }
+                "configure" -> state.document?.let { doc -> Configure(doc, state.busy, state.aiMode, state.studyConfig, model) { confirmation = "document" } }
+                "ocr" -> OcrReview(state, model)
+                "search" -> SemanticSearch(state, model)
+                "adaptive" -> state.recommendation?.let { advice ->
+                    Title("Your next learning step", advice.getString("section_title"))
+                    Info("Practice focus", advice.getString("reason"))
+                    Text("${advice.getInt("count")} questions · ${advice.getString("difficulty").replaceFirstChar { it.uppercase() }}")
+                    if (!advice.isNull("notice")) Info("Local practice", advice.getString("notice"))
+                    Button(onClick = model::startRecommendedPractice, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Start focused practice") }
+                    TextButton(onClick = { model.navigate("results") }, enabled = !state.busy) { Text("Back to results") }
+                }
                 "quiz" -> state.quiz?.let { quiz -> Question(quiz, state.busy, model) }
                 "results" -> state.results?.let { result -> Results(result, state, model) }
                 "mistakes" -> state.results?.let { result ->
@@ -167,9 +184,10 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     state.source?.let { source ->
         AlertDialog(onDismissRequest = model::hideSource, title = { Text("Source passage") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(sectionTitle(state.document, source.getString("section_id")), style = MaterialTheme.typography.labelLarge)
-                if (state.document?.optBoolean("has_real_pages") == true) Text("Page ${source.getInt("page")}")
+                Text(sectionTitle(state.sourceDocument ?: state.document, source.getString("section_id")), style = MaterialTheme.typography.labelLarge)
+                if ((state.sourceDocument ?: state.document)?.optBoolean("has_real_pages") == true) Text("Page ${source.getInt("page")}")
                 Spacer(Modifier.height(12.dp)); Text(source.getString("text"))
+                if (source.optString("extraction") == "ocr") TextButton(onClick = model::openOriginalScan) { Text("View original scanned page") }
             } }, confirmButton = { TextButton(onClick = model::hideSource) { Text("Close") } })
     }
     confirmation?.let { kind ->
@@ -219,17 +237,25 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     TextButton(onClick = { register = !register }, enabled = !busy) { Text(if (register) "Already have an account? Sign in" else "New here? Create an account") }
 }
 
-@Composable private fun Configure(doc: JSONObject, busy: Boolean, aiMode: Boolean, model: StudyViewModel, delete: () -> Unit) {
+@Composable private fun Configure(doc: JSONObject, busy: Boolean, aiMode: Boolean, initial: JSONObject, model: StudyViewModel, delete: () -> Unit) {
     val id = doc.getString("id")
-    var selected by rememberSaveable(id) { mutableStateOf(emptyList<String>()) }
-    var count by rememberSaveable(id) { mutableStateOf("10") }
-    var kind by rememberSaveable(id) { mutableStateOf("multiple_choice") }
-    var first by rememberSaveable(id) { mutableStateOf("") }
-    var last by rememberSaveable(id) { mutableStateOf("") }
-    var topic by rememberSaveable(id) { mutableStateOf("") }
-    var difficulty by rememberSaveable(id) { mutableStateOf("easy") }
+    val configKey = initial.toString()
+    var selected by rememberSaveable(id, configKey) { mutableStateOf(initial.optJSONArray("section_ids")?.strings().orEmpty()) }
+    var count by rememberSaveable(id, configKey) { mutableStateOf(initial.optString("count", "10")) }
+    var kind by rememberSaveable(id, configKey) { mutableStateOf(initial.optString("kind", "multiple_choice")) }
+    var first by rememberSaveable(id, configKey) { mutableStateOf(initial.optString("first", "")) }
+    var last by rememberSaveable(id, configKey) { mutableStateOf(initial.optString("last", "")) }
+    var topic by rememberSaveable(id, configKey) { mutableStateOf(initial.optString("topic", "")) }
+    var difficulty by rememberSaveable(id, configKey) { mutableStateOf(initial.optString("difficulty", "easy")) }
     Title(doc.getString("title"), "Choose a focus for today")
+    if (doc.optString("processing_state", "ready") == "needs_review") {
+        Info("Check the scanned pages", "${doc.optInt("ocr_review_count")} pages contain uncertain text. Compare the transcription with the original before starting a quiz.")
+        Button(onClick = { model.openOcrReview() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Review scanned text") }
+        TextButton(onClick = delete, enabled = !busy) { Text("Delete document", color = MaterialTheme.colorScheme.error) }
+        return
+    }
     if (doc.getString("structure_confidence") == "uncertain") Info("Review the detected structure", "We could not confidently split chapters. Study the whole document, search a topic, or choose a PDF page range.")
+    if (doc.optInt("ocr_page_count") > 0) TextButton(onClick = { model.openOcrReview() }, enabled = !busy) { Text("Inspect recognized scanned pages") }
     Text("Chapters & sections", style = MaterialTheme.typography.titleMedium)
     Text("No selection means the entire document. Selected sections, pages and topic filters are combined.", style = MaterialTheme.typography.bodySmall)
     doc.getJSONArray("sections").objects().forEach { section ->
@@ -243,8 +269,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
         OutlinedTextField(first, { first = it }, label = { Text("First page") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), enabled = !busy)
         OutlinedTextField(last, { last = it }, label = { Text("Last page") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), enabled = !busy)
     }
-    OutlinedTextField(topic, { topic = it }, label = { Text("Topic keywords (optional)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+    OutlinedTextField(topic, { topic = it }, label = { Text("Study topic (optional)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     OutlinedTextField(count, { count = it }, label = { Text("Questions · 1–50") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), isError = QuizRules.questionCount(count) == null, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+    OutlinedButton(onClick = { model.openSearch(selected.toSet(), count.toInt(), kind, difficulty, first, last, topic) }, enabled = !busy && QuizRules.questionCount(count) != null, modifier = Modifier.fillMaxWidth()) { Text("Explore selected material with semantic search") }
     Text("Question format", style = MaterialTheme.typography.titleMedium)
     listOf("multiple_choice" to "Multiple choice", "true_false" to "True / False", "yes_no" to "Yes / No").forEach { (value, label) ->
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -265,6 +292,60 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
         model.startQuiz(selected.toSet(), count.toInt(), kind, if (aiMode) difficulty else "easy", first, last, topic)
     }, modifier = Modifier.fillMaxWidth()) { Text("Start practice") }
     TextButton(onClick = delete, enabled = !busy) { Text("Delete document", color = MaterialTheme.colorScheme.error) }
+}
+
+@Composable private fun OcrReview(state: StudyState, model: StudyViewModel) {
+    val page = state.ocrPage ?: run { Text("No scanned pages to review."); return }
+    val editable = state.document?.optBoolean("source_locked") != true && !page.getBoolean("human_reviewed")
+    var text by rememberSaveable(state.document?.optString("id"), page.getInt("page"), page.getBoolean("human_reviewed")) { mutableStateOf(page.getString("text")) }
+    Title("Check page ${page.getInt("page")}", "Compare every line with the original. Confirm only text you can read on the page.")
+    val bytes = remember(page.getString("image_base64")) { android.util.Base64.decode(page.getString("image_base64"), android.util.Base64.DEFAULT) }
+    val bitmap = remember(bytes) { android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+    var zoom by remember(page.getInt("page")) { mutableFloatStateOf(1f) }
+    var offset by remember(page.getInt("page")) { mutableStateOf(Offset.Zero) }
+    if (bitmap != null) {
+        Surface(Modifier.fillMaxWidth().height(320.dp), color = Color.White, shape = RoundedCornerShape(12.dp)) {
+            Image(bitmap, "Original scanned page ${page.getInt("page")}", contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().pointerInput(page.getInt("page")) {
+                    detectTransformGestures { _, pan, scale, _ ->
+                        zoom = (zoom * scale).coerceIn(1f, 5f)
+                        offset = if (zoom > 1f) offset + pan else Offset.Zero
+                    }
+                }.graphicsLayer(scaleX = zoom, scaleY = zoom, translationX = offset.x, translationY = offset.y))
+        }
+        Text("Pinch to zoom; drag to inspect the original.", style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { zoom = 1f; offset = Offset.Zero }) { Text("Reset page view") }
+    }
+    Text("Recognition confidence estimate: ${(page.getDouble("confidence") * 100).toInt()}%. This is a recognition score, not a guarantee of correct text.", style = MaterialTheme.typography.bodySmall)
+    OutlinedTextField(text, { text = it }, label = { Text("Transcription — correct unclear words") }, minLines = 6, maxLines = 16, enabled = !state.busy && editable, modifier = Modifier.fillMaxWidth())
+    if (editable) Button(onClick = { model.confirmOcr(text) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Confirm transcription matches page") }
+    if (state.document?.optBoolean("source_locked") == true) Info("Source already used in learning sessions", "Upload a corrected copy if you need to change this transcription. Existing explanations keep their original source.")
+    state.ocrPages.filter { !it.getBoolean("reviewed") && it.getInt("page") != page.getInt("page") }.forEach { other ->
+        TextButton(onClick = { model.openOcrReview(other.getInt("page")) }, enabled = !state.busy) { Text("Review page ${other.getInt("page")}") }
+    }
+    TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
+}
+
+@Composable private fun SemanticSearch(state: StudyState, model: StudyViewModel) {
+    var query by rememberSaveable(state.document?.optString("id")) { mutableStateOf(state.searchQuery) }
+    Title("Find the idea", "Search the selected chapters and pages by meaning, then read the original passages.")
+    OutlinedTextField(query, { query = it }, label = { Text("What do you want to understand?") }, modifier = Modifier.fillMaxWidth(), enabled = !state.busy)
+    Button(onClick = { model.search(query) }, enabled = !state.busy && query.trim().length in 2..300, modifier = Modifier.fillMaxWidth()) { Text("Find source passages") }
+    state.searchHits?.let { hits ->
+        if (hits.isEmpty()) Info("No close passage found", "Try a more specific question or select more material. Search does not invent missing information.")
+        hits.forEach { hit ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(sectionTitle(state.document, hit.getString("section_id")), fontWeight = FontWeight.SemiBold)
+                    if (state.document?.optBoolean("has_real_pages") == true) Text("Page ${hit.getInt("page")}", style = MaterialTheme.typography.bodySmall)
+                    Text(hit.getString("quote"))
+                    TextButton(onClick = { model.showSource(hit.getString("source_id")) }, enabled = !state.busy) { Text("Read source passage") }
+                }
+            }
+        }
+        if (hits.isNotEmpty()) OutlinedButton(onClick = model::practiceSearchTopic, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Practice this topic") }
+    }
+    TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
 }
 
 @Composable private fun Question(quiz: JSONObject, busy: Boolean, model: StudyViewModel) {
@@ -317,6 +398,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
         OutlinedButton(onClick = model::retryMistakes, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Retry incorrect questions") }
     }
     OutlinedButton(onClick = { model.navigate("configure") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Choose material & practice again") }
+    OutlinedButton(onClick = model::recommendPractice, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Plan my next practice focus") }
     Button(onClick = { model.makeFlashcards() }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Create flashcards for spaced review") }
     if (result.getInt("incorrect") > 0) TextButton(onClick = { model.makeFlashcards(true) }, enabled = !state.busy) { Text("Make cards from mistakes only") }
 }

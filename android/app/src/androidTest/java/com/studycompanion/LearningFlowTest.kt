@@ -23,6 +23,67 @@ class LearningFlowTest {
         File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
+    @Test fun reviewUncertainScannedPdfBeforePractice() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        if (model.state.value.signedIn) {
+            rule.runOnIdle { model.signOut() }
+            rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+        }
+        val text = """
+            Chapter 1 Cells
+            Mitochondria produce usable energy through cellular respiration inside living cells.
+            Ribosomes assemble proteins using instructions carried by messenger molecules.
+            Chloroplasts capture sunlight and transform light into chemical energy.
+            Membranes control the movement of substances into and outside cells.
+            Chromosomes contain genetic information passed between successive generations.
+            Vacuoles store water and dissolved substances within plant cells.
+        """.trimIndent()
+        val username = "ocr" + System.currentTimeMillis()
+        rule.onNodeWithText("Username").performScrollTo().performTextInput(username)
+        rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-scan-password")
+        rule.onNodeWithText("Study server URL").performScrollTo().performTextClearance()
+        rule.onNodeWithText("Study server URL").performTextInput("http://10.0.2.2:18763")
+        rule.onNodeWithText("Create your study account").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
+        val file = File(rule.activity.cacheDir, "OCR-biology.pdf")
+        val image = android.graphics.Bitmap.createBitmap(1800, 1100, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(image)
+        canvas.drawColor(android.graphics.Color.WHITE)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.BLACK; textSize = 32f }
+        text.lines().forEachIndexed { index, line -> canvas.drawText(line, 40f, 70f + index * 100f, paint) }
+        val pdf = android.graphics.pdf.PdfDocument()
+        val page = pdf.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(1800, 1100, 1).create())
+        page.canvas.drawBitmap(image, 0f, 0f, null)
+        pdf.finishPage(page)
+        file.outputStream().use(pdf::writeTo)
+        pdf.close()
+        image.recycle()
+        rule.runOnIdle { model.upload(Uri.fromFile(file)) }
+        rule.waitUntil(200_000) { !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertEquals("needs_review", model.state.value.document!!.getString("processing_state"))
+        rule.onNodeWithText("Start practice").assertDoesNotExist()
+        rule.onNodeWithText("Review scanned text").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.ocrPage != null && !model.state.value.busy }
+        rule.onNodeWithContentDescription("Original scanned page 1").assertExists()
+        screenshot("09-ocr-review")
+        rule.onNodeWithText("Transcription — correct unclear words").performScrollTo().performTextClearance()
+        rule.onNodeWithText("Transcription — correct unclear words").performTextInput(text)
+        rule.onNodeWithText("Confirm transcription matches page").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "configure" && !model.state.value.busy }
+        assertEquals("ready", model.state.value.document!!.getString("processing_state"))
+        rule.onNodeWithText("Questions · 1–50").performScrollTo().performTextClearance()
+        rule.onNodeWithText("Questions · 1–50").performTextInput("5")
+        rule.onNodeWithText("Start practice").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "quiz" && !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertEquals(1, model.state.value.quiz!!.getJSONObject("question").getInt("page"))
+        rule.runOnIdle { model.deleteAccount() }
+        rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+    }
+
     @Test fun uploadFeedbackResumeResultsAndMistakeReview() {
         lateinit var model: StudyViewModel
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
@@ -72,6 +133,14 @@ class LearningFlowTest {
         rule.waitUntil(120_000) { !model.state.value.busy && model.state.value.document != null }
         assertNull(model.state.value.error)
         screenshot("02-study-selection")
+        rule.onNodeWithText("Explore selected material with semantic search").performScrollTo().performClick()
+        rule.onNodeWithText("What do you want to understand?").performScrollTo().performTextInput("cell power factory")
+        rule.onNodeWithText("Find source passages").performScrollTo().performClick()
+        rule.waitUntil(120_000) { model.state.value.searchHits != null && !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertTrue(model.state.value.searchHits!!.first().getString("quote").contains("Mitochondria"))
+        screenshot("10-semantic-search")
+        rule.onNodeWithText("Back to document").performScrollTo().performClick()
         rule.onNodeWithText("Start practice").performScrollTo().performClick()
         rule.waitUntil(120_000) { model.state.value.quiz != null && !model.state.value.busy }
         assertNull(model.state.value.error)
@@ -110,6 +179,19 @@ class LearningFlowTest {
         }
         rule.onNodeWithText("90%").assertExists()
         screenshot("06-results")
+        val completedQuiz = model.state.value.quiz!!.getString("id")
+        rule.onNodeWithText("Plan my next practice focus").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "adaptive" && !model.state.value.busy }
+        val advice = model.state.value.recommendation!!
+        rule.onNodeWithText("Start focused practice").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "quiz" && !model.state.value.busy }
+        assertNotEquals(completedQuiz, model.state.value.quiz!!.getString("id"))
+        assertEquals(advice.getInt("count"), model.state.value.quiz!!.getInt("count"))
+        assertEquals(advice.getJSONArray("section_ids").getString(0), model.state.value.quiz!!.getJSONObject("question").getString("section_id"))
+        rule.onNodeWithText("Progress", substring = false).performClick()
+        rule.onNodeWithText("9 / 10 · 90%").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "results" && !model.state.value.busy }
+        assertEquals(completedQuiz, model.state.value.quiz!!.getString("id"))
         rule.onNodeWithText("Create flashcards for spaced review").performScrollTo().performClick()
         rule.waitUntil(30_000) { model.state.value.screen == "flashcards" && !model.state.value.busy }
         assertEquals(10, model.state.value.flashcards.size)
