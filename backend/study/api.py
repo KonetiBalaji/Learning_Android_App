@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import os
 import secrets
 import time
@@ -20,6 +21,7 @@ from .flashcards import from_question, public_card, review as rate_flashcard
 from .processing import analyze_upload, update_review_state
 from .semantic import SemanticUnavailable, build_index, fingerprint, search as semantic_search
 from .adaptive import recommend
+from .document_tutor import reply as tutor_reply
 
 
 class Credentials(BaseModel):
@@ -68,6 +70,12 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=2, max_length=300)
     selection: Selection = Field(default_factory=Selection)
     limit: int = Field(default=5, ge=1, le=10)
+
+
+class TutorRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=1000)
+    selection: Selection = Field(default_factory=Selection)
+    request_id: str = Field(min_length=8, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
 
 
 def create_app(data_dir: Path | None = None):
@@ -262,6 +270,65 @@ def create_app(data_dir: Path | None = None):
         except DocumentError as error:
             raise HTTPException(422, str(error))
         return {"mode": "local_semantic", "hits": find_semantic_passages(doc, user, selected, body.query, body.limit)}
+
+    @app.get("/documents/{identifier}/tutor")
+    def tutor_history(identifier: str, user=Depends(owner)):
+        with store.lock:
+            doc = record(identifier, user, "document")
+            revision = fingerprint(doc["passages"])
+            turns = store.for_document(user, "tutor", identifier, limit=100)
+            return [{k: v for k, v in turn.items() if not k.startswith("_")}
+                    for turn in reversed(turns) if turn["_source_fingerprint"] == revision]
+
+    @app.post("/documents/{identifier}/tutor", status_code=201)
+    def ask_tutor(identifier: str, body: TutorRequest, user=Depends(owner)):
+        if not body.question.strip():
+            raise HTTPException(422, "Enter a question about the selected material.")
+        if body.selection.topic:
+            raise HTTPException(422, "Ask the topic in your question; select chapters or pages to limit sources.")
+        request_digest = hashlib.sha256(json.dumps(body.model_dump(), sort_keys=True).encode()).hexdigest()
+        turn_id = "tutor-" + hashlib.sha256((user + identifier + body.request_id).encode()).hexdigest()
+
+        def existing_turn():
+            existing = store.get(turn_id, user, "tutor")
+            if existing and existing["_request_digest"] != request_digest:
+                raise HTTPException(409, "This request was already used for another question. Start a new request.")
+            return existing
+
+        with store.lock:
+            doc = record(identifier, user, "document")
+            revision = fingerprint(doc["passages"])
+            existing = existing_turn()
+            if existing:
+                if existing["_source_fingerprint"] != revision:
+                    raise HTTPException(409, "The source changed. Ask again with a new request.")
+                return {k: v for k, v in existing.items() if not k.startswith("_")}
+            turns = store.for_document(user, "tutor", identifier, limit=100)
+            if len(turns) >= 100:
+                raise HTTPException(429, "This document has reached its 100-question tutor limit.")
+        try:
+            selected = retrieve(doc, body.selection.model_dump())
+        except DocumentError as error:
+            raise HTTPException(422, str(error))
+        hits = find_semantic_passages(doc, user, selected, body.question, limit=5)
+        history = [{"question": turn["question"], "answer": turn["answer"]}
+                   for turn in reversed(turns[:6])
+                   if turn["_source_fingerprint"] == revision and turn["selection"] == body.selection.model_dump()]
+        answer = tutor_reply(body.question, hits, provider=provider, history=history)
+        with store.lock:
+            current = record(identifier, user, "document")
+            if fingerprint(current["passages"]) != revision:
+                raise HTTPException(409, "The source changed while answering. Please ask again.")
+            existing = existing_turn()
+            if existing:
+                return {k: v for k, v in existing.items() if not k.startswith("_")}
+            if len(store.for_document(user, "tutor", identifier, limit=100)) >= 100:
+                raise HTTPException(429, "This document has reached its 100-question tutor limit.")
+            turn = {"id": turn_id, "document_id": identifier, "question": body.question,
+                    "selection": body.selection.model_dump(), "created": time.time(), **answer,
+                    "_request_digest": request_digest, "_source_fingerprint": revision}
+            store.save(turn_id, user, "tutor", identifier, turn["created"], turn)
+            return {k: v for k, v in turn.items() if not k.startswith("_")}
 
     @app.get("/documents/{identifier}/ocr-pages")
     def ocr_pages(identifier: str, user=Depends(owner)):
