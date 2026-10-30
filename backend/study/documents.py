@@ -16,7 +16,7 @@ class DocumentError(ValueError):
     pass
 
 
-def extract(filename: str, content: bytes) -> list[str]:
+def extract(filename: str, content: bytes, *, allow_empty_pdf: bool = False) -> list[str]:
     if not content or len(content) > MAX_BYTES:
         raise DocumentError("Choose a nonempty file up to 50 MB.")
     extension = Path(filename).suffix.lower()
@@ -67,7 +67,7 @@ def extract(filename: str, content: bytes) -> list[str]:
         raise DocumentError("Could not read this document. It may be corrupted or use an unsupported encoding.") from error
     if sum(map(len, pages)) > MAX_TEXT:
         raise DocumentError("Extracted text exceeds the 2 million character limit.")
-    if not any(p.strip() for p in pages):
+    if not any(p.strip() for p in pages) and not (allow_empty_pdf and extension == ".pdf"):
         raise DocumentError("No readable text found. Scanned documents need OCR before upload.")
     return pages
 

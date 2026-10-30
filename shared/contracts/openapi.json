@@ -251,6 +251,48 @@
         }
       }
     },
+    "/documents/{identifier}/next-practice": {
+      "get": {
+        "summary": "Next Practice",
+        "operationId": "next_practice_documents__identifier__next_practice_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{identifier}/passages/{passage_id}": {
       "get": {
         "summary": "Passage",
@@ -287,6 +329,214 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Passage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{identifier}/search": {
+      "post": {
+        "summary": "Search Document",
+        "operationId": "search_document_documents__identifier__search_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{identifier}/ocr-pages": {
+      "get": {
+        "summary": "Ocr Pages",
+        "operationId": "ocr_pages_documents__identifier__ocr_pages_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{identifier}/ocr-pages/{page_number}": {
+      "get": {
+        "summary": "Ocr Page",
+        "operationId": "ocr_page_documents__identifier__ocr_pages__page_number__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "page_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Page Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{identifier}/ocr-pages/{page_number}/review": {
+      "post": {
+        "summary": "Review Ocr",
+        "operationId": "review_ocr_documents__identifier__ocr_pages__page_number__review_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "page_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Page Number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OcrReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMetadata"
                 }
               }
             }
@@ -960,6 +1210,30 @@
             },
             "type": "array",
             "title": "Sections"
+          },
+          "processing_state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "needs_review"
+            ],
+            "title": "Processing State",
+            "default": "ready"
+          },
+          "ocr_review_count": {
+            "type": "integer",
+            "title": "Ocr Review Count",
+            "default": 0
+          },
+          "ocr_page_count": {
+            "type": "integer",
+            "title": "Ocr Page Count",
+            "default": 0
+          },
+          "source_locked": {
+            "type": "boolean",
+            "title": "Source Locked",
+            "default": false
           }
         },
         "type": "object",
@@ -1127,6 +1401,20 @@
         ],
         "title": "Mistake"
       },
+      "OcrReview": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "OcrReview"
+      },
       "Passage": {
         "properties": {
           "id": {
@@ -1144,6 +1432,15 @@
           "text": {
             "type": "string",
             "title": "Text"
+          },
+          "extraction": {
+            "type": "string",
+            "enum": [
+              "native",
+              "ocr"
+            ],
+            "title": "Extraction",
+            "default": "native"
           }
         },
         "type": "object",
@@ -1424,6 +1721,31 @@
           "mistakes"
         ],
         "title": "Results"
+      },
+      "SearchRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 2,
+            "title": "Query"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/Selection"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "SearchRequest"
       },
       "Section": {
         "properties": {

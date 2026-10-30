@@ -1,0 +1,31 @@
+{
+  "model": "BAAI/bge-small-en-v1.5",
+  "threshold": 0.64,
+  "scope": "Small English biology retrieval fixture; not an educational accuracy or answer-entailment benchmark.",
+  "calibration": [
+    {"query": "cell power factory", "expected": ["Mitochondria"]},
+    {"query": "Which organelle is the cell's power factory?", "expected": ["Mitochondria"]},
+    {"query": "Where are proteins manufactured?", "expected": ["Ribosomes"]},
+    {"query": "What captures solar light?", "expected": ["Chloroplasts"]},
+    {"query": "Where is hereditary information stored?", "expected": ["Chromosomes"]},
+    {"query": "How do plants keep water reserves?", "expected": ["Vacuoles"]},
+    {"query": "How do dead organisms get recycled?", "expected": ["Decomposers"]},
+    {"query": "Who won the World Cup?", "expected": []},
+    {"query": "How do I repair a gasoline engine?", "expected": []},
+    {"query": "Which medicine treats mitochondrial cancer?", "expected": []}
+  ],
+  "holdout": [
+    {"query": "What structure controls what enters a cell?", "expected": ["Membranes"]},
+    {"query": "What carries genetic instructions across generations?", "expected": ["Chromosomes"]},
+    {"query": "Which cell structures make protein molecules?", "expected": ["Ribosomes"]},
+    {"query": "What changes sunshine into usable chemical energy?", "expected": ["Chloroplasts"]},
+    {"query": "Which organisms eat other organisms to obtain energy?", "expected": ["Consumers"]},
+    {"query": "What are multiple populations living in the same habitat called?", "expected": ["Communities"]},
+    {"query": "Which organelle stores dissolved substances and water?", "expected": ["Vacuoles"]},
+    {"query": "What returns nutrients when dead matter is broken down?", "expected": ["Decomposers"]},
+    {"query": "How can I renew a driver's license?", "expected": []},
+    {"query": "What is the capital city of Japan?", "expected": []},
+    {"query": "How many moons orbit Jupiter?", "expected": []},
+    {"query": "What is the interest rate on a mortgage?", "expected": []}
+  ]
+}

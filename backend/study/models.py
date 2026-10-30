@@ -18,6 +18,10 @@ class DocumentMetadata(BaseModel):
     has_real_pages: bool
     structure_confidence: Literal["detected", "uncertain"]
     sections: list[Section]
+    processing_state: Literal["ready", "needs_review"] = "ready"
+    ocr_review_count: int = 0
+    ocr_page_count: int = 0
+    source_locked: bool = False
 
 
 class PublicQuestion(BaseModel):
@@ -103,3 +107,4 @@ class Passage(BaseModel):
     page: int
     section_id: str
     text: str
+    extraction: Literal["native", "ocr"] = "native"

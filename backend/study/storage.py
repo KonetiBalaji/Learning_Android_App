@@ -27,6 +27,7 @@ class Store:
             CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, owner TEXT REFERENCES users(id) ON DELETE CASCADE, expires REAL);
             CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, owner TEXT REFERENCES users(id) ON DELETE CASCADE,
                 kind TEXT, document TEXT, created REAL, payload BLOB);
+            CREATE INDEX IF NOT EXISTS owner_document_records ON records(owner, kind, document, created);
         """)
         self.db.commit()
 
@@ -48,3 +49,8 @@ class Store:
     def all(self, owner, kind):
         return [self.decode(r[0]) for r in self.db.execute(
             "SELECT payload FROM records WHERE owner=? AND kind=? ORDER BY created DESC", (owner, kind)).fetchall()]
+
+    def for_document(self, owner, kind, document, limit=50):
+        return [self.decode(row[0]) for row in self.db.execute(
+            "SELECT payload FROM records WHERE owner=? AND kind=? AND document=? ORDER BY created DESC LIMIT ?",
+            (owner, kind, document, limit)).fetchall()]

@@ -7,6 +7,14 @@ class GenerationError(ValueError):
     pass
 
 
+def local_capacity(passages: list[dict]) -> int:
+    vocabulary = {word.casefold() for passage in passages for word in re.findall(r"\b[A-Za-z][A-Za-z-]{4,}\b", passage["text"])}
+    if len(vocabulary) < 4:
+        return 0
+    return len({passage["text"].casefold() for passage in passages
+                if len(passage["text"].split()) >= 7 and re.search(r"\b[A-Za-z][A-Za-z-]{4,}\b", passage["text"])})
+
+
 def validate(questions: list[dict], passages: list[dict], count: int) -> list[dict]:
     if len(questions) != count:
         raise GenerationError(f"Expected {count} questions; received {len(questions)}.")
@@ -43,7 +51,7 @@ def generate_local(passages: list[dict], count: int, kind: str, difficulty: str)
         if len(passage["text"].split()) >= 7 and words:
             word = max(words, key=lambda m: len(m.group()))
             candidates.append((passage, word))
-    pool = sorted({word.group().lower() for _, word in candidates})
+    pool = sorted({word.lower() for passage in passages for word in re.findall(r"\b[A-Za-z][A-Za-z-]{4,}\b", passage["text"])})
     random.SystemRandom().shuffle(candidates)
     questions, seen = [], set()
     for passage, word in candidates:
@@ -51,7 +59,7 @@ def generate_local(passages: list[dict], count: int, kind: str, difficulty: str)
         if quote.casefold() in seen:
             continue
         actual = word.group()
-        others = [s for s in pool if s.casefold() != actual.casefold() and s.casefold() not in quote.casefold()]
+        others = [s for s in pool if s.casefold() != actual.casefold()]
         if len(others) < 3:
             continue
         rng = random.SystemRandom()
