@@ -71,7 +71,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
             Surface(shadowElevation = 1.dp) {
                 Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text("SARAS", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Text("A little practice. Real progress.", style = MaterialTheme.typography.bodySmall)
                     }
@@ -83,9 +83,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
             if (state.signedIn) Surface(tonalElevation = 3.dp) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     listOf("home" to "Library", "progress" to "Progress", "settings" to "Settings").forEach { (screen, label) ->
-                        TextButton(enabled = !state.busy, onClick = { model.navigate(screen) }) { Text(label, fontWeight = if (state.screen == screen) FontWeight.Bold else FontWeight.Normal) }
+                        TextButton(modifier = Modifier.weight(1f), enabled = !state.busy, onClick = { model.navigate(screen) }) { Text(label, fontWeight = if (state.screen == screen) FontWeight.Bold else FontWeight.Normal) }
                     }
-                    TextButton(enabled = !state.busy, onClick = { model.showFlashcards() }) { Text("Review") }
+                    TextButton(modifier = Modifier.weight(1f), enabled = !state.busy, onClick = { model.showFlashcards() }) { Text("Review") }
                 }
             }
         }
@@ -141,6 +141,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                 "configure" -> state.document?.let { doc -> Configure(doc, state.busy, state.aiMode, state.studyConfig, model) { confirmation = "document" } }
                 "ocr" -> OcrReview(state, model)
                 "search" -> SemanticSearch(state, model)
+                "tutor" -> DocumentTutor(state, model)
                 "adaptive" -> state.recommendation?.let { advice ->
                     Title("Your next learning step", advice.getString("section_title"))
                     Info("Practice focus", advice.getString("reason"))
@@ -272,6 +273,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     OutlinedTextField(topic, { topic = it }, label = { Text("Study topic (optional)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     OutlinedTextField(count, { count = it }, label = { Text("Questions · 1–50") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), isError = QuizRules.questionCount(count) == null, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     OutlinedButton(onClick = { model.openSearch(selected.toSet(), count.toInt(), kind, difficulty, first, last, topic) }, enabled = !busy && QuizRules.questionCount(count) != null, modifier = Modifier.fillMaxWidth()) { Text("Explore selected material with semantic search") }
+    OutlinedButton(onClick = { model.openTutor(selected.toSet(), count.toIntOrNull() ?: 10, kind, difficulty, first, last, topic) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Ask the document tutor") }
     Text("Question format", style = MaterialTheme.typography.titleMedium)
     listOf("multiple_choice" to "Multiple choice", "true_false" to "True / False", "yes_no" to "Yes / No").forEach { (value, label) ->
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -345,6 +347,41 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
         }
         if (hits.isNotEmpty()) OutlinedButton(onClick = model::practiceSearchTopic, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Practice this topic") }
     }
+    TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
+}
+
+@Composable private fun DocumentTutor(state: StudyState, model: StudyViewModel) {
+    var question by rememberSaveable(state.document?.optString("id")) { mutableStateOf("") }
+    var observedTurn by rememberSaveable(state.document?.optString("id")) { mutableStateOf(state.tutorTurns.lastOrNull()?.optString("id")) }
+    LaunchedEffect(state.tutorTurns.lastOrNull()?.optString("id")) {
+        val newest = state.tutorTurns.lastOrNull()?.optString("id")
+        if (newest != observedTurn) { question = ""; observedTurn = newest }
+    }
+    Title("Document tutor", "Ask about your selected chapters and pages. Answers cite the original material.")
+    if (!state.aiMode) Info("Source excerpt mode", "AI explanations are not configured. Related source passages are quoted directly; missing support is stated explicitly.")
+    Text("${state.tutorTurns.size} / 100 questions saved for this document", style = MaterialTheme.typography.bodySmall)
+    state.tutorTurns.forEach { turn ->
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(turn.getString("question"), style = MaterialTheme.typography.titleMedium)
+                val selection = turn.getJSONObject("selection")
+                val sections = selection.getJSONArray("section_ids").strings()
+                Text(if (sections.isEmpty()) "Scope: all chapters" else "Scope: " + sections.joinToString { sectionTitle(state.document, it) }, style = MaterialTheme.typography.bodySmall)
+                if (!selection.isNull("page_start")) Text("Pages ${selection.getInt("page_start")}–${selection.getInt("page_end")}", style = MaterialTheme.typography.bodySmall)
+                Text(turn.getString("answer"))
+                if (!turn.isNull("notice")) Text(turn.getString("notice"), style = MaterialTheme.typography.bodySmall)
+                turn.getJSONArray("citations").objects().forEach { citation ->
+                    HorizontalDivider()
+                    Text(sectionTitle(state.document, citation.getString("section_id")), fontWeight = FontWeight.SemiBold)
+                    if (state.document?.optBoolean("has_real_pages") == true) Text("Page ${citation.getInt("page")}")
+                    Text(citation.getString("quote"))
+                    TextButton(onClick = { model.showSource(citation.getString("source_id")) }, enabled = !state.busy) { Text("Read cited source") }
+                }
+            }
+        }
+    }
+    OutlinedTextField(question, { question = it }, label = { Text("Question for the tutor") }, modifier = Modifier.fillMaxWidth(), enabled = !state.busy)
+    Button(onClick = { model.askTutor(question) }, enabled = !state.busy && question.trim().length in 2..1000 && state.tutorTurns.size < 100, modifier = Modifier.fillMaxWidth()) { Text("Ask from selected material") }
     TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
 }
 

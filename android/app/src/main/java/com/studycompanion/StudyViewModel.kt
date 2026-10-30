@@ -40,6 +40,7 @@ data class StudyState(
     val searchQuery: String = "",
     val searchHits: List<JSONObject>? = null,
     val recommendation: JSONObject? = null,
+    val tutorTurns: List<JSONObject> = emptyList(),
 )
 
 class StudyViewModel(application: Application) : AndroidViewModel(application) {
@@ -148,6 +149,27 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     fun practiceSearchTopic() {
         val config = JSONObject(state.value.studyConfig.toString()).put("topic", state.value.searchQuery)
         mutable.update { it.copy(studyConfig = config, screen = "configure") }
+    }
+
+    fun openTutor(ids: Set<String>, count: Int, kind: String, difficulty: String, first: String, last: String, topic: String) {
+        openSearch(ids, count, kind, difficulty, first, last, topic)
+        if (state.value.screen != "search") return
+        mutable.update { it.copy(screen = "tutor", tutorTurns = emptyList()) }
+        run {
+            val doc = state.value.document ?: return@run
+            val turns = JSONArray(repository.call("/documents/${doc.getString("id")}/tutor")).objects()
+            mutable.update { it.copy(tutorTurns = turns) }
+        }
+    }
+
+    fun askTutor(question: String) {
+        val docId = state.value.document?.getString("id") ?: return
+        val body = JSONObject().put("question", question.trim()).put("selection", state.value.searchSelection)
+            .put("request_id", java.util.UUID.randomUUID().toString())
+        run {
+            val turn = JSONObject(repository.call("/documents/$docId/tutor", "POST", body))
+            mutable.update { current -> current.copy(tutorTurns = current.tutorTurns.filter { it.getString("id") != turn.getString("id") } + turn) }
+        }
     }
 
     private suspend fun loadOcrPage(pageNumber: Int? = null) {

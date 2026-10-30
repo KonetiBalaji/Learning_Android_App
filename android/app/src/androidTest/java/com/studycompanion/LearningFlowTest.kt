@@ -141,6 +141,19 @@ class LearningFlowTest {
         assertTrue(model.state.value.searchHits!!.first().getString("quote").contains("Mitochondria"))
         screenshot("10-semantic-search")
         rule.onNodeWithText("Back to document").performScrollTo().performClick()
+        rule.onNodeWithText("Ask the document tutor").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "tutor" && !model.state.value.busy }
+        rule.onNodeWithText("Question for the tutor").performScrollTo().performTextInput("cell power factory")
+        rule.onNodeWithText("Ask from selected material").performScrollTo().performClick()
+        rule.waitUntil(120_000) { model.state.value.tutorTurns.size == 1 && !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertEquals("source_excerpt", model.state.value.tutorTurns.first().getString("mode"))
+        assertTrue(model.state.value.tutorTurns.first().getString("answer").contains("Mitochondria"))
+        rule.onNodeWithText("Read cited source").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.source != null && !model.state.value.busy }
+        rule.onNodeWithText("Close").performClick()
+        screenshot("11-document-tutor")
+        rule.onNodeWithText("Back to document").performScrollTo().performClick()
         rule.onNodeWithText("Start practice").performScrollTo().performClick()
         rule.waitUntil(120_000) { model.state.value.quiz != null && !model.state.value.busy }
         assertNull(model.state.value.error)
