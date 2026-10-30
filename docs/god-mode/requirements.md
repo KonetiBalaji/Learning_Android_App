@@ -9,17 +9,17 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Rerun the reported Windows backend, Android JVM, build, lint, and emulator checks.
 - [x] Inspect the substantial remote implementation and document incompatible contracts.
 - [ ] Locate and reconcile the separately reported 51-test unittest core; its source location/revision is missing.
-- [ ] Complete a green, reproducible audit of any remote components adopted into God Mode.
+- [x] Complete a green, reproducible audit of adopted remote components; full rerun 726 passed/1 host-limited skip, with a separate real memory-limit probe for the reused guard.
 - [ ] Keep final committed history clean and confirm remote HEAD matches the final tested revision.
 
 ## Learning functionality
 
 - [x] Upload → structure → select → quiz → feedback → results → mistake retry → progress, with source references and owner checks.
 - [x] Flashcards and SM-2: backend and Android flows verified; evidence in `reconciliation.md`.
-- [ ] OCR for scanned PDFs with visible confidence, needs-review state, and original-page comparison.
-- [ ] Semantic retrieval, including a real semantic evaluation rather than renamed keyword search.
+- [x] OCR for scanned PDFs with visible confidence, needs-review state, and original-page comparison.
+- [x] Semantic retrieval, including a real local-model evaluation rather than renamed keyword search.
 - [ ] Offline encrypted document cache plus quizzes generated locally on Android.
-- [ ] Adaptive next quiz integrated with recent learning evidence.
+- [x] Adaptive next quiz integrated with recent, distinct learning evidence; live AI difficulty still pending.
 - [ ] Tutor chat from the selected document's retrieved passages, with citations and a tested no-support response.
 - [ ] Complete navigation between all learning tools with no dead ends.
 - [ ] Owner-only access, retention, document deletion, and account deletion cover every new record type and local cache.

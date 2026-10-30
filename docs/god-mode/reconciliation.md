@@ -38,7 +38,7 @@ Before implementing flashcards/spaced repetition, both trees were searched. No f
 
 - Collected **727 tests**. First full Windows execution: **723 passed, 3 failed, 1 skipped**. This is not a green full-suite result.
 - One failure was caused by Windows text conversion during archive export changing the third-party license checksum. The authoritative Git blob matches the pinned checksum exactly. Restoring the exact blob fixes that audit artifact; the license or pinned checksum was not weakened.
-- The other two failures involved time-bounded PDF processing while multiple builds and an emulator were starting. A targeted rerun of the provenance/PDF suite passed **14 tests**. The original full-run failures remain recorded; a targeted rerun is not represented as a successful full-suite rerun.
+- The other two failures involved time-bounded PDF processing while multiple builds and an emulator were starting. A targeted rerun passed **14 tests**. A subsequent complete run passed **726 tests with 1 skipped** in 147.69 seconds. The skip was symlink creation, which this host does not permit. No security setting was weakened. The initial failures remain recorded for provenance.
 - Its first Android build failed because it was run with JDK 17 while the source explicitly requires JDK 21. The corrected JDK 21 run passed **179 JVM tests**, APK assembly, and lint. No remote-client emulator flow has been rerun yet.
 
 ### God Mode flashcard extension
@@ -49,6 +49,10 @@ Before implementing flashcards/spaced repetition, both trees were searched. No f
 
 Raw local logs are under ignored `work/`; they are not committed as generated build output. The commands and source revisions above make the reported checks reproducible. No live AI requests were used by these suites.
 
+### OCR/search/adaptive checkpoint — October 29, 2026
+
+The integrated active runtime passed **62 backend tests**, **2 JVM tests**, APK assembly, lint, and **2 Android emulator flows**. Real local model checks passed **10 calibration and 12 held-out semantic retrieval cases**. A raster OCR sample recognized three expected terms and correctly entered review. See `ocr-search-adaptive.md` for limits. These are not live OpenAI generation/difficulty results.
+
 ## Remaining integration work
 
-OCR and review states, local semantic retrieval, offline encrypted caching/local quizzes, document-grounded tutoring, adaptive next sessions, production/release safeguards, and the demo/release package still require implementation and/or verification. API access, original logo files, hosting identity/TLS, and release-signing credentials remain external inputs. Existing remote documentation claiming past live or device checks is treated as historical reported evidence until rerun for the selected delivery revision.
+Offline encrypted caching/local quizzes, integrated document-grounded tutoring, production/release safeguards, and the demo/release package still require implementation and/or verification. API access, original logo files, hosting identity/TLS, and release-signing credentials remain external inputs. Historical remote live/device claims are not inherited as verified evidence for God Mode.

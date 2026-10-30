@@ -14,6 +14,8 @@ The default **local practice mode** needs no API key. It generates exact-passage
 
 The user-supplied **Saras Logos** email establishes the Saras brand name. The supplied Modern and Heritage artwork has not yet been imported because attachment retrieval was interrupted; the launcher currently uses a temporary book symbol.
 
+The `god-mode` branch now adds scanned-PDF OCR with original-page confirmation, local semantic search, focused adaptive practice, source-backed flashcards, and SM-2 spaced review. See the [acceptance ledger](docs/god-mode/requirements.md) and [reconciliation audit](docs/god-mode/reconciliation.md) for verified scope and the remaining offline/chat/release work.
+
 ## MVP goal
 
 The first release should support:
@@ -76,6 +78,13 @@ Start the backend from the repository root:
 
 The server listens at `http://127.0.0.1:8000`; interactive API docs are at `/docs`. Android Emulator reaches this server using `http://10.0.2.2:8000`, the app's default server URL. Create an account in the app, then upload `shared/sample-study-material.txt` to try a ten-question session. Usernames require 3+ letters/digits/`_.-`; passwords require 10+ characters. The APK is a client and still needs the backend running.
 
+Before using scanned PDFs or semantic topics, prepare and verify the public local models in another terminal. This downloads models, not documents, and requires no API key:
+
+```powershell
+.venv/Scripts/python scripts/prepare-models.py
+.venv/Scripts/python scripts/prepare-models.py --verify
+```
+
 Open `android/` in Android Studio, or build and verify:
 
 ```powershell
@@ -102,7 +111,7 @@ $env:STUDY_DATA_DIR = "$PWD/work/ui-test-data"
 .\scripts\build-android.ps1 -ConnectedTests
 ```
 
-This is a locally runnable MVP, not a deployed public service. Production deployment requires the operational safeguards listed in [implementation notes](docs/architecture/implementation.md). PDF OCR and semantic embeddings remain future enhancements.
+This is a locally runnable application, not a deployed public service. Production deployment still requires the operational safeguards listed in [implementation notes](docs/architecture/implementation.md). See [OCR/search/adaptive notes](docs/god-mode/ocr-search-adaptive.md) for actual local-model checks and limitations; live OpenAI quality remains unverified until setup.
 
 Read [INSTRUCTIONS.md](INSTRUCTIONS.md), [API usage](docs/api/usage.md), and the full [product requirements](Initial_plan.md) for context.
 
