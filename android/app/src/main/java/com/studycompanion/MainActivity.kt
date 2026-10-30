@@ -393,6 +393,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     val index = quiz.getInt("index")
     val count = quiz.getInt("count")
     Title("Question ${index + 1} of $count", "Take your time. Understanding comes with practice.")
+    if (!quiz.isNull("notice")) Info("Local fallback practice", quiz.getString("notice"))
     LinearProgressIndicator(progress = { (index.toFloat() / count) }, modifier = Modifier.fillMaxWidth())
     Text(question.getString("prompt"), style = MaterialTheme.typography.titleLarge)
     question.getJSONArray("choices").strings().forEachIndexed { choice, label ->
@@ -421,6 +422,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
 
 @Composable private fun Results(result: JSONObject, state: StudyState, model: StudyViewModel) {
     Title("A session well spent.", "You completed ${result.getInt("total")} questions.")
+    if (!result.isNull("notice")) Info("Local fallback practice", result.getString("notice"))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(24.dp)) {
             Text("${result.getInt("accuracy")}%", style = MaterialTheme.typography.displayLarge)

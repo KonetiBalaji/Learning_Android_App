@@ -29,7 +29,7 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [ ] Securely configure an authorized server-only key and selectable model. User previously deferred the key.
 - [ ] Rerun real generation and grounding/answer/explanation validation on the sample document.
 - [ ] Record real Easy, Medium, Hard, and Mixed difficulty samples and accuracy counts.
-- [ ] Demonstrate local fallback when the provider is unavailable.
+- [x] Demonstrate local fallback when the provider is unavailable: simulated HTTP/network outages and a real emulator flow, with explicit Easy/local labeling. See `provider-fallback.md`; live AI quality remains unverified.
 - [ ] Never record credentials, document content, or private keys in Git/APK/logs/chat.
 
 ## Branding, operations, and release

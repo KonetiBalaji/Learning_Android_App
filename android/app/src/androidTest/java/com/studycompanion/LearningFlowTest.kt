@@ -12,9 +12,43 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 
-/** Runs against a disposable backend at localhost:18763 on the emulator host. */
+/** Disposable local backend at 18763 plus simulated-outage fixture at 18764; see provider-fallback.md. */
 class LearningFlowTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+
+    @Test fun unavailableAiClearlyOffersEasyLocalPractice() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        if (model.state.value.signedIn) {
+            rule.runOnIdle { model.signOut() }
+            rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+        }
+        rule.onNodeWithText("Username").performScrollTo().performTextInput("fallback" + System.currentTimeMillis())
+        rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-fallback-password")
+        rule.onNodeWithText("Study server URL").performScrollTo().performTextClearance()
+        rule.onNodeWithText("Study server URL").performTextInput("http://10.0.2.2:18764")
+        rule.onNodeWithText("Create your study account").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
+        val file = File(rule.activity.cacheDir, "fallback.txt").apply { writeText("""
+            Chapter 1 Cells
+            Mitochondria produce usable energy through cellular respiration inside living cells.
+            Ribosomes assemble proteins using instructions carried by messenger molecules.
+        """.trimIndent()) }
+        rule.runOnIdle { model.upload(Uri.fromFile(file)) }
+        rule.waitUntil(30_000) { model.state.value.document != null && !model.state.value.busy }
+        assertNull(model.state.value.error)
+        // Request Hard through the normal ViewModel; the server must truthfully return Easy.
+        rule.runOnIdle { model.startQuiz(emptySet(), 1, "multiple_choice", "hard", "", "", "") }
+        rule.waitUntil(30_000) { model.state.value.quiz != null && !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertEquals("local_practice", model.state.value.quiz!!.getString("mode"))
+        assertEquals("easy", model.state.value.quiz!!.getJSONObject("question").getString("difficulty"))
+        rule.onNodeWithText("Local fallback practice").assertExists()
+        rule.onNodeWithText("AI is unavailable. This quiz uses local passage recall at Easy difficulty, rather than the requested AI difficulty.").assertExists()
+        rule.runOnIdle { model.deleteAccount() }
+        rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+    }
 
     private fun screenshot(name: String) {
         rule.waitForIdle()
