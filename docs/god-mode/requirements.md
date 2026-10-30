@@ -18,7 +18,7 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Flashcards and SM-2: backend and Android flows verified; evidence in `reconciliation.md`.
 - [x] OCR for scanned PDFs with visible confidence, needs-review state, and original-page comparison.
 - [x] Semantic retrieval, including a real local-model evaluation rather than renamed keyword search.
-- [ ] Offline encrypted document cache plus quizzes generated locally on Android. Bundle export, encrypted Room cache and exact-passage generator are verified foundations; navigation, lifecycle/deletion integration, saved attempts and server reconciliation remain pending in `offline-study.md`.
+- [ ] Offline encrypted document cache plus quizzes generated locally on Android. Download/navigation, chapter/page selection, saved attempts, feedback/results/mistake retry, rotation and online deletion now pass device checks, including airplane mode. Server progress import, remote revision/deletion reconciliation and actual process-kill/relaunch verification remain pending in `offline-study.md`.
 - [x] Adaptive next quiz integrated with recent, distinct learning evidence; live AI difficulty still pending.
 - [x] Tutor chat from the selected document's retrieved passages, with citations and a tested no-support response. Local source excerpt mode and Android citation flow verified; live AI explanations remain pending below.
 - [ ] Complete navigation between all learning tools with no dead ends.
