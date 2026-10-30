@@ -111,7 +111,7 @@ $env:STUDY_DATA_DIR = "$PWD/work/ui-test-data"
 .\scripts\build-android.ps1 -ConnectedTests
 ```
 
-This is a locally runnable application, not a deployed public service. Production deployment still requires the operational safeguards listed in [implementation notes](docs/architecture/implementation.md). See [OCR/search/adaptive notes](docs/god-mode/ocr-search-adaptive.md) for actual local-model checks and limitations; live OpenAI quality remains unverified until setup.
+This is a locally runnable application, not a deployed public service. Production deployment still requires the operational safeguards listed in [implementation notes](docs/architecture/implementation.md). See [OCR/search/adaptive notes](docs/god-mode/ocr-search-adaptive.md) and [document tutor notes](docs/god-mode/document-tutor.md) for actual local-model checks and limitations; live OpenAI quality remains unverified until setup.
 
 Read [INSTRUCTIONS.md](INSTRUCTIONS.md), [API usage](docs/api/usage.md), and the full [product requirements](Initial_plan.md) for context.
 

@@ -41,4 +41,4 @@ The device flow starts the recommended quiz and preserves access to original res
 - **2 Android 15 emulator flows passed:** the expanded ten-question/semantic/adaptive/flashcard flow, and image-only PDF → original-page review → corrected transcription → quiz.
 - JVM tests, APK assembly, and lint passed.
 - A real local OCR smoke recognized three expected biology terms and scored 0.96105, correctly requiring review. Full-page OCR accuracy is not claimed.
-- Prepared tutor-validation helpers are not yet an integrated chat feature until the API and Android flow are wired and verified.
+- The subsequent tutor integration is documented in [document-tutor.md](document-tutor.md); its current verification supersedes the earlier helper-only status above.

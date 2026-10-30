@@ -20,7 +20,7 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Semantic retrieval, including a real local-model evaluation rather than renamed keyword search.
 - [ ] Offline encrypted document cache plus quizzes generated locally on Android.
 - [x] Adaptive next quiz integrated with recent, distinct learning evidence; live AI difficulty still pending.
-- [ ] Tutor chat from the selected document's retrieved passages, with citations and a tested no-support response.
+- [x] Tutor chat from the selected document's retrieved passages, with citations and a tested no-support response. Local source excerpt mode and Android citation flow verified; live AI explanations remain pending below.
 - [ ] Complete navigation between all learning tools with no dead ends.
 - [ ] Owner-only access, retention, document deletion, and account deletion cover every new record type and local cache.
 
