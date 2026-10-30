@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.studycompanion.data.ApiException
 import com.studycompanion.data.SessionStore
 import com.studycompanion.data.StudyRepository
+import com.studycompanion.data.OfflineCache
+import com.studycompanion.data.OfflineStudyRepository
 import com.studycompanion.data.objects
 import com.studycompanion.data.strings
 import kotlinx.coroutines.CancellationException
@@ -41,11 +43,16 @@ data class StudyState(
     val searchHits: List<JSONObject>? = null,
     val recommendation: JSONObject? = null,
     val tutorTurns: List<JSONObject> = emptyList(),
+    val offlineDocuments: List<JSONObject> = emptyList(),
+    val offlineBundle: JSONObject? = null,
+    val offlineQuizId: String? = null,
 )
 
 class StudyViewModel(application: Application) : AndroidViewModel(application) {
     val session = SessionStore(application)
     private val repository = StudyRepository(application, session)
+    private val offlineCache = OfflineCache(application)
+    private val offlineStudy = OfflineStudyRepository(offlineCache, session)
     private val mutable = MutableStateFlow(StudyState(signedIn = session.token.isNotEmpty()))
     val state = mutable.asStateFlow()
     private var retryAction: (suspend () -> Unit)? = null
@@ -72,7 +79,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
             catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 if (error is ApiException && error.status == 401 && state.value.signedIn) {
-                    session.token = ""
+                    clearSession()
                     mutable.value = StudyState(error = "Your session expired. Sign in to continue.")
                 } else mutable.update { it.copy(error = error.message ?: "Could not connect. Check your connection and retry.") }
             } finally { mutable.update { it.copy(busy = false, uploadProgress = null) } }
@@ -87,6 +94,8 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         val parsed = Uri.parse(server)
         require(parsed.scheme in listOf("http", "https") && !parsed.host.isNullOrEmpty() && parsed.userInfo == null) { "Enter a valid server URL." }
         if (session.server != server.trim().trimEnd('/')) {
+            offlineCache.clear()
+            session.ownerId = ""
             session.token = ""
             session.activeQuiz = ""
         }
@@ -94,11 +103,17 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         val reply = JSONObject(repository.call("/auth/${if (register) "register" else "login"}", "POST",
             JSONObject().put("username", username.trim()).put("password", password)))
         session.token = reply.getString("token")
+        val ownerId = reply.getString("owner_id")
+        if (session.ownerId != ownerId) offlineCache.clear()
+        session.ownerId = ownerId
         mutable.value = StudyState(signedIn = true, busy = true)
         loadHome()
     }
 
     private suspend fun loadHome() {
+        val identity = JSONObject(repository.call("/account")).getString("owner_id")
+        if (session.ownerId.isNotEmpty() && session.ownerId != identity) offlineCache.clear()
+        session.ownerId = identity
         val health = JSONObject(repository.call("/health"))
         val docs = JSONArray(repository.call("/documents")).objects()
         val progress = JSONObject(repository.call("/progress"))
@@ -106,6 +121,55 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refresh() = run { loadHome() }
+
+    fun saveOffline() = run {
+        val document = state.value.document ?: return@run
+        val bundle = JSONObject(repository.call("/documents/${document.getString("id")}/offline-bundle"))
+        val previous = offlineCache.load(session.server, session.ownerId, document.getString("id"))
+        if (previous != null && previous.has("local_quizzes")) {
+            require(previous.getString("source_fingerprint") == bundle.getString("source_fingerprint")) { "The source changed. Sync or remove the old offline copy before replacing its saved sessions." }
+            bundle.put("local_quizzes", previous.getJSONArray("local_quizzes"))
+        }
+        offlineCache.save(session.server, session.ownerId, bundle)
+        loadOfflineLibrary()
+    }
+
+    private suspend fun loadOfflineLibrary() {
+        val documents = if (session.ownerId.isBlank()) emptyList() else offlineCache.documents(session.server, session.ownerId)
+        mutable.update { it.copy(screen = "offline", offlineDocuments = documents, offlineBundle = null, offlineQuizId = null, source = null) }
+    }
+
+    fun showOffline() = run { loadOfflineLibrary() }
+    fun openOffline(id: String) = run {
+        val bundle = offlineStudy.open(id)
+        mutable.update { it.copy(screen = "offline", offlineBundle = bundle, offlineQuizId = null) }
+    }
+    fun removeOffline(id: String) = run {
+        offlineCache.remove(session.server, session.ownerId, id)
+        loadOfflineLibrary()
+    }
+    fun resumeOffline(id: String?) { mutable.update { it.copy(offlineQuizId = id) } }
+    private fun offlineDocumentId() = state.value.offlineBundle!!.getJSONObject("document").getString("id")
+    fun startOffline(ids: Set<String>, first: String, last: String, count: Int, kind: String) = run {
+        require(first.isBlank() || first.toIntOrNull() != null) { "Enter a valid first page." }
+        require(last.isBlank() || last.toIntOrNull() != null) { "Enter a valid last page." }
+        val bundle = offlineStudy.create(offlineDocumentId(), ids, first.toIntOrNull(), last.toIntOrNull(), count, kind)
+        mutable.update { it.copy(offlineBundle = bundle, offlineQuizId = bundle.getJSONArray("local_quizzes").objects().last().getString("id")) }
+    }
+    fun answerOffline(choice: Int) = run {
+        val quiz = state.value.offlineBundle!!.getJSONArray("local_quizzes").objects().first { it.getString("id") == state.value.offlineQuizId }
+        val bundle = offlineStudy.answer(offlineDocumentId(), quiz.getString("id"), quiz.getInt("index"), choice)
+        mutable.update { it.copy(offlineBundle = bundle) }
+    }
+    fun nextOffline() = run {
+        val quiz = state.value.offlineBundle!!.getJSONArray("local_quizzes").objects().first { it.getString("id") == state.value.offlineQuizId }
+        val bundle = offlineStudy.next(offlineDocumentId(), quiz.getString("id"), quiz.getInt("index"))
+        mutable.update { it.copy(offlineBundle = bundle) }
+    }
+    fun retryOffline() = run {
+        val bundle = offlineStudy.retry(offlineDocumentId(), state.value.offlineQuizId!!)
+        mutable.update { it.copy(offlineBundle = bundle, offlineQuizId = bundle.getJSONArray("local_quizzes").objects().last().getString("id")) }
+    }
 
     private fun setDocumentContext(document: JSONObject) {
         mutable.update { current ->
@@ -202,9 +266,11 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteDocument(id: String) = run {
         repository.call("/documents/$id", "DELETE")
+        if (session.ownerId.isNotBlank()) offlineCache.remove(session.server, session.ownerId, id)
         session.activeQuiz = ""
         loadHome()
-        mutable.update { it.copy(screen = "home", document = null, quiz = null, results = null) }
+        mutable.update { it.copy(screen = "home", document = null, quiz = null, results = null, source = null,
+            offlineBundle = null, offlineQuizId = null, offlineDocuments = it.offlineDocuments.filterNot { doc -> doc.getString("id") == id }) }
     }
 
     fun startQuiz(sectionIds: Set<String>, count: Int, kind: String, difficulty: String, first: String, last: String, topic: String) = run {
@@ -321,15 +387,22 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     fun signOut() = run {
         try { repository.call("/auth/session", "DELETE") }
         finally {
-            session.token = ""
-            session.activeQuiz = ""
-            mutable.value = StudyState()
+            clearSession()
         }
     }
     fun deleteAccount() = run {
         repository.call("/account", "DELETE")
-        session.token = ""
-        session.activeQuiz = ""
-        mutable.value = StudyState()
+        clearSession()
+    }
+
+    private suspend fun clearSession() {
+        retryAction = null
+        try { offlineCache.clear() }
+        finally {
+            session.ownerId = ""
+            session.token = ""
+            session.activeQuiz = ""
+            mutable.value = StudyState()
+        }
     }
 }

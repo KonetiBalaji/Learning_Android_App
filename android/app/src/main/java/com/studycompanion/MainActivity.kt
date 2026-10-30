@@ -114,6 +114,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                 "home" -> {
                     Title("Your learning library", "Turn your own material into a focused practice session.")
                     PracticeNotice(state.aiMode)
+                    OutlinedButton(onClick = model::showOffline, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Study saved material offline") }
                     Button(onClick = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain")) },
                         enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("+ Upload study material") }
                     Text("PDF, DOCX or UTF-8 TXT · up to 50 MB", style = MaterialTheme.typography.bodySmall)
@@ -139,6 +140,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     TextButton(onClick = model::refresh, enabled = !state.busy) { Text("Refresh library") }
                 }
                 "configure" -> state.document?.let { doc -> Configure(doc, state.busy, state.aiMode, state.studyConfig, model) { confirmation = "document" } }
+                "offline" -> OfflineStudyScreen(state, model)
                 "ocr" -> OcrReview(state, model)
                 "search" -> SemanticSearch(state, model)
                 "tutor" -> DocumentTutor(state, model)
@@ -274,6 +276,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     OutlinedTextField(count, { count = it }, label = { Text("Questions · 1–50") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), isError = QuizRules.questionCount(count) == null, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     OutlinedButton(onClick = { model.openSearch(selected.toSet(), count.toInt(), kind, difficulty, first, last, topic) }, enabled = !busy && QuizRules.questionCount(count) != null, modifier = Modifier.fillMaxWidth()) { Text("Explore selected material with semantic search") }
     OutlinedButton(onClick = { model.openTutor(selected.toSet(), count.toIntOrNull() ?: 10, kind, difficulty, first, last, topic) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Ask the document tutor") }
+    OutlinedButton(onClick = model::saveOffline, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Save confirmed material for offline study") }
     Text("Question format", style = MaterialTheme.typography.titleMedium)
     listOf("multiple_choice" to "Multiple choice", "true_false" to "True / False", "yes_no" to "Yes / No").forEach { (value, label) ->
         Row(verticalAlignment = Alignment.CenterVertically) {

@@ -16,6 +16,82 @@ import java.io.File
 class LearningFlowTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
+    @Test fun savedMaterialSupportsAirplaneModeQuizFeedbackAndDeletion() {
+        assertTrue("This network-toggle test is for the disposable emulator", android.os.Build.MODEL.contains("sdk"))
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        if (model.state.value.signedIn) {
+            rule.runOnIdle { model.signOut() }
+            rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+        }
+        rule.runOnIdle { model.authenticate("offline" + System.currentTimeMillis(), "disposable-offline-password", true, "http://10.0.2.2:18763") }
+        rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
+        assertNull(model.state.value.error)
+        val file = File(rule.activity.cacheDir, "offline-biology.txt").apply { writeText("""
+            Chapter 1 Cells
+            Mitochondria produce usable energy through cellular respiration inside living cells.
+            Ribosomes assemble proteins using instructions carried by messenger molecules.
+        """.trimIndent()) }
+        rule.runOnIdle { model.upload(Uri.fromFile(file)) }
+        rule.waitUntil(30_000) { model.state.value.document != null && !model.state.value.busy }
+        val docId = model.state.value.document!!.getString("id")
+        rule.onNodeWithText("Save confirmed material for offline study").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "offline" && !model.state.value.busy }
+        assertNull(model.state.value.error)
+        rule.onNodeWithText("Open saved offline-biology").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.offlineBundle != null && !model.state.value.busy }
+        fun shell(command: String): String {
+            val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+            return android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes().toString(Charsets.UTF_8).trim() }
+        }
+        try {
+            shell("cmd connectivity airplane-mode enable")
+            shell("svc wifi disable")
+            assertEquals("1", shell("settings get global airplane_mode_on"))
+            rule.onNodeWithText("Offline questions · 1–50").performScrollTo().performTextClearance()
+            rule.onNodeWithText("Offline questions · 1–50").performTextInput("1")
+            rule.onNodeWithText("Generate offline practice").performScrollTo().performClick()
+            rule.waitUntil(30_000) { model.state.value.offlineQuizId != null && !model.state.value.busy }
+            assertNull(model.state.value.error)
+            val quizId = model.state.value.offlineQuizId!!
+            val quiz = model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0)
+            val question = quiz.getJSONArray("questions").getJSONObject(0)
+            val wrong = (question.getInt("answer") + 1) % 4
+            rule.onNodeWithText(question.getJSONArray("choices").getString(wrong), useUnmergedTree = true).performScrollTo().performClick()
+            rule.onNodeWithText("Check offline answer").performScrollTo().performClick()
+            rule.waitUntil(30_000) { model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0).getJSONArray("answers").length() == 1 && !model.state.value.busy }
+            rule.onNodeWithText("Read saved source").performScrollTo().performClick()
+            rule.onNodeWithText("Saved source passage").assertExists()
+            rule.onNodeWithText("Close saved source").performClick()
+            rule.runOnIdle { rule.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+            rule.waitUntil(30_000) { rule.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+            rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+            assertEquals(quizId, model.state.value.offlineQuizId)
+            rule.onNodeWithText("See offline results").performScrollTo().performClick()
+            rule.waitUntil(30_000) { model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0).getInt("index") == 1 && !model.state.value.busy }
+            rule.onNodeWithText("Offline result: 0 / 1").assertExists()
+            rule.onNodeWithText("Retry offline mistakes").performScrollTo().performClick()
+            rule.waitUntil(30_000) { model.state.value.offlineQuizId != quizId && !model.state.value.busy }
+            assertEquals(2, model.state.value.offlineBundle!!.getJSONArray("local_quizzes").length())
+        } finally {
+            shell("cmd connectivity airplane-mode disable")
+            shell("svc wifi enable")
+            rule.runOnIdle { rule.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+        }
+        val manager = rule.activity.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        rule.waitUntil(60_000) { manager.getNetworkCapabilities(manager.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true }
+        rule.runOnIdle { model.deleteDocument(docId) }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertNull(model.state.value.offlineBundle)
+        rule.runOnIdle { model.showOffline() }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        assertTrue(model.state.value.offlineDocuments.isEmpty())
+        rule.runOnIdle { model.deleteAccount() }
+        rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+    }
+
     @Test fun unavailableAiClearlyOffersEasyLocalPractice() {
         lateinit var model: StudyViewModel
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }

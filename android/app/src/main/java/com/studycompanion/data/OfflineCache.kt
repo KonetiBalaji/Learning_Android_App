@@ -93,10 +93,12 @@ class OfflineCache(context: Context) {
     }
 
     suspend fun clear() = withContext(Dispatchers.IO) {
-        records.clear()
-        synchronized(keyLock) {
-            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            store.aliases().toList().filter { it.startsWith(PREFIX) }.forEach(store::deleteEntry)
+        try { records.clear() }
+        finally {
+            synchronized(keyLock) {
+                val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                store.aliases().toList().filter { it.startsWith(PREFIX) }.forEach(store::deleteEntry)
+            }
         }
     }
 

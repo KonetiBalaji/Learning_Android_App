@@ -60,6 +60,9 @@ class SessionStore(context: Context) {
     var activeQuiz: String
         get() = prefs.getString("quiz", "")!!
         set(value) { prefs.edit().putString("quiz", value).apply() }
+    var ownerId: String
+        get() = prefs.getString("owner", "")!!
+        set(value) { prefs.edit().putString("owner", value).apply() }
 }
 
 class StudyRepository(private val context: Context, val session: SessionStore) {
