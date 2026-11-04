@@ -1,15 +1,19 @@
 """Exercise the deployed staging API using a verified TLS connection."""
+import argparse
 import http.client
 import json
 import secrets
 import ssl
-import sys
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-context = ssl.create_default_context(cafile=sys.argv[1])
-host = "localhost"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--ca-file")
+parser.add_argument("--host", default="localhost")
+args = parser.parse_args()
+context = ssl.create_default_context(cafile=args.ca_file)
+host = args.host
 
 
 def call(path, method="GET", body=None, token=None, expected=200, content_type="application/json"):
@@ -34,7 +38,7 @@ try:
     redirect.request("GET", "/health")
     response = redirect.getresponse()
     assert response.status == 308
-    assert response.getheader("Location") == "https://localhost/health"
+    assert response.getheader("Location") == f"https://{host}/health"
 finally:
     redirect.close()
 

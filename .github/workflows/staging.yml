@@ -27,7 +27,7 @@ jobs:
             sleep 1
           done
           test -s "$RUNNER_TEMP/saras-ca.crt"
-          python3 scripts/staging-smoke.py "$RUNNER_TEMP/saras-ca.crt"
+          python3 scripts/staging-smoke.py --ca-file "$RUNNER_TEMP/saras-ca.crt"
       - name: Stop disposable stack
         if: always()
         run: docker compose down --volumes

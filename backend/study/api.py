@@ -15,6 +15,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
+from starlette.responses import JSONResponse
 
 from .documents import MAX_BYTES, MAX_TEXT, DocumentError, extract, retrieve, structure
 from .quizzes import GenerationError, generate_local, public_question
@@ -114,6 +115,34 @@ def create_app(data_dir: Path | None = None):
     attempts = {}
     provider = configured_provider()
     mode = "openai" if provider else "local_practice"
+    request_limit = int(os.getenv("STUDY_REQUESTS_PER_MINUTE", "0"))
+    if request_limit < 0:
+        raise ValueError("STUDY_REQUESTS_PER_MINUTE must be nonnegative.")
+    request_window = -1
+    request_counts = {}
+    request_logger = logging.getLogger("uvicorn.error")
+
+    @app.middleware("http")
+    async def operational_controls(request: Request, call_next):
+        nonlocal request_window
+        started = time.monotonic()
+        if request_limit and request.url.path not in ("/health", "/ready"):
+            window = int(started // 60)
+            if window != request_window:
+                request_counts.clear()
+                request_window = window
+            address = request.client.host if request.client else "unknown"
+            count = request_counts.get(address, 0)
+            if count >= request_limit or (address not in request_counts and len(request_counts) >= 4096):
+                return JSONResponse({"detail": "Too many requests. Try again shortly."}, status_code=429,
+                                    headers={"Retry-After": str(max(1, 60 - int(started) % 60))})
+            request_counts[address] = count + 1
+        response = await call_next(request)
+        if request_limit:
+            route = getattr(request.scope.get("route"), "path", None)
+            request_logger.info(json.dumps({"event": "http_request", "route": route, "status": response.status_code,
+                                            "duration_ms": round((time.monotonic() - started) * 1000)}))
+        return response
 
     @app.middleware("http")
     async def upload_limit(request: Request, call_next):

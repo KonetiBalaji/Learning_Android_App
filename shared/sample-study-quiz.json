@@ -1,0 +1,64 @@
+{
+  "source": "sample-study-material.txt",
+  "mode": "local_practice",
+  "source_fingerprint": "dcf45cd83ca735a73cf23e4f7aee0ccd6f270b113c187842a3543395c99854c2",
+  "questions": [
+    {
+      "id": "q0",
+      "prompt": "Which word completes this exact passage?\n“_____ consist of individuals belonging to the same species.”",
+      "choices": [
+        "include",
+        "Populations",
+        "information",
+        "respiration"
+      ],
+      "answer": 1,
+      "type": "multiple_choice",
+      "source_id": "p7",
+      "quote": "Populations consist of individuals belonging to the same species.",
+      "section_id": "s2",
+      "concept": "s2",
+      "page": 1,
+      "difficulty": "easy",
+      "explanation": "The original passage says: “Populations consist of individuals belonging to the same species.” Read it again and connect the missing word to its context."
+    },
+    {
+      "id": "q1",
+      "prompt": "Which word completes this exact passage?\n“_____ contain genetic information passed between successive generations.”",
+      "choices": [
+        "passed",
+        "genetic",
+        "together",
+        "Chromosomes"
+      ],
+      "answer": 3,
+      "type": "multiple_choice",
+      "source_id": "p4",
+      "quote": "Chromosomes contain genetic information passed between successive generations.",
+      "section_id": "s1",
+      "concept": "s1",
+      "page": 1,
+      "difficulty": "easy",
+      "explanation": "The original passage says: “Chromosomes contain genetic information passed between successive generations.” Read it again and connect the missing word to its context."
+    },
+    {
+      "id": "q2",
+      "prompt": "Which word completes this exact passage?\n“Producers _____ their own food using sunlight or chemical reactions.”",
+      "choices": [
+        "store",
+        "movement",
+        "energy",
+        "manufacture"
+      ],
+      "answer": 3,
+      "type": "multiple_choice",
+      "source_id": "p10",
+      "quote": "Producers manufacture their own food using sunlight or chemical reactions.",
+      "section_id": "s2",
+      "concept": "s2",
+      "page": 1,
+      "difficulty": "easy",
+      "explanation": "The original passage says: “Producers manufacture their own food using sunlight or chemical reactions.” Read it again and connect the missing word to its context."
+    }
+  ]
+}

@@ -2,7 +2,7 @@ FROM python:3.11-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app/backend STUDY_MODEL_DIR=/models STUDY_DATA_DIR=/data
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/* \
-    && groupadd -g 10001 study && useradd -u 10001 -g study -M study \
+    && groupadd -g 10001 study && useradd -u 10001 -g study -m study \
     && install -d -o study -g study /data /models
 COPY backend/requirements-lock.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt

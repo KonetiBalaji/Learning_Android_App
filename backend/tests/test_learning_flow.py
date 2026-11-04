@@ -235,6 +235,38 @@ def test_missing_storage_key_never_silently_rekeys_database(tmp_path):
     assert not (tmp_path / "storage.key").exists()
 
 
+def test_mounted_storage_key_is_required_to_reopen_database(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    mounted = tmp_path / "mounted.key"
+    key = Fernet.generate_key()
+    mounted.write_bytes(key)
+    monkeypatch.setenv("STUDY_STORAGE_KEY_FILE", str(mounted))
+    directory = tmp_path / "data"
+    Store(directory).db.close()
+    assert not (directory / "storage.key").exists()
+    mounted.write_bytes(Fernet.generate_key())
+    with pytest.raises(RuntimeError, match="does not match"):
+        Store(directory)
+    mounted.write_bytes(key)
+    Store(directory).db.close()
+
+
+def test_request_limits_keep_health_probes_available(tmp_path, monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setenv("STUDY_REQUESTS_PER_MINUTE", "1")
+    monkeypatch.setenv("STUDY_GENERATION_MODE", "local_practice")
+    with TestClient(create_app(tmp_path)) as client, caplog.at_level(logging.INFO, logger="uvicorn.error"):
+        assert client.get("/documents?fixture=private-marker").status_code == 401
+        limited = client.get("/documents")
+        assert limited.status_code == 429 and int(limited.headers["Retry-After"]) > 0
+        assert client.get("/ready").status_code == 200
+    logs = [entry.message for entry in caplog.records if entry.name == "uvicorn.error"]
+    assert any('"route": "/documents"' in entry for entry in logs)
+    assert not any("private-marker" in entry for entry in logs)
+
+
 def test_startup_retention_cleans_inactive_accounts_and_preserves_current_material(tmp_path, monkeypatch):
     monkeypatch.setenv("STUDY_GENERATION_MODE", "local_practice")
     app = create_app(tmp_path)
