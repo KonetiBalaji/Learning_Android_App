@@ -4,7 +4,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 DOCUMENT_RETENTION_SECONDS = 30 * 86400
 
@@ -13,13 +13,17 @@ class Store:
     def __init__(self, directory: Path):
         directory.mkdir(parents=True, exist_ok=True)
         key_path = directory / "storage.key"
-        if not key_path.exists():
+        external_key = os.getenv("STUDY_STORAGE_KEY_FILE")
+        if not external_key and not key_path.exists():
             if (directory / "study.sqlite3").exists():
                 raise RuntimeError("The storage encryption key is missing. Restore storage.key before opening the existing database.")
             with key_path.open("xb") as file:
                 file.write(Fernet.generate_key())
             os.chmod(key_path, 0o600)
-        self.cipher = Fernet(key_path.read_bytes())
+        try:
+            self.cipher = Fernet(Path(external_key).read_bytes().strip() if external_key else key_path.read_bytes())
+        except (OSError, ValueError):
+            raise RuntimeError("The configured storage key is unavailable or invalid.") from None
         self.lock = threading.RLock()
         self.db = sqlite3.connect(directory / "study.sqlite3", check_same_thread=False)
         self.db.row_factory = sqlite3.Row
@@ -30,7 +34,21 @@ class Store:
             CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, owner TEXT REFERENCES users(id) ON DELETE CASCADE,
                 kind TEXT, document TEXT, created REAL, payload BLOB);
             CREATE INDEX IF NOT EXISTS owner_document_records ON records(owner, kind, document, created);
+            CREATE TABLE IF NOT EXISTS storage_check (id INTEGER PRIMARY KEY, payload BLOB NOT NULL);
         """)
+        check = self.db.execute("SELECT payload FROM storage_check WHERE id=1").fetchone()
+        try:
+            if check:
+                if self.cipher.decrypt(check[0]) != b"study-storage-v1":
+                    raise InvalidToken
+            else:
+                existing = self.db.execute("SELECT payload FROM records LIMIT 1").fetchone()
+                if existing:
+                    self.cipher.decrypt(existing[0])
+                self.db.execute("INSERT INTO storage_check VALUES (1, ?)", (self.cipher.encrypt(b"study-storage-v1"),))
+        except InvalidToken:
+            self.db.close()
+            raise RuntimeError("The storage key does not match this database.") from None
         self.db.commit()
 
     def encode(self, value):

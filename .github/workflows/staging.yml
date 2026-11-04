@@ -1,0 +1,31 @@
+name: Docker HTTPS staging
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      STUDY_SITE: localhost
+      STUDY_STORAGE_KEY_PATH: ${{ runner.temp }}/saras-storage.key
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate disposable storage key
+        run: python3 -c 'import base64,os,pathlib; pathlib.Path(os.environ["STUDY_STORAGE_KEY_PATH"]).write_bytes(base64.urlsafe_b64encode(os.urandom(32)))'
+      - name: Build and start stack
+        run: docker compose up --build --wait --wait-timeout 120
+      - name: Verify TLS and study workflow
+        run: |
+          for attempt in {1..20}; do
+            docker compose cp proxy:/data/caddy/pki/authorities/local/root.crt "$RUNNER_TEMP/saras-ca.crt" && break
+            sleep 1
+          done
+          test -s "$RUNNER_TEMP/saras-ca.crt"
+          python3 scripts/staging-smoke.py "$RUNNER_TEMP/saras-ca.crt"
+      - name: Stop disposable stack
+        if: always()
+        run: docker compose down --volumes

@@ -1,0 +1,8 @@
+**
+!backend/
+!backend/requirements-lock.txt
+!backend/study/
+!backend/study/**
+backend/study/**/__pycache__/
+!scripts/
+!scripts/prepare-models.py

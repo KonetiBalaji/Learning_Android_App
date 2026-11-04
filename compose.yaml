@@ -1,0 +1,40 @@
+services:
+  api:
+    build: .
+    environment:
+      STUDY_STORAGE_KEY_FILE: /run/secrets/storage_key
+      STUDY_GENERATION_MODE: local_practice
+    secrets:
+      - storage_key
+    volumes:
+      - study_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  proxy:
+    image: caddy:2.10.2-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      STUDY_SITE: "${STUDY_SITE:?Set STUDY_SITE to the bare hostname}"
+    ports:
+      - "${STUDY_BIND:-127.0.0.1}:80:80"
+      - "${STUDY_BIND:-127.0.0.1}:443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+secrets:
+  storage_key:
+    file: "${STUDY_STORAGE_KEY_PATH:?Set STUDY_STORAGE_KEY_PATH to a readable Fernet key file}"
+volumes:
+  study_data:
+  caddy_data:
+  caddy_config:

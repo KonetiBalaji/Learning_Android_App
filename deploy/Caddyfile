@@ -1,0 +1,9 @@
+{
+    skip_install_trust
+}
+{$STUDY_SITE} {
+    request_body {
+        max_size 51MiB
+    }
+    reverse_proxy api:8000
+}
