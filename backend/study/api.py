@@ -14,8 +14,8 @@ from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field
-from starlette.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
+from starlette.responses import HTMLResponse, JSONResponse
 
 from .documents import MAX_BYTES, MAX_TEXT, DocumentError, extract, retrieve, structure
 from .quizzes import GenerationError, generate_local, public_question
@@ -150,9 +150,14 @@ def create_app(data_dir: Path | None = None):
         # Bound the entire request before multipart parsing can spool unbounded data.
         is_upload = request.url.path.endswith("/documents")
         is_offline_sync = request.url.path.endswith("/offline-attempts")
-        if (is_upload or is_offline_sync) and request.method == "POST":
-            maximum = MAX_BYTES + 1024 * 1024 if is_upload else 16 * 1024 * 1024
-            limit_message = "Upload exceeds 50 MB." if is_upload else "Offline sync request exceeds 16 MB."
+        is_web_deletion = request.url.path == "/delete-account"
+        if (is_upload or is_offline_sync or is_web_deletion) and request.method == "POST":
+            if is_upload:
+                maximum, limit_message = MAX_BYTES + 1024 * 1024, "Upload exceeds 50 MB."
+            elif is_offline_sync:
+                maximum, limit_message = 16 * 1024 * 1024, "Offline sync request exceeds 16 MB."
+            else:
+                maximum, limit_message = 8192, "Account deletion form is too large."
             size = 0
             original_receive = request._receive
 
@@ -279,6 +284,54 @@ def create_app(data_dir: Path | None = None):
     @app.get("/account")
     def account_identity(user=Depends(owner)):
         return {"owner_id": user}
+
+    def deletion_page(message="", status=200, *, show_form=True):
+        form = """
+        <form method="post" action="/delete-account">
+          <p><label>Username <input name="username" required maxlength="80" autocomplete="username"></label></p>
+          <p><label>Password <input name="password" type="password" required maxlength="128" autocomplete="current-password"></label></p>
+          <p><label><input type="checkbox" name="confirm" value="yes" required> I understand this permanently deletes my account and study data.</label></p>
+          <button type="submit">Delete my Saras account</button>
+        </form>""" if show_form else ""
+        return HTMLResponse(f"""<!doctype html><html lang="en"><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Delete a Saras account</title><main><h1>Delete your Saras account</h1>
+        <p>Sign in with your Saras credentials to remove your account, documents and progress from this server.</p>
+        <p role="status">{message}</p>{form}</main></html>""", status_code=status, headers={
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+            "Referrer-Policy": "no-referrer",
+        })
+
+    @app.get("/delete-account", response_class=HTMLResponse, include_in_schema=False)
+    def show_deletion_page():
+        return deletion_page()
+
+    @app.post("/delete-account", response_class=HTMLResponse, include_in_schema=False)
+    async def submit_deletion(request: Request):
+        if request.headers.get("origin") != f"{request.url.scheme}://{request.url.netloc}":
+            return deletion_page("Open this page directly and submit the form again.", 403)
+        if request.headers.get("content-type", "").split(";")[0] != "application/x-www-form-urlencoded":
+            return deletion_page("Submit the account deletion form.", 415)
+        async with request.form() as form:
+            if form.get("confirm") != "yes":
+                return deletion_page("Confirm permanent deletion before continuing.", 400)
+            try:
+                credentials = Credentials(username=form.get("username"), password=form.get("password"))
+            except ValidationError:
+                return deletion_page("Enter a valid username and password.", 400)
+
+        def verify_and_delete():
+            with store.lock:
+                identity = authenticate("login", credentials, request)
+                delete_account(identity["owner_id"])
+
+        try:
+            await asyncio.to_thread(verify_and_delete)
+        except HTTPException as error:
+            message = "Too many attempts. Try again in a minute." if error.status_code == 429 else "Username or password is incorrect."
+            return deletion_page(message, error.status_code)
+        return deletion_page("Your Saras account and server study data were deleted.", show_form=False)
 
     def metadata(doc):
         return {k: v for k, v in doc.items() if k != "passages" and not k.startswith("_")}

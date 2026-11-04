@@ -267,6 +267,24 @@ def test_request_limits_keep_health_probes_available(tmp_path, monkeypatch, capl
     assert not any("private-marker" in entry for entry in logs)
 
 
+def test_web_account_deletion_requires_same_origin_confirmation_and_credentials(client):
+    headers = account(client)
+    upload(client, headers)
+    url = "/delete-account"
+    assert client.get(url).headers["cache-control"] == "no-store"
+    fields = {"username": "student", "password": "a long test password", "confirm": "yes"}
+    origin = {"Origin": "http://testserver"}
+    assert client.post(url, data=fields, headers={"Origin": "https://unrelated.invalid"}).status_code == 403
+    assert client.post(url, data={**fields, "confirm": ""}, headers=origin).status_code == 400
+    rejected = client.post(url, data={**fields, "password": "wrong-test-password"}, headers=origin)
+    assert rejected.status_code == 401 and "wrong-test-password" not in rejected.text
+    assert client.get("/account", headers=headers).status_code == 200
+    assert "were deleted" in client.post(url, data=fields, headers=origin).text
+    assert client.get("/account", headers=headers).status_code == 401
+    store = client.app.state.store
+    assert store.db.execute("SELECT COUNT(*) FROM records").fetchone()[0] == 0
+
+
 def test_startup_retention_cleans_inactive_accounts_and_preserves_current_material(tmp_path, monkeypatch):
     monkeypatch.setenv("STUDY_GENERATION_MODE", "local_practice")
     app = create_app(tmp_path)

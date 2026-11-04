@@ -6,6 +6,7 @@ import secrets
 import ssl
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -18,6 +19,8 @@ host = args.host
 
 def call(path, method="GET", body=None, token=None, expected=200, content_type="application/json"):
     headers = {"Content-Type": content_type}
+    if path == "/delete-account" and method == "POST":
+        headers["Origin"] = f"https://{host}"
     if token:
         headers["Authorization"] = f"Bearer {token}"
     payload = json.dumps(body).encode() if isinstance(body, dict) else body
@@ -30,6 +33,8 @@ def call(path, method="GET", body=None, token=None, expected=200, content_type="
         if response.status != expected:
             raise AssertionError(f"{method} {path}: expected {expected}, received {response.status}")
         raw = response.read()
+        if response.headers.get_content_type() == "text/html":
+            return raw.decode("utf-8")
     return json.loads(raw) if raw else None
 
 
@@ -45,12 +50,14 @@ finally:
 assert call("/health")["generation_mode"] == "local_practice"
 assert call("/ready")["status"] == "ready"
 tokens = []
+credentials = []
 try:
     for _ in range(2):
-        tokens.append(call("/auth/register", "POST", {
+        credentials.append({
             "username": "staging-" + secrets.token_hex(5),
             "password": secrets.token_urlsafe(24),
-        })["token"])
+        })
+        tokens.append(call("/auth/register", "POST", credentials[-1])["token"])
     owner, outsider = tokens
     sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
     boundary = secrets.token_hex(16)
@@ -67,8 +74,13 @@ try:
     call(root, "DELETE", token=owner, expected=204)
     call(root + "/offline-bundle", token=owner, expected=404)
     call(f'/quizzes/{quiz["id"]}', token=owner, expected=404)
+    assert "Delete your Saras account" in call("/delete-account")
+    form = urlencode({**credentials[0], "confirm": "yes"}).encode()
+    assert "were deleted" in call("/delete-account", "POST", form, content_type="application/x-www-form-urlencoded")
+    tokens.remove(owner)
+    call("/account", token=owner, expected=401)
 finally:
     for token in tokens:
         call("/account", "DELETE", token=token, expected=204)
 
-print("Verified HTTPS redirect, trusted TLS, readiness, upload, owner isolation, quiz generation and deletion.")
+print("Verified HTTPS redirect, trusted TLS, readiness, upload, owner isolation, quiz generation and web account deletion.")
