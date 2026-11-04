@@ -36,16 +36,18 @@ The full objective is the user's attached “Take the Saras learning app to God 
 
 - [x] Identify the Saras Modern/Heritage assets from the user-supplied email; preserve a clearly named placeholder until real files are available.
 - [ ] Import supplied assets into light/dark header, launcher, and splash surfaces after re-supply/access.
-- [ ] Docker and HTTPS configuration, production key provisioning, production rate limits and structured logging. Local storage readiness and background retention cleanup are implemented.
-- [ ] Run staging smoke checks against the actual staged deployment.
-- [ ] Release signing configuration with no keystore/password in Git; create a genuinely signed release only with authorized signing material.
-- [ ] Play Store title, short/full descriptions, screenshots checklist, privacy-policy draft, data-safety draft, versioning, and release notes.
+- [x] Docker and HTTPS configuration, mounted storage key validation, per-client rate limiting, safe request logs, readiness and background retention cleanup.
+- [x] Verify trusted TLS, readiness, actual OCR and semantic retrieval, owner isolation and web account deletion on a disposable Linux Compose stack. [Staging run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/41903736464)
+- [ ] Provision the persistent production host, public DNS and certificate. Rerun smoke checks against that host.
+- [x] Configure Android API 36 and environment-based release signing.
+- [ ] Build the distribution bundle with the authorized Play upload key and verify its certificate.
+- [x] Prepare Play Store listing, screenshot checklist, privacy and Data safety drafts, release notes and versioning instructions. Final declarations require actual production details.
 - [ ] Publish only after Balaji's explicit action-specific go-ahead. No publishing is currently authorized.
 
 ## Demo and final audit
 
-- [ ] Three-minute Sivaraj demo script.
-- [ ] Seeded sample document and source-validated frozen sample quiz.
+- [x] Three-minute Sivaraj demo script.
+- [x] Seeded sample document and source-validated frozen sample quiz.
 - [ ] One-page status sheet separating VERIFIED IN REPO from REPORTED ON WINDOWS ONLY / reported elsewhere.
 - [ ] Test report with actual current counts; live AI or release gaps clearly say NOT VERIFIED.
 - [ ] Exact external blocker list: API setup, real logo assets, hosting/TLS, signing material, and Play Console access if publishing.

@@ -3,16 +3,34 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val releaseSigning = listOf(
+    "SARAS_KEYSTORE_PATH", "SARAS_KEYSTORE_PASSWORD", "SARAS_KEY_ALIAS", "SARAS_KEY_PASSWORD"
+).associateWith { providers.environmentVariable(it).orNull }
+val signingRequested = releaseSigning.values.any { !it.isNullOrBlank() }
+if (signingRequested) {
+    require(releaseSigning.values.all { !it.isNullOrBlank() }) { "Supply all four Saras signing variables." }
+}
+
 android {
     namespace = "com.studycompanion"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.studycompanion"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    if (signingRequested) {
+        signingConfigs.create("release") {
+            storeFile = file(releaseSigning.getValue("SARAS_KEYSTORE_PATH")!!)
+            storePassword = releaseSigning.getValue("SARAS_KEYSTORE_PASSWORD")
+            keyAlias = releaseSigning.getValue("SARAS_KEY_ALIAS")
+            keyPassword = releaseSigning.getValue("SARAS_KEY_PASSWORD")
+        }
+        buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
     }
     buildFeatures { compose = true }
     compileOptions {

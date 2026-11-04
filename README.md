@@ -68,7 +68,9 @@ Questions and explanations must be grounded in the selected material and retain 
 
 ## Run locally on Windows
 
-Requirements: Python 3.11+, JDK 17, and Android SDK 35 (or Android Studio). A local toolchain used for verification is available under ignored `work/toolchain/` on this machine; `scripts/build-android.ps1` detects it automatically.
+Requirements: Python 3.11+, JDK 17, and Android SDK 36 (or Android Studio). The build script can detect a local toolchain under the ignored `work/toolchain/` directory.
+
+See the [Docker and HTTPS runbook](deploy/README.md), [Play Store draft](docs/god-mode/play-store-draft.md), and [three-minute demo](docs/god-mode/sivaraj-demo.md).
 
 Start the backend from the repository root:
 
