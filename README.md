@@ -14,7 +14,7 @@ The default **local practice mode** needs no API key. It generates exact-passage
 
 The user-supplied **Saras Logos** email establishes the Saras brand name. The supplied Modern and Heritage artwork has not yet been imported because attachment retrieval was interrupted; the launcher currently uses a temporary book symbol.
 
-The `god-mode` branch now adds scanned-PDF OCR with original-page confirmation, local semantic search, focused adaptive practice, source-backed flashcards, and SM-2 spaced review. See the [acceptance ledger](docs/god-mode/requirements.md) and [reconciliation audit](docs/god-mode/reconciliation.md) for verified scope and the remaining offline/chat/release work.
+Use `main` for the stable build and `dev` for feature development. Saras supports scanned-PDF OCR with original-page confirmation, local semantic search, adaptive practice, source-backed flashcards, SM-2 review, a document tutor, and offline practice with server-validated progress sync. See the [acceptance ledger](docs/god-mode/requirements.md) for verification and release gaps.
 
 ## MVP goal
 

@@ -17,11 +17,11 @@ Cache reads purge expired records. Downloads more than five minutes in the futur
 - Implemented: parent-chapter expansion and PDF page selection before on-device generation. Semantic topic inference is not available on the phone; the screen explicitly directs users to online tools for it.
 - Implemented: encrypted local quiz/answer/advance persistence, saved-session browsing, immediate feedback, source viewing, results, mistake retry, and rotation recovery. Each session records its selection. Saved state survives repository/database reopen; an actual app process-kill/relaunch check is still pending.
 - Implemented: explicit sync of completed sessions, validated server progress import, per-session acknowledgement persistence, idempotent retry and remote revision/deletion reconciliation. Verification details follow below.
-- Verify an actual process restart and additional account/session-rejection cleanup cases. The separate restart harness is `scripts/verify-offline-restart.ps1`; its result must be recorded after execution.
+- The two-phase `scripts/verify-offline-restart.ps1` run passed. The harness verified the original process was absent, reopened encrypted state while offline, resumed the saved answer, and synchronized the completed result after reconnecting.
 
 Offline sessions remain device-only until the user selects **Sync completed offline sessions** while connected. Incomplete sessions are skipped. Successful imports receive a server quiz ID, are labeled as synced, and can open the account result for further online study tools. Each downloaded copy stores up to 20 local sessions within the encrypted size limit; removal explicitly warns that unsynced answers are deleted.
 
-The acceptance ledger therefore keeps the overall offline requirement unchecked until this integration and its device verification are complete.
+The synchronization revision passed all seven device tests. The airplane-mode flow exercised repeated sync without duplicate progress and removal of the cached copy after another client deleted the document.
 
 ## Synchronization boundary
 

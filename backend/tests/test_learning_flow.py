@@ -235,6 +235,27 @@ def test_missing_storage_key_never_silently_rekeys_database(tmp_path):
     assert not (tmp_path / "storage.key").exists()
 
 
+def test_startup_retention_cleans_inactive_accounts_and_preserves_current_material(tmp_path, monkeypatch):
+    monkeypatch.setenv("STUDY_GENERATION_MODE", "local_practice")
+    app = create_app(tmp_path)
+    store = app.state.store
+    with TestClient(app) as client:
+        headers = account(client)
+        expired = upload(client, headers)["id"]
+        current = upload(client, headers)["id"]
+        quiz = client.post(f"/documents/{expired}/quizzes", headers=headers, json={"count": 1})
+        assert quiz.status_code == 201
+        assert client.get("/ready").json() == {"status": "ready"}
+    with store.db:
+        store.db.execute("UPDATE records SET created=? WHERE id=?", (time.time() - 31 * 86400, expired))
+        store.db.execute("UPDATE sessions SET expires=?", (time.time() - 1,))
+    with TestClient(app) as client:
+        assert client.get("/ready").status_code == 200
+        assert store.db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 0
+        assert store.db.execute("SELECT id FROM records").fetchone()[0] == current
+        assert store.db.execute("SELECT COUNT(*) FROM records").fetchone()[0] == 1
+
+
 def test_upload_limits_and_validation(client, monkeypatch):
     headers = account(client)
     assert client.post("/documents", headers={**headers, "content-length": str(60 * 1024 * 1024)}, content=b"x").status_code == 413

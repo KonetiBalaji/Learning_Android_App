@@ -6,6 +6,8 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet
 
+DOCUMENT_RETENTION_SECONDS = 30 * 86400
+
 
 class Store:
     def __init__(self, directory: Path):
@@ -61,6 +63,23 @@ class Store:
     def all(self, owner, kind):
         return [self.decode(r[0]) for r in self.db.execute(
             "SELECT payload FROM records WHERE owner=? AND kind=? ORDER BY created DESC", (owner, kind)).fetchall()]
+
+    def purge_expired(self, now, owner=None):
+        """Remove a document and all records tied to it in the same transaction."""
+        with self.lock, self.db:
+            self.db.execute("""
+                WITH expired AS MATERIALIZED (
+                    SELECT id, owner FROM records
+                    WHERE kind='document' AND created<=? AND (? IS NULL OR owner=?)
+                )
+                DELETE FROM records WHERE EXISTS (
+                    SELECT 1 FROM expired
+                    WHERE expired.owner=records.owner
+                      AND (expired.id=records.id OR expired.id=records.document)
+                )
+            """, (now - DOCUMENT_RETENTION_SECONDS, owner, owner))
+            if owner is None:
+                self.db.execute("DELETE FROM sessions WHERE expires<=?", (now,))
 
     def for_document(self, owner, kind, document, limit=50):
         return [self.decode(row[0]) for row in self.db.execute(

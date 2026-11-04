@@ -1,10 +1,14 @@
+import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
+import sqlite3
 import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -14,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from .documents import MAX_BYTES, MAX_TEXT, DocumentError, extract, retrieve, structure
 from .quizzes import GenerationError, generate_local, public_question
-from .storage import Store
+from .storage import DOCUMENT_RETENTION_SECONDS, Store
 from .provider import ProviderUnavailable, configured_provider
 from .models import DocumentMetadata, Passage, Progress, QuizSnapshot, Results
 from .flashcards import from_question, public_card, review as rate_flashcard
@@ -80,8 +84,31 @@ class TutorRequest(BaseModel):
 
 
 def create_app(data_dir: Path | None = None):
-    app = FastAPI(title="Study Companion", version="0.1.0")
     store = Store(data_dir or Path(os.getenv("STUDY_DATA_DIR", "./.study-data")))
+
+    @asynccontextmanager
+    async def lifespan(app):
+        stop = asyncio.Event()
+        await asyncio.to_thread(store.purge_expired, time.time())
+
+        async def retention():
+            while not stop.is_set():
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=3600)
+                except TimeoutError:
+                    try:
+                        await asyncio.to_thread(store.purge_expired, time.time())
+                    except Exception:
+                        logging.getLogger(__name__).error("retention_cleanup_failed")
+
+        worker = asyncio.create_task(retention())
+        try:
+            yield
+        finally:
+            stop.set()
+            await worker
+
+    app = FastAPI(title="Study Companion", version="0.1.0", lifespan=lifespan)
     app.state.store = store
     auth = HTTPBearer(auto_error=False)
     attempts = {}
@@ -126,10 +153,7 @@ def create_app(data_dir: Path | None = None):
             if not row:
                 raise HTTPException(401, "Your session expired. Sign in again.")
             # Documents and associated progress expire together after 30 days.
-            expired = store.db.execute("SELECT id FROM records WHERE owner=? AND kind='document' AND created<?", (row[0], time.time() - 30 * 86400)).fetchall()
-            for record in expired:
-                store.db.execute("DELETE FROM records WHERE owner=? AND (id=? OR document=?)", (row[0], record[0], record[0]))
-            store.db.commit()
+            store.purge_expired(time.time(), row[0])
             return row[0]
 
     def record(identifier, user, kind):
@@ -171,6 +195,15 @@ def create_app(data_dir: Path | None = None):
     @app.get("/health")
     def health():
         return {"status": "ok", "generation_mode": mode, "ai_configured": provider is not None}
+
+    @app.get("/ready")
+    def readiness():
+        with store.lock:
+            try:
+                store.db.execute("SELECT id FROM records LIMIT 1").fetchone()
+            except sqlite3.Error:
+                raise HTTPException(503, "Storage is unavailable.") from None
+        return {"status": "ready"}
 
     @app.post("/auth/{action}")
     def authenticate(action: Literal["register", "login"], body: Credentials, request: Request):
@@ -250,7 +283,7 @@ def create_app(data_dir: Path | None = None):
         with store.lock:
             doc = record(identifier, user, "document")
             return {"source_fingerprint": fingerprint(doc["passages"]), "processing_state": doc.get("processing_state", "ready"),
-                    "expires_at": doc["created"] + 30 * 86400}
+                    "expires_at": doc["created"] + DOCUMENT_RETENTION_SECONDS}
 
     @app.get("/documents/{identifier}/offline-bundle")
     def offline_bundle(identifier: str, user=Depends(owner)):
@@ -260,7 +293,7 @@ def create_app(data_dir: Path | None = None):
                 raise HTTPException(409, "Confirm uncertain scanned text before saving offline material.")
             return {"schema_version": 1, "owner_id": user, "document": metadata(doc),
                     "source_fingerprint": fingerprint(doc["passages"]), "passages": doc["passages"],
-                    "cached_at": time.time(), "expires_at": doc["created"] + 30 * 86400}
+                    "cached_at": time.time(), "expires_at": doc["created"] + DOCUMENT_RETENTION_SECONDS}
 
     @app.get("/documents/{identifier}/next-practice")
     def next_practice(identifier: str, user=Depends(owner)):

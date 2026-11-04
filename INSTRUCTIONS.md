@@ -61,7 +61,7 @@ Also verify loading, empty, offline, retry, and partial-failure states in the An
 
 ## Git workflow
 
-- Use a focused feature branch such as `agent/<short-description>`.
+- Use `dev` for feature work. Promote verified commits to `main` by fast-forward.
 - Make small commits with imperative, meaningful messages.
 - Keep unrelated changes out of a commit.
 - Review `git diff` and `git status` before committing.

@@ -5,7 +5,7 @@ The full objective is the user's attached “Take the Saras learning app to God 
 ## Reconcile and publish source
 
 - [x] Preserve the working Windows implementation on a backup branch.
-- [x] Create and push the exact requested `god-mode` branch.
+- [x] Consolidate feature work on `dev` and promote the verified revision to default branch `main`. Preserve superseded histories under `archive/*` tags and retire their branches.
 - [x] Rerun the reported Windows backend, Android JVM, build, lint, and emulator checks.
 - [x] Inspect the substantial remote implementation and document incompatible contracts.
 - [ ] Locate and reconcile the separately reported 51-test unittest core; its source location/revision is missing.
@@ -18,7 +18,7 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Flashcards and SM-2: backend and Android flows verified; evidence in `reconciliation.md`.
 - [x] OCR for scanned PDFs with visible confidence, needs-review state, and original-page comparison.
 - [x] Semantic retrieval, including a real local-model evaluation rather than renamed keyword search.
-- [ ] Offline encrypted document cache plus quizzes generated locally on Android. Download/navigation, chapter/page selection, saved attempts, feedback/results/mistake retry, rotation and online deletion now pass device checks, including airplane mode. Server progress import, remote revision/deletion reconciliation and actual process-kill/relaunch verification remain pending in `offline-study.md`.
+- [x] Encrypted offline cache, local quizzes, validated progress import and revision/deletion reconciliation. Verified airplane mode, sync replay, and recovery after an actual process stop in `offline-study.md`.
 - [x] Adaptive next quiz integrated with recent, distinct learning evidence; live AI difficulty still pending.
 - [x] Tutor chat from the selected document's retrieved passages, with citations and a tested no-support response. Local source excerpt mode and Android citation flow verified; live AI explanations remain pending below.
 - [ ] Complete navigation between all learning tools with no dead ends.
@@ -36,7 +36,7 @@ The full objective is the user's attached “Take the Saras learning app to God 
 
 - [x] Identify the Saras Modern/Heritage assets from the user-supplied email; preserve a clearly named placeholder until real files are available.
 - [ ] Import supplied assets into light/dark header, launcher, and splash surfaces after re-supply/access.
-- [ ] Docker and HTTPS configuration, encrypted-at-rest production storage, rate limits, safe structured logging, health/readiness, and background retention cleanup.
+- [ ] Docker and HTTPS configuration, production key provisioning, production rate limits and structured logging. Local storage readiness and background retention cleanup are implemented.
 - [ ] Run staging smoke checks against the actual staged deployment.
 - [ ] Release signing configuration with no keystore/password in Git; create a genuinely signed release only with authorized signing material.
 - [ ] Play Store title, short/full descriptions, screenshots checklist, privacy-policy draft, data-safety draft, versioning, and release notes.
