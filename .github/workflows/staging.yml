@@ -28,11 +28,14 @@ jobs:
           done
           test -s "$RUNNER_TEMP/saras-ca.crt"
           docker compose exec -T api python - <<'PY' > "$RUNNER_TEMP/saras-scan.pdf"
+          import io
           import sys
           from PIL import Image, ImageDraw, ImageFont
           image = Image.new("RGB", (1400, 400), "white")
           ImageDraw.Draw(image).text((60, 80), "Mitochondria produce usable energy.\nRibosomes assemble proteins.", fill="black", font=ImageFont.load_default(size=46))
-          image.save(sys.stdout.buffer, format="PDF")
+          pdf = io.BytesIO()
+          image.save(pdf, format="PDF")
+          sys.stdout.buffer.write(pdf.getvalue())
           PY
           python3 scripts/staging-smoke.py --ca-file "$RUNNER_TEMP/saras-ca.crt" --scan "$RUNNER_TEMP/saras-scan.pdf"
       - name: Stop disposable stack
