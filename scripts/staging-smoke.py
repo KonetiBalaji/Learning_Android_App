@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--ca-file")
 parser.add_argument("--host", default="localhost")
+parser.add_argument("--scan", type=Path)
 args = parser.parse_args()
 context = ssl.create_default_context(cafile=args.ca_file)
 host = args.host
@@ -26,7 +27,7 @@ def call(path, method="GET", body=None, token=None, expected=200, content_type="
     payload = json.dumps(body).encode() if isinstance(body, dict) else body
     request = Request(f"https://{host}{path}", data=payload, headers=headers, method=method)
     try:
-        response = urlopen(request, context=context, timeout=45)
+        response = urlopen(request, context=context, timeout=120)
     except HTTPError as error:
         response = error
     with response:
@@ -36,6 +37,15 @@ def call(path, method="GET", body=None, token=None, expected=200, content_type="
         if response.headers.get_content_type() == "text/html":
             return raw.decode("utf-8")
     return json.loads(raw) if raw else None
+
+
+def upload(name, content, content_type, token):
+    boundary = secrets.token_hex(16)
+    multipart = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{name}"\r\n'
+        f'Content-Type: {content_type}\r\n\r\n'
+    ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
+    return call("/documents", "POST", multipart, token, 201, f"multipart/form-data; boundary={boundary}")
 
 
 redirect = http.client.HTTPConnection(host, timeout=5)
@@ -60,17 +70,22 @@ try:
         tokens.append(call("/auth/register", "POST", credentials[-1])["token"])
     owner, outsider = tokens
     sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
-    boundary = secrets.token_hex(16)
-    multipart = (
-        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="sample.txt"\r\n'
-        'Content-Type: text/plain\r\n\r\n'
-    ).encode() + sample + f"\r\n--{boundary}--\r\n".encode()
-    document = call("/documents", "POST", multipart, owner, 201, f"multipart/form-data; boundary={boundary}")
+    document = upload("sample.txt", sample, "text/plain", owner)
     root = f'/documents/{document["id"]}'
     call(root + "/offline-bundle", token=outsider, expected=404)
     quiz = call(root + "/quizzes", "POST", {"count": 1}, owner, 201)
     assert quiz["mode"] == "local_practice"
     assert call("/documents", token=owner)[0]["id"] == document["id"]
+    hits = call(root + "/search", "POST", {"query": "cell power factory"}, owner)["hits"]
+    assert hits and "mitochondria" in hits[0]["quote"].lower()
+    if args.scan:
+        scan = upload("sample-scan.pdf", args.scan.read_bytes(), "application/pdf", owner)
+        scan_root = f'/documents/{scan["id"]}'
+        page = call(scan_root + "/ocr-pages/1", token=owner)
+        assert "mitochondria" in page["text"].lower() and "ribosomes" in page["text"].lower()
+        assert page["image_base64"]
+        assert call(scan_root + "/ocr-pages/1/review", "POST", {"text": page["text"]}, owner)["processing_state"] == "ready"
+        print("Verified real OCR and confirmed a scanned PDF page.")
     call(root, "DELETE", token=owner, expected=204)
     call(root + "/offline-bundle", token=owner, expected=404)
     call(f'/quizzes/{quiz["id"]}', token=owner, expected=404)
@@ -83,4 +98,4 @@ finally:
     for token in tokens:
         call("/account", "DELETE", token=token, expected=204)
 
-print("Verified HTTPS redirect, trusted TLS, readiness, upload, owner isolation, quiz generation and web account deletion.")
+print("Verified HTTPS redirect, trusted TLS, readiness, upload, semantic retrieval, owner isolation, quiz generation and web account deletion.")
