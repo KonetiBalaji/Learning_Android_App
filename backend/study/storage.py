@@ -46,6 +46,18 @@ class Store:
         row = self.db.execute("SELECT payload FROM records WHERE id=? AND owner=? AND kind=?", (identifier, owner, kind)).fetchone()
         return self.decode(row[0]) if row else None
 
+    def save_many(self, records):
+        """Commit linked records together, including their source-lock update."""
+        with self.lock:
+            try:
+                for identifier, owner, kind, document, created, value in records:
+                    self.db.execute("INSERT OR REPLACE INTO records VALUES (?,?,?,?,?,?)",
+                                    (identifier, owner, kind, document, created, self.encode(value)))
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+                raise
+
     def all(self, owner, kind):
         return [self.decode(r[0]) for r in self.db.execute(
             "SELECT payload FROM records WHERE owner=? AND kind=? ORDER BY created DESC", (owner, kind)).fetchall()]

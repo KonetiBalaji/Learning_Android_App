@@ -22,6 +22,7 @@ from .processing import analyze_upload, update_review_state
 from .semantic import SemanticUnavailable, build_index, fingerprint, search as semantic_search
 from .adaptive import recommend
 from .document_tutor import reply as tutor_reply
+from .offline import OfflineAttempt, reconstruct as reconstruct_offline
 
 
 class Credentials(BaseModel):
@@ -91,7 +92,11 @@ def create_app(data_dir: Path | None = None):
     async def upload_limit(request: Request, call_next):
         from starlette.responses import JSONResponse
         # Bound the entire request before multipart parsing can spool unbounded data.
-        if request.url.path.endswith("/documents") and request.method == "POST":
+        is_upload = request.url.path.endswith("/documents")
+        is_offline_sync = request.url.path.endswith("/offline-attempts")
+        if (is_upload or is_offline_sync) and request.method == "POST":
+            maximum = MAX_BYTES + 1024 * 1024 if is_upload else 16 * 1024 * 1024
+            limit_message = "Upload exceeds 50 MB." if is_upload else "Offline sync request exceeds 16 MB."
             size = 0
             original_receive = request._receive
 
@@ -99,8 +104,8 @@ def create_app(data_dir: Path | None = None):
                 nonlocal size
                 message = await original_receive()
                 size += len(message.get("body", b""))
-                if size > MAX_BYTES + 1024 * 1024:
-                    raise HTTPException(413, "Upload exceeds 50 MB.")
+                if size > maximum:
+                    raise HTTPException(413, limit_message)
                 return message
 
             request._receive = receive
@@ -108,8 +113,8 @@ def create_app(data_dir: Path | None = None):
                 declared_length = int(request.headers.get("content-length", "0"))
             except ValueError:
                 return JSONResponse({"detail": "Invalid Content-Length."}, status_code=400)
-            if declared_length > MAX_BYTES + 1024 * 1024:
-                return JSONResponse({"detail": "Upload exceeds 50 MB."}, status_code=413)
+            if declared_length > maximum:
+                return JSONResponse({"detail": limit_message}, status_code=413)
         return await call_next(request)
 
     def owner(credentials: HTTPAuthorizationCredentials | None = Depends(auth)):
@@ -239,6 +244,13 @@ def create_app(data_dir: Path | None = None):
     def document(identifier: str, user=Depends(owner)):
         with store.lock:
             return metadata(record(identifier, user, "document"))
+
+    @app.get("/documents/{identifier}/offline-status")
+    def offline_status(identifier: str, user=Depends(owner)):
+        with store.lock:
+            doc = record(identifier, user, "document")
+            return {"source_fingerprint": fingerprint(doc["passages"]), "processing_state": doc.get("processing_state", "ready"),
+                    "expires_at": doc["created"] + 30 * 86400}
 
     @app.get("/documents/{identifier}/offline-bundle")
     def offline_bundle(identifier: str, user=Depends(owner)):
@@ -404,6 +416,31 @@ def create_app(data_dir: Path | None = None):
         return {"id": quiz["id"], "document_id": quiz["document_id"], "index": index, "count": len(quiz["questions"]),
                 "mode": quiz.get("mode", "local_practice"), "notice": quiz.get("notice"), "complete": done, "question": None if done else public_question(quiz["questions"][index]), "feedback": feedback}
 
+    @app.post("/documents/{identifier}/offline-attempts", status_code=201, response_model=QuizSnapshot)
+    def import_offline(identifier: str, body: OfflineAttempt, user=Depends(owner)):
+        digest = hashlib.sha256(json.dumps(body.model_dump(), sort_keys=True).encode()).hexdigest()
+        quiz_id = "offline-" + hashlib.sha256((user + identifier + body.local_id).encode()).hexdigest()
+        with store.lock:
+            doc = record(identifier, user, "document")
+            existing = store.get(quiz_id, user, "quiz")
+            if existing:
+                if existing.get("offline_digest") != digest:
+                    raise HTTPException(409, "This offline session was already synced with different answers.")
+                return snapshot(existing)
+            if doc.get("processing_state", "ready") != "ready" or fingerprint(doc["passages"]) != body.source_fingerprint:
+                raise HTTPException(409, "The offline source changed. This session cannot be added to current progress.")
+            try:
+                questions, answers = reconstruct_offline(doc, body)
+            except (DocumentError, GenerationError) as error:
+                raise HTTPException(422, str(error))
+            quiz = {"id": quiz_id, "document_id": identifier, "mode": "local_practice", "questions": questions,
+                    "index": len(questions), "answers": answers, "created": time.time(), "offline_digest": digest,
+                    "notice": "Created offline. Source questions and answers were validated by the server at synchronization; device completion time is not verified."}
+            doc["source_locked"] = True
+            store.save_many([(quiz_id, user, "quiz", identifier, quiz["created"], quiz),
+                             (identifier, user, "document", identifier, doc["created"], doc)])
+            return snapshot(quiz)
+
     @app.post("/documents/{identifier}/quizzes", status_code=201, response_model=QuizSnapshot)
     def create_quiz(identifier: str, body: QuizRequest, user=Depends(owner)):
         with store.lock:
@@ -435,9 +472,9 @@ def create_app(data_dir: Path | None = None):
             if current.get("source_revision", 0) != doc.get("source_revision", 0):
                 raise HTTPException(409, "The source changed during generation. Start the quiz again using the confirmed text.")
             quiz = {"id": str(uuid.uuid4()), "document_id": identifier, "mode": actual_mode, "notice": notice, "questions": questions, "index": 0, "answers": [], "created": time.time()}
-            store.save(quiz["id"], user, "quiz", identifier, quiz["created"], quiz)
             current["source_locked"] = True
-            store.save(identifier, user, "document", identifier, current["created"], current)
+            store.save_many([(quiz["id"], user, "quiz", identifier, quiz["created"], quiz),
+                             (identifier, user, "document", identifier, current["created"], current)])
             return snapshot(quiz)
 
     @app.get("/quizzes/{identifier}", response_model=QuizSnapshot)

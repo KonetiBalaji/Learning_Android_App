@@ -30,6 +30,7 @@ class OfflineStudyRepository(private val cache: OfflineCache, private val sessio
 
     suspend fun create(id: String, sectionIds: Set<String>, first: Int?, last: Int?, count: Int, kind: String): JSONObject {
         val bundle = copy(open(id))
+        require(!bundle.optBoolean("source_stale")) { "This saved source changed online. Save a current copy before starting more practice." }
         val document = bundle.getJSONObject("document")
         val sections = document.getJSONArray("sections").objects()
         require(sectionIds.all { id -> sections.any { it.getString("id") == id } }) { "A selected chapter no longer exists." }
@@ -56,6 +57,7 @@ class OfflineStudyRepository(private val cache: OfflineCache, private val sessio
 
     suspend fun answer(id: String, quizId: String, index: Int, choice: Int): JSONObject {
         val bundle = copy(open(id))
+        require(!bundle.optBoolean("source_stale")) { "This saved source changed online. Old sessions can only be reviewed." }
         val quiz = bundle.getJSONArray("local_quizzes").objects().first { it.getString("id") == quizId }
         require(index == quiz.getInt("index")) { "This question changed. Open the session again." }
         val question = quiz.getJSONArray("questions").getJSONObject(index)
@@ -68,6 +70,7 @@ class OfflineStudyRepository(private val cache: OfflineCache, private val sessio
 
     suspend fun next(id: String, quizId: String, index: Int): JSONObject {
         val bundle = copy(open(id))
+        require(!bundle.optBoolean("source_stale")) { "This saved source changed online. Old sessions can only be reviewed." }
         val quiz = bundle.getJSONArray("local_quizzes").objects().first { it.getString("id") == quizId }
         if (quiz.getInt("index") == index) {
             require(quiz.getJSONArray("answers").length() > index) { "Submit an answer first." }
@@ -78,6 +81,7 @@ class OfflineStudyRepository(private val cache: OfflineCache, private val sessio
 
     suspend fun retry(id: String, quizId: String): JSONObject {
         val bundle = copy(open(id))
+        require(!bundle.optBoolean("source_stale")) { "This saved source changed online. Old sessions can be reviewed but cannot start new practice." }
         val previous = bundle.getJSONArray("local_quizzes").objects().first { it.getString("id") == quizId }
         val questions = previous.getJSONArray("questions")
         require(previous.getInt("index") == questions.length()) { "Finish this session first." }
@@ -85,5 +89,34 @@ class OfflineStudyRepository(private val cache: OfflineCache, private val sessio
         require(wrong.isNotEmpty()) { "No mistakes to retry." }
         bundle.put("last_selection", previous.optJSONObject("selection") ?: JSONObject())
         return addQuiz(bundle, JSONArray(wrong))
+    }
+
+    suspend fun reconcile(id: String, remote: JSONObject): JSONObject {
+        val bundle = copy(open(id))
+        val stale = remote.getString("source_fingerprint") != bundle.getString("source_fingerprint") || remote.getString("processing_state") != "ready"
+        bundle.put("source_stale", stale)
+        return persist(bundle)
+    }
+
+    suspend fun sync(id: String, api: StudyRepository): JSONObject {
+        var bundle = reconcile(id, JSONObject(api.call("/documents/$id/offline-status")))
+        require(!bundle.optBoolean("source_stale")) { "The saved source changed. Old sessions cannot be imported into current progress. Remove this copy before saving current material." }
+        val sessions = bundle.optJSONArray("local_quizzes")?.objects().orEmpty()
+        for (quiz in sessions) {
+            val questions = quiz.getJSONArray("questions")
+            if (quiz.optBoolean("synced") || quiz.getInt("index") < questions.length()) continue
+            val body = JSONObject().put("local_id", quiz.getString("id")).put("source_fingerprint", bundle.getString("source_fingerprint"))
+                .put("selection", quiz.optJSONObject("selection") ?: JSONObject())
+                .put("questions", JSONArray(questions.objects().mapIndexed { index, q ->
+                    JSONObject().put("source_id", q.getString("source_id")).put("prompt", q.getString("prompt"))
+                        .put("choices", q.getJSONArray("choices")).put("type", q.getString("type"))
+                        .put("selected", quiz.getJSONArray("answers").getInt(index))
+                }))
+            val saved = JSONObject(api.call("/documents/$id/offline-attempts", "POST", body))
+            quiz.put("synced", true).put("server_id", saved.getString("id"))
+            // Persist each acknowledgement; a lost acknowledgement is replayed with the same local ID.
+            bundle = persist(bundle)
+        }
+        return bundle
     }
 }

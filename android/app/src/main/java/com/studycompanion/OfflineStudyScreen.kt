@@ -16,7 +16,7 @@ import org.json.JSONObject
 
 @Composable fun OfflineStudyScreen(state: StudyState, model: StudyViewModel) {
     Text("Offline study", style = MaterialTheme.typography.headlineMedium)
-    Text("Easy passage recall on this device. Local progress is not yet synced to your account.")
+    Text("Easy passage recall on this device. Sync completed sessions when online to add validated results to your account.")
     val bundle = state.offlineBundle
     if (bundle == null) {
         if (state.offlineDocuments.isEmpty()) Text("No material saved. Open a document online and save its confirmed material first.")
@@ -28,8 +28,11 @@ import org.json.JSONObject
     }
     val doc = bundle.getJSONObject("document")
     val docId = doc.getString("id")
+    val stale = bundle.optBoolean("source_stale")
     Text(doc.getString("title"), style = MaterialTheme.typography.titleLarge)
     Text("Available until " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date((bundle.getDouble("expires_at") * 1000).toLong())))
+    if (stale) Text("This source changed online. Old sessions are available for review, but cannot be continued or synced. Remove the offline copy before saving current material.", color = MaterialTheme.colorScheme.error)
+    OutlinedButton(onClick = model::syncOffline, enabled = !state.busy && !stale, modifier = Modifier.fillMaxWidth()) { Text("Sync completed offline sessions") }
     val sessions = bundle.optJSONArray("local_quizzes")?.objects().orEmpty()
     val quiz = sessions.find { it.getString("id") == state.offlineQuizId }
     var sourceId by rememberSaveable(docId) { mutableStateOf<String?>(null) }
@@ -73,7 +76,7 @@ import org.json.JSONObject
         listOf("multiple_choice" to "Multiple choice", "true_false" to "True / False", "yes_no" to "Yes / No").forEach { (value, label) ->
             Row { RadioButton(selected = kind == value, onClick = { kind = value }, enabled = !state.busy); Text(label) }
         }
-        Button(onClick = { model.startOffline(selected.toSet(), first, last, count.toInt(), kind) }, enabled = !state.busy && count.toIntOrNull()?.let { it in 1..50 } == true, modifier = Modifier.fillMaxWidth()) { Text("Generate offline practice") }
+        Button(onClick = { model.startOffline(selected.toSet(), first, last, count.toInt(), kind) }, enabled = !state.busy && !stale && count.toIntOrNull()?.let { it in 1..50 } == true, modifier = Modifier.fillMaxWidth()) { Text("Generate offline practice") }
         sessions.reversed().forEach { session ->
             val done = session.getInt("index") >= session.getJSONArray("questions").length()
             OutlinedButton(onClick = { model.resumeOffline(session.getString("id")) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -90,7 +93,8 @@ import org.json.JSONObject
     if (index >= questions.size) {
         val correct = questions.countIndexed { i, question -> answers.getInt(i) == question.getInt("answer") }
         Text("Offline result: $correct / ${questions.size}", style = MaterialTheme.typography.headlineSmall)
-        Text("Saved on this device · not yet synced")
+        Text(if (quiz.optBoolean("synced")) "Synced to account progress after server validation" else "Saved on this device · not yet synced")
+        if (quiz.optBoolean("synced")) OutlinedButton(onClick = { model.showResults(quiz.getString("server_id")) }, enabled = !state.busy) { Text("Open validated account result") }
         questions.forEachIndexed { i, question ->
             if (answers.getInt(i) != question.getInt("answer")) {
                 Text(question.getString("prompt"), style = MaterialTheme.typography.titleMedium)
@@ -99,7 +103,7 @@ import org.json.JSONObject
                 TextButton(onClick = { sourceId = question.getString("source_id") }) { Text("Read saved source") }
             }
         }
-        if (correct < questions.size) Button(onClick = model::retryOffline, enabled = !state.busy) { Text("Retry offline mistakes") }
+        if (correct < questions.size) Button(onClick = model::retryOffline, enabled = !state.busy && !stale) { Text("Retry offline mistakes") }
     } else {
         val question = questions[index]
         var selected by rememberSaveable(quiz.getString("id"), index) { mutableStateOf<Int?>(null) }
@@ -112,13 +116,13 @@ import org.json.JSONObject
                 Text(label)
             }
         }
-        if (!answered) Button(onClick = { selected?.let(model::answerOffline) }, enabled = !state.busy && selected != null) { Text("Check offline answer") }
+        if (!answered) Button(onClick = { selected?.let(model::answerOffline) }, enabled = !state.busy && !stale && selected != null) { Text("Check offline answer") }
         else {
             Text(if (answers.getInt(index) == question.getInt("answer")) "Correct" else "Let's learn from this")
             Text("Correct: " + question.getJSONArray("choices").getString(question.getInt("answer")))
             Text(question.getString("explanation"))
             TextButton(onClick = { sourceId = question.getString("source_id") }) { Text("Read saved source") }
-            Button(onClick = model::nextOffline, enabled = !state.busy) { Text(if (index + 1 == questions.size) "See offline results" else "Next offline question") }
+            Button(onClick = model::nextOffline, enabled = !state.busy && !stale) { Text(if (index + 1 == questions.size) "See offline results" else "Next offline question") }
         }
     }
     TextButton(onClick = { model.resumeOffline(null) }, enabled = !state.busy) { Text("Back to offline sessions") }

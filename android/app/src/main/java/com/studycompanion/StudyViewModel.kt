@@ -117,7 +117,24 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         val health = JSONObject(repository.call("/health"))
         val docs = JSONArray(repository.call("/documents")).objects()
         val progress = JSONObject(repository.call("/progress"))
-        mutable.update { it.copy(documents = docs, progress = progress, aiMode = health.getString("generation_mode") == "openai") }
+        val remoteIds = docs.map { it.getString("id") }.toSet()
+        for (cached in offlineCache.documents(session.server, session.ownerId)) {
+            val id = cached.getString("id")
+            if (id !in remoteIds) offlineCache.remove(session.server, session.ownerId, id)
+            else offlineStudy.reconcile(id, JSONObject(repository.call("/documents/$id/offline-status")))
+        }
+        val savedDocuments = offlineCache.documents(session.server, session.ownerId)
+        val currentId = state.value.offlineBundle?.getJSONObject("document")?.getString("id")
+        val refreshed = if (currentId != null && currentId in savedDocuments.map { it.getString("id") }) offlineStudy.open(currentId) else null
+        mutable.update {
+            val activeExists = it.document?.optString("id")?.let { id -> id in remoteIds } != false
+            val citedExists = it.sourceDocument?.optString("id")?.let { id -> id in remoteIds } != false
+            it.copy(documents = docs, progress = progress, aiMode = health.getString("generation_mode") == "openai",
+                document = if (activeExists) it.document else null, quiz = if (activeExists) it.quiz else null,
+                results = if (activeExists) it.results else null, source = if (activeExists && citedExists) it.source else null,
+                sourceDocument = if (citedExists) it.sourceDocument else null,
+                offlineDocuments = savedDocuments, offlineBundle = refreshed, offlineQuizId = if (refreshed == null) null else it.offlineQuizId)
+        }
     }
 
     fun refresh() = run { loadHome() }
@@ -147,6 +164,23 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     fun removeOffline(id: String) = run {
         offlineCache.remove(session.server, session.ownerId, id)
         loadOfflineLibrary()
+    }
+    fun syncOffline() = run {
+        val id = offlineDocumentId()
+        try {
+            val bundle = offlineStudy.sync(id, repository)
+            mutable.update { it.copy(offlineBundle = bundle) }
+            loadHome()
+        } catch (error: Exception) {
+            if (error is ApiException && error.status == 404) {
+                offlineCache.remove(session.server, session.ownerId, id)
+                loadOfflineLibrary()
+            } else {
+                val bundle = offlineStudy.open(id)
+                mutable.update { it.copy(offlineBundle = bundle) }
+            }
+            throw error
+        }
     }
     fun resumeOffline(id: String?) { mutable.update { it.copy(offlineQuizId = id) } }
     private fun offlineDocumentId() = state.value.offlineBundle!!.getJSONObject("document").getString("id")

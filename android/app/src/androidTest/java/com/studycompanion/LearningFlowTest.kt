@@ -18,6 +18,8 @@ class LearningFlowTest {
 
     @Test fun savedMaterialSupportsAirplaneModeQuizFeedbackAndDeletion() {
         assertTrue("This network-toggle test is for the disposable emulator", android.os.Build.MODEL.contains("sdk"))
+        val restartPhase = InstrumentationRegistry.getArguments().getString("offlineRestartPhase")
+        if (restartPhase == "resume") { resumeOfflineAfterRestart(); return }
         lateinit var model: StudyViewModel
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
         rule.waitUntil(30_000) { !model.state.value.busy }
@@ -64,6 +66,7 @@ class LearningFlowTest {
             rule.onNodeWithText("Read saved source").performScrollTo().performClick()
             rule.onNodeWithText("Saved source passage").assertExists()
             rule.onNodeWithText("Close saved source").performClick()
+            if (restartPhase == "prepare") return // External harness kills this process after instrumentation ends.
             rule.runOnIdle { rule.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
             rule.waitUntil(30_000) { rule.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
             rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
@@ -81,7 +84,21 @@ class LearningFlowTest {
         }
         val manager = rule.activity.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
         rule.waitUntil(60_000) { manager.getNetworkCapabilities(manager.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true }
-        rule.runOnIdle { model.deleteDocument(docId) }
+        rule.runOnIdle { model.syncOffline() }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertTrue(model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0).getBoolean("synced"))
+        assertFalse(model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(1).getBoolean("synced"))
+        assertEquals(1, model.state.value.progress!!.getInt("quizzes_completed"))
+        rule.runOnIdle { model.syncOffline() }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertEquals(1, model.state.value.progress!!.getInt("quizzes_completed"))
+        // Simulate deletion on a different client, then reconcile this device's cache.
+        kotlinx.coroutines.runBlocking {
+            com.studycompanion.data.StudyRepository(rule.activity, model.session).call("/documents/$docId", "DELETE")
+        }
+        rule.runOnIdle { model.refresh() }
         rule.waitUntil(30_000) { !model.state.value.busy }
         assertNull(model.state.value.error)
         assertNull(model.state.value.offlineBundle)
@@ -90,6 +107,38 @@ class LearningFlowTest {
         assertTrue(model.state.value.offlineDocuments.isEmpty())
         rule.runOnIdle { model.deleteAccount() }
         rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+    }
+
+    private fun resumeOfflineAfterRestart() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        assertTrue(model.state.value.signedIn)
+        assertNotNull("Initial online refresh must fail with connectivity disabled", model.state.value.error)
+        rule.onNodeWithText("Study saved material offline").performScrollTo().performClick()
+        rule.waitUntil(30_000) { !model.state.value.busy && model.state.value.offlineDocuments.isNotEmpty() }
+        rule.onNodeWithText("Open saved offline-biology").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.offlineBundle != null && !model.state.value.busy }
+        val saved = model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0)
+        assertEquals(1, saved.getJSONArray("answers").length())
+        assertEquals(0, saved.getInt("index"))
+        rule.onNodeWithText("Resume offline practice · question 1").performScrollTo().performClick()
+        rule.onNodeWithText("See offline results").performScrollTo().performClick()
+        rule.waitUntil(30_000) { !model.state.value.busy && model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0).getInt("index") == 1 }
+        rule.onNodeWithText("Offline result: 0 / 1").assertExists()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        for (command in listOf("cmd connectivity airplane-mode disable", "svc wifi enable")) {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes() }
+        }
+        val manager = rule.activity.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        rule.waitUntil(60_000) { manager.getNetworkCapabilities(manager.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true }
+        rule.runOnIdle { model.syncOffline() }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertEquals(1, model.state.value.progress!!.getInt("quizzes_completed"))
+        assertTrue(model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0).getBoolean("synced"))
+        rule.runOnIdle { model.deleteAccount() }
+        rule.waitUntil(30_000) { !model.state.value.busy && !model.state.value.signedIn }
     }
 
     @Test fun unavailableAiClearlyOffersEasyLocalPractice() {

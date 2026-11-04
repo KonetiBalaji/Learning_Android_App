@@ -270,6 +270,48 @@
         }
       }
     },
+    "/documents/{identifier}/offline-status": {
+      "get": {
+        "summary": "Offline Status",
+        "operationId": "offline_status_documents__identifier__offline_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{identifier}/offline-bundle": {
       "get": {
         "summary": "Offline Bundle",
@@ -690,6 +732,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DocumentMetadata"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{identifier}/offline-attempts": {
+      "post": {
+        "summary": "Import Offline",
+        "operationId": "import_offline_documents__identifier__offline_attempts_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfflineAttempt"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizSnapshot"
                 }
               }
             }
@@ -1323,6 +1419,56 @@
         ],
         "title": "Credentials"
       },
+      "DeviceQuestion": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 2,
+            "title": "Choices"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "multiple_choice",
+              "true_false",
+              "yes_no"
+            ],
+            "title": "Type"
+          },
+          "selected": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Selected"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_id",
+          "prompt",
+          "choices",
+          "type",
+          "selected"
+        ],
+        "title": "DeviceQuestion"
+      },
       "DocumentMetadata": {
         "properties": {
           "id": {
@@ -1578,6 +1724,81 @@
           "text"
         ],
         "title": "OcrReview"
+      },
+      "OfflineAttempt": {
+        "properties": {
+          "local_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Local Id"
+          },
+          "source_fingerprint": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[a-f0-9]+$",
+            "title": "Source Fingerprint"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/OfflineSelection"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceQuestion"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Questions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "local_id",
+          "source_fingerprint",
+          "questions"
+        ],
+        "title": "OfflineAttempt"
+      },
+      "OfflineSelection": {
+        "properties": {
+          "section_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Section Ids"
+          },
+          "page_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Start"
+          },
+          "page_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "OfflineSelection"
       },
       "Passage": {
         "properties": {

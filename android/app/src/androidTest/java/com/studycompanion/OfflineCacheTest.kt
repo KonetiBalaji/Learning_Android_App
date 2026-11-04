@@ -61,6 +61,13 @@ class OfflineCacheTest {
             val retried = repository.retry("doc", id).getJSONArray("local_quizzes").getJSONObject(1)
             assertEquals("energy", retried.getJSONArray("questions").getJSONObject(0).getString("source_id"))
             assertFalse(retried.getBoolean("synced"))
+            val stale = repository.reconcile("doc", JSONObject().put("source_fingerprint", "changed-source").put("processing_state", "ready"))
+            assertTrue(stale.getBoolean("source_stale"))
+            rejected = false
+            try { repository.create("doc", emptySet(), null, null, 1, "multiple_choice") }
+            catch (_: IllegalArgumentException) { rejected = true }
+            assertTrue(rejected)
+            assertEquals(2, repository.open("doc").getJSONArray("local_quizzes").length())
             val reopened = OfflineCache(context)
             try {
                 assertEquals(2, reopened.load(session.server, session.ownerId, "doc")!!.getJSONArray("local_quizzes").length())

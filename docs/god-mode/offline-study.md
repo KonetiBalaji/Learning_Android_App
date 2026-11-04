@@ -10,18 +10,26 @@ Cache reads purge expired records. Downloads more than five minutes in the futur
 
 `OfflinePractice` generates Easy exact-passage recall on the device for multiple-choice, True/False and Yes/No. It preserves passage/section/page references, uses distinct source-derived choices, checks the requested count, and refuses insufficient material instead of inventing filler. Tests exercise multiple random seeds and all three types, including exact reconstruction of the masked source and duplicate-source handling.
 
-## Still pending before the offline feature is complete
+## Integration and remaining verification
 
 - Implemented: explicit download, saved-material browsing, removal confirmation, and offline entry from the library. Refreshing an unchanged download preserves its local sessions; a changed source cannot silently overwrite them.
-- Implemented: stable owner identity persistence; cache clearing on logout, session rejection, account change and account deletion; cache and in-memory copy removal when online document deletion succeeds. Remote deletion reconciliation across devices is still pending below.
+- Implemented: stable owner identity persistence; cache clearing on logout, session rejection, account change and account deletion; cache and in-memory copy removal when online document deletion succeeds. Successful online refresh also reconciles remote deletion and source changes.
 - Implemented: parent-chapter expansion and PDF page selection before on-device generation. Semantic topic inference is not available on the phone; the screen explicitly directs users to online tools for it.
 - Implemented: encrypted local quiz/answer/advance persistence, saved-session browsing, immediate feedback, source viewing, results, mistake retry, and rotation recovery. Each session records its selection. Saved state survives repository/database reopen; an actual app process-kill/relaunch check is still pending.
-- Reconcile cache revisions/deletions on reconnection and validate offline attempts on the server before importing them into authoritative progress.
-- Verify an actual process restart and additional account/session-rejection cleanup cases. The integrated airplane-mode learning flow and online deletion have been exercised, but do not prove server progress import.
+- Implemented: explicit sync of completed sessions, validated server progress import, per-session acknowledgement persistence, idempotent retry and remote revision/deletion reconciliation. Verification details follow below.
+- Verify an actual process restart and additional account/session-rejection cleanup cases. The separate restart harness is `scripts/verify-offline-restart.ps1`; its result must be recorded after execution.
 
-Offline sessions currently remain device-only and are labeled as not synced. Their scores are not added to server progress. Each downloaded copy stores up to 20 local sessions within the encrypted size limit; removal explicitly warns that unsynced answers are deleted. Server reconciliation is required before treating this as a fully completed offline feature.
+Offline sessions remain device-only until the user selects **Sync completed offline sessions** while connected. Incomplete sessions are skipped. Successful imports receive a server quiz ID, are labeled as synced, and can open the account result for further online study tools. Each downloaded copy stores up to 20 local sessions within the encrypted size limit; removal explicitly warns that unsynced answers are deleted.
 
 The acceptance ledger therefore keeps the overall offline requirement unchecked until this integration and its device verification are complete.
+
+## Synchronization boundary
+
+`POST /documents/{id}/offline-attempts` accepts a stable local session ID, source fingerprint, section/page selection, question type/prompt/choices/source ID and selected answer. It does **not** accept a device answer key, explanation, accuracy score or completion timestamp. The server retrieves the selected source, reconstructs the exact recall question, validates source-derived distractors or the single-word binary alteration, derives correctness and builds teaching feedback. Duplicate passages, invalid choices, unsupported wording, changed sources and ownership violations are rejected. Accepted results enter the existing quiz/progress/mistake/flashcard/adaptive pipeline as Easy local practice.
+
+The import ID and payload digest make retries idempotent; changing an already imported session's answers is a conflict. The completed quiz and document source lock commit in one SQLite transaction, so a partial write cannot leave a quiz citing an editable source. The same transaction helper now protects online quiz creation. Sync requests are bounded to 16 MB, 50 questions, 50,000 characters per prompt and 200 characters per choice. Offline completion time is not independently verifiable; account history records server synchronization time and says so explicitly.
+
+`GET /documents/{id}/offline-status` exposes only an owned source fingerprint, processing state and expiry. Successful online refresh removes cached documents absent from the owned library. A changed or uncertain source marks its cached copy stale: history remains reviewable, but generation, answering, advancement, retries and import are blocked until the old copy is explicitly removed and current material saved. No deleted/changed data is resurrected by an import. These checks occur on reconnect/refresh or explicit sync; disconnected devices cannot receive immediate revocation.
 
 ## Fresh foundation verification
 

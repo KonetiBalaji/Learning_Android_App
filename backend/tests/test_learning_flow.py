@@ -30,7 +30,11 @@ Consumers obtain energy by eating producers or other living organisms.
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(tmp_path, monkeypatch):
+    # Device fixtures deliberately force OCR review; backend tests use their own
+    # explicit defaults and must never inherit a live provider configuration.
+    monkeypatch.setenv("STUDY_GENERATION_MODE", "local_practice")
+    monkeypatch.setenv("STUDY_OCR_REVIEW_THRESHOLD", "0.98")
     with TestClient(create_app(tmp_path)) as client:
         yield client
 
