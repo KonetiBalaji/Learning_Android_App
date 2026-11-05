@@ -1,0 +1,32 @@
+SARAS LEARNING APP — STATUS FOR SIVARAJ
+Program Director, TCS | dev closeout | Runtime: 793bd26
+
+VERIFIED IN REPO
+- Import PDF, DOCX and TXT. Review and correct scanned PDF text.
+  Select chapters or pages and find passages by meaning.
+- Practice with source citations, feedback, results, mistake retries,
+  adaptive practice, progress, flashcards and spaced repetition.
+- Ask the document tutor for cited excerpts. It says when the source
+  does not support an answer.
+- Save encrypted study material, practice offline, and sync results
+  without duplicate attempts. Owner isolation and deletion are tested.
+- Disposable Docker staging serves trusted HTTPS and passes the
+  readiness, OCR, retrieval, owner isolation and deletion smoke checks.
+- Android targets API 36. Demo, privacy and Play listing drafts exist.
+  The named placeholder remains in use.
+
+REPORTED ONLY
+- A separate Python core reportedly passed 51 unittest cases. Its
+  source and revision could not be located. The claim is archived
+  separately and excluded from the dev test totals.
+
+NOT VERIFIED / EXTERNAL INPUTS NEEDED
+- Live AI: server-only key and authorized model; then run grounding
+  and accuracy checks across difficulty levels.
+- Branding: approved Saras Modern and Heritage source assets.
+- Production: persistent Linux host, public DNS, mounted storage key
+  and a publicly trusted certificate; then run production smoke tests.
+- Play: authorized upload key, Console access, final privacy/deletion
+  URLs and store declarations. Publishing requires separate approval.
+
+See final-test-report.md for actual counts and final-audit.md for evidence.

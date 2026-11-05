@@ -1,15 +1,15 @@
 # God Mode reconciliation — October 28, 2026
 
-## Authoritative sources
+## Historical source reconciliation
 
-- Windows MVP: `d94fb4691a705fc1c77a903e70cc407242d749d6`, preserved at `backup/pre-god-mode` and `agent/core-learning-mvp`.
-- Remote implementation: `origin/agent/mvp-implementation` at `448d2e9dec31d7334f766441f892493e6e6e7259`.
-- New delivery branch: `god-mode`, pushed to `https://github.com/KonetiBalaji/Learning_Android_App.git`. The initial pushed revision equals the preserved Windows MVP.
+- Windows MVP: `d94fb4691a705fc1c77a903e70cc407242d749d6`, preserved under tag `archive/pre-god-mode-d94fb46`.
+- Separate implementation: `448d2e9dec31d7334f766441f892493e6e6e7259`, preserved under tag `archive/mvp-implementation-448d2e9`.
+- The initial `god-mode` delivery started at the preserved Windows MVP. Current closeout work uses `dev`.
 - The reported separate `python3 -m unittest discover -s tests -t .` run of 51 tests has no source location or revision. That result remains **REPORTED ONLY — NOT VERIFIED**, not a replacement for the actual suites below. A command and its claimed output do not identify the source tree.
 
 Disposition for dev closeout: archive the 51-test claim separately as a provenance record. No source tree or revision was available in the report or identified in the repository history by its test count or description. If the exact source is recovered, preserve it under a separate archival ref and audit it independently before considering individual changes. The archived MVP tag identifies a different app and API and is not evidence for the 51-test claim.
 
-The default remote branch remains the original documentation scaffold. It was incorrect to generalize that finding to all remote branches: `agent/mvp-implementation` already contains substantial application code.
+The remote default at the time of the original audit was the documentation scaffold. The separate MVP already contained application code.
 
 ## Conflicts identified before integration
 
@@ -55,6 +55,6 @@ Raw local logs are under ignored `work/`; they are not committed as generated bu
 
 The integrated active runtime passed **62 backend tests**, **2 JVM tests**, APK assembly, lint, and **2 Android emulator flows**. Real local model checks passed **10 calibration and 12 held-out semantic retrieval cases**. A raster OCR sample recognized three expected terms and correctly entered review. See `ocr-search-adaptive.md` for limits. These are not live OpenAI generation/difficulty results.
 
-## Remaining integration work
+## Current disposition
 
-Offline encrypted caching/local quizzes, integrated document-grounded tutoring, production/release safeguards, and the demo/release package still require implementation and/or verification. API access, original logo files, hosting identity/TLS, and release-signing credentials remain external inputs. Historical remote live/device claims are not inherited as verified evidence for God Mode.
+The counts above are historical. See [the final dev audit](final-audit.md) for current coverage and [external blockers](external-blockers.md) for remaining release inputs.

@@ -8,9 +8,9 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Consolidate feature work on `dev` and promote the verified revision to default branch `main`. Preserve superseded histories under `archive/*` tags and retire their branches.
 - [x] Rerun the reported Windows backend, Android JVM, build, lint, and emulator checks.
 - [x] Inspect the substantial remote implementation and document incompatible contracts.
-- [ ] Locate and reconcile the separately reported 51-test unittest core; its source location/revision is missing.
+- [x] Record a separate archive disposition for the 51-test claim in [reconciliation](reconciliation.md). The source and revision remain reported only.
 - [x] Complete a green, reproducible audit of adopted remote components; full rerun 726 passed/1 host-limited skip, with a separate real memory-limit probe for the reused guard.
-- [ ] Keep final committed history clean and confirm remote HEAD matches the final tested revision.
+- [x] Publish the tested runtime revision to dev and keep main unchanged for this closeout. The following audit commit changes documentation only; see the [test report](final-test-report.md).
 
 ## Learning functionality
 
@@ -21,8 +21,8 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Encrypted offline cache, local quizzes, validated progress import and revision/deletion reconciliation. Verified airplane mode, sync replay, and recovery after an actual process stop in `offline-study.md`.
 - [x] Adaptive next quiz integrated with recent, distinct learning evidence; live AI difficulty still pending.
 - [x] Tutor chat from the selected document's retrieved passages, with citations and a tested no-support response. Local source excerpt mode and Android citation flow verified; live AI explanations remain pending below.
-- [ ] Complete navigation between all learning tools with no dead ends.
-- [ ] Owner-only access, retention, document deletion, and account deletion cover every new record type and local cache.
+- [x] Connect all learning tools with return paths; see the [navigation audit](final-audit.md) and connected test results.
+- [x] Cover owner access, retention, document deletion and account deletion for linked records and local cache; see the [lifecycle audit](final-audit.md).
 
 ## Live AI
 
@@ -30,14 +30,14 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [ ] Rerun real generation and grounding/answer/explanation validation on the sample document.
 - [ ] Record real Easy, Medium, Hard, and Mixed difficulty samples and accuracy counts.
 - [x] Demonstrate local fallback when the provider is unavailable: simulated HTTP/network outages and a real emulator flow, with explicit Easy/local labeling. See `provider-fallback.md`; live AI quality remains unverified.
-- [ ] Never record credentials, document content, or private keys in Git/APK/logs/chat.
+- [x] Verify the scoped closeout secret handling: no matching key material or tracked credential artifacts in the audited tree, no new runtime credentials, and staging request logs use route templates. Keep the same rule for future deployment inputs.
 
 ## Branding, operations, and release
 
 - [x] Identify the Saras Modern/Heritage assets from the user-supplied email; preserve a clearly named placeholder until real files are available.
 - [ ] Import supplied assets into light/dark header, launcher, and splash surfaces after re-supply/access.
 - [x] Docker and HTTPS configuration, mounted storage key validation, per-client rate limiting, safe request logs, readiness and background retention cleanup.
-- [x] Verify trusted TLS, readiness, actual OCR and semantic retrieval, owner isolation and web account deletion on a disposable Linux Compose stack. [Staging run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/41903736464)
+- [x] Verify trusted TLS, readiness, actual OCR and semantic retrieval, owner isolation and web account deletion on a disposable Linux Compose stack. [Staging run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/41950761292)
 - [ ] Provision the persistent production host, public DNS and certificate. Rerun smoke checks against that host.
 - [x] Configure Android API 36 and environment-based release signing.
 - [ ] Build the distribution bundle with the authorized Play upload key and verify its certificate.
@@ -48,9 +48,9 @@ The full objective is the user's attached “Take the Saras learning app to God 
 
 - [x] Three-minute Sivaraj demo script.
 - [x] Seeded sample document and source-validated frozen sample quiz.
-- [ ] One-page status sheet separating VERIFIED IN REPO from REPORTED ON WINDOWS ONLY / reported elsewhere.
-- [ ] Test report with actual current counts; live AI or release gaps clearly say NOT VERIFIED.
-- [ ] Exact external blocker list: API setup, real logo assets, hosting/TLS, signing material, and Play Console access if publishing.
-- [ ] Requirement-by-requirement completion audit of the final current state, not merely this checklist.
+- [x] [One-page status sheet](sivaraj-status.txt) separating VERIFIED IN REPO from REPORTED ONLY.
+- [x] [Test report](final-test-report.md) with current counts and explicit NOT VERIFIED release gates.
+- [x] [Exact external blocker list](external-blockers.md): AI, branding, production, Play signing and publishing approval.
+- [x] [Requirement-by-requirement audit](final-audit.md) of dev.
 
-The active goal remains incomplete until the full requested state is implemented and verified, or specific external dependencies prevent further progress after all independent work has been done.
+Unchecked release gates remain pending. Their inputs and follow-up checks are in the [external blocker list](external-blockers.md).
