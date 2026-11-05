@@ -54,3 +54,5 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] [Requirement-by-requirement audit](final-audit.md) of dev.
 
 Unchecked release gates remain pending. Their inputs and follow-up checks are in the [external blocker list](external-blockers.md).
+
+Public release preparation tracks each missing input and its acceptance evidence in the [release handoff](external-blockers.md#public-release-handoff). The disposable staging stack and disposable signing certificate do not satisfy the public production or Play signing gates.

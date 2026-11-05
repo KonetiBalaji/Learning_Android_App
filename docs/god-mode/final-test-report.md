@@ -15,3 +15,12 @@ Runtime revision: `793bd2600bf8c5c95f4e10a66644c24139c21354` (base `0181f83`). T
 Android command: `scripts/build-android.ps1 -ConnectedTests`. The build finished successfully. The emulator uses disposable backend fixtures; the Docker smoke independently verifies a Linux deployment.
 
 **NOT VERIFIED:** live AI and grounding, real difficulty accuracy, original logo integration, public production TLS and smoke, authorized Play signing, final store declarations and publishing. Prior disposable signing and offline process restart evidence is historical, as recorded in the release and offline guides. See [external blockers](external-blockers.md).
+
+## Public release verification
+
+| Gate | Status | Evidence still needed |
+|---|---|---|
+| Approved branding | NOT VERIFIED | Approved assets and inspection of launcher, splash and headers in light and dark modes |
+| Live AI | NOT VERIFIED | No live evaluation run. Easy, Medium, Hard and Mixed each have zero evaluated items. Accuracy is unavailable. |
+| Public production | NOT VERIFIED | Production URL, trusted public certificate and completed smoke results from the supplied host |
+| Authorized Play bundle | NOT VERIFIED | Bundle signed with the authorized upload key, matching certificate fingerprint and final privacy and Data safety declarations |

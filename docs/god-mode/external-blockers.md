@@ -8,4 +8,17 @@
 | Play signing and store | Authorized Play upload signing material through protected local or CI configuration, Play Console access, operator identity and privacy contact, final public privacy and account deletion URLs, and the production backup-retention policy | Verify the distribution bundle against the authorized upload certificate and review final store declarations. **NOT VERIFIED** |
 | Publication | Separate explicit approval to publish the reviewed Play release | Record the approved Play submission and track its result. **NOT VERIFIED** |
 
+## Public release handoff
+
+Intake checked against dev at `2cf13dd`. The referenced Gmail artwork was not available through the connected account search, and no approved artwork was found in the repository or project working files. The repository lists no Actions secret names. That check does not establish whether secrets exist in a deployment store.
+
+Provide the inputs in release order:
+
+1. **Branding:** Re-supply the original Modern and Heritage files, or give an accessible location. Specify light/dark variants or approved placement for launcher, splash and headers.
+2. **Live AI:** Provide the deployment target or secret store location and the authorized model identifier. Have the deployment owner provision the authorized server-only key there and confirm provisioning. No key value is needed in the handoff.
+3. **Production:** Provide the host access route, public hostname with DNS routed to the host, and confirmation of the mounted storage key and whether the deployment uses an existing database. Confirm that the host can obtain a public TLS certificate.
+4. **Play:** Provide access to the app in Play Console, protected upload signing configuration, the authorized upload certificate SHA-256 fingerprint for comparison, operator identity, privacy contact, final public privacy and deletion URLs, and the production backup retention policy.
+
+After review, publication would require separate explicit approval identifying the verified bundle version and intended Play release track. This preparation ends before submission.
+
 The separately reported 51-test core is archived as an unverified provenance claim. An exact source location and revision would enable an independent review if it is recovered. It is outside the dev test totals.
