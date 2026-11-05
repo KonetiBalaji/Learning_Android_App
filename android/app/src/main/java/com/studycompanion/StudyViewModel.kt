@@ -12,8 +12,12 @@ import com.studycompanion.data.OfflineStudyRepository
 import com.studycompanion.data.objects
 import com.studycompanion.data.strings
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -30,6 +34,7 @@ data class StudyState(
     val quiz: JSONObject? = null,
     val results: JSONObject? = null,
     val progress: JSONObject? = null,
+    val inProgress: List<JSONObject> = emptyList(),
     val source: JSONObject? = null,
     val sourceDocument: JSONObject? = null,
     val aiMode: Boolean = false,
@@ -50,9 +55,10 @@ data class StudyState(
     val offlineQuizId: String? = null,
 )
 
-class StudyViewModel(application: Application) : AndroidViewModel(application) {
-    val session = SessionStore(application)
-    private val repository = StudyRepository(application, session)
+class StudyViewModel internal constructor(application: Application, private val repository: StudyRepository) : AndroidViewModel(application) {
+    constructor(application: Application) : this(application, StudyRepository(application, SessionStore(application)))
+
+    val session = repository.session
     private val offlineCache = OfflineCache(application)
     private val offlineStudy = OfflineStudyRepository(offlineCache, session)
     private val mutable = MutableStateFlow(StudyState(signedIn = session.token.isNotEmpty()))
@@ -60,10 +66,28 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private var retryAction: (suspend () -> Unit)? = null
 
     init {
+        viewModelScope.launch {
+            state.map { it.offlineBundle }.distinctUntilChanged().collectLatest { bundle ->
+                if (bundle != null) {
+                    val deadline = (bundle.getDouble("expires_at") * 1000).toLong()
+                    while (true) {
+                        val remaining = deadline - System.currentTimeMillis()
+                        if (remaining <= 0) break
+                        delay(remaining.coerceAtMost(1_000))
+                    }
+                    val id = bundle.getJSONObject("document").getString("id")
+                    mutable.update {
+                        if (it.offlineBundle !== bundle) it
+                        else it.copy(offlineBundle = null, offlineQuizId = null,
+                            offlineDocuments = it.offlineDocuments.filterNot { doc -> doc.getString("id") == id })
+                    }
+                }
+            }
+        }
         if (state.value.signedIn) run {
             loadHome()
             val activeId = session.activeQuiz
-            val active = state.value.progress?.optJSONArray("in_progress")?.objects()?.find { it.getString("id") == activeId }
+            val active = state.value.inProgress.find { it.getString("id") == activeId }
             if (active != null) {
                 val doc = JSONObject(repository.call("/documents/${active.getString("document_id")}"))
                 mutable.update { it.copy(document = doc) }
@@ -160,7 +184,8 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
                 !activeExists && it.screen in setOf("configure", "quiz", "results", "mistakes", "search", "tutor", "adaptive") -> "home"
                 else -> it.screen
             }
-            it.copy(screen = screen, documents = docs, progress = progress, aiMode = health.getString("generation_mode") == "openai",
+            it.copy(screen = screen, documents = docs, progress = progress,
+                inProgress = progress.getJSONArray("in_progress").objects(), aiMode = health.getString("generation_mode") == "openai",
                 document = if (activeExists) it.document else null, quiz = if (activeExists) it.quiz else null,
                 results = if (activeExists) it.results else null, source = if (activeExists && citedExists) it.source else null,
                 sourceDocument = if (citedExists) it.sourceDocument else null,
@@ -336,11 +361,17 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         } else loadOcrPage(updated, returnScreen)
     }
 
-    fun upload(uri: Uri) = run {
-        mutable.update { it.copy(uploadProgress = 0) }
-        val document = repository.upload(uri) { amount -> mutable.update { it.copy(uploadProgress = amount) } }
-        loadHome()
-        mutable.update { it.copy(document = document, screen = "configure", studyConfig = JSONObject(), searchSelection = JSONObject(), searchHits = null, quiz = null, results = null, recommendation = null) }
+    fun upload(uri: Uri) {
+        var uploaded: JSONObject? = null
+        run {
+            val document = uploaded ?: kotlin.run {
+                mutable.update { it.copy(uploadProgress = 0) }
+                repository.upload(uri) { amount -> mutable.update { it.copy(uploadProgress = amount) } }
+                    .also { uploaded = it }
+            }
+            loadHome()
+            mutable.update { it.copy(document = document, screen = "configure", studyConfig = JSONObject(), searchSelection = JSONObject(), searchHits = null, quiz = null, results = null, recommendation = null) }
+        }
     }
 
     fun deleteDocument(id: String) = run {
@@ -366,7 +397,11 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun acceptQuiz(quiz: JSONObject) {
         session.activeQuiz = quiz.getString("id")
-        mutable.update { it.copy(quiz = quiz, screen = "quiz", results = null, source = null) }
+        mutable.update {
+            val otherAttempts = it.inProgress.filterNot { attempt -> attempt.getString("id") == quiz.getString("id") }
+            val inProgress = if (quiz.getBoolean("complete")) otherAttempts else listOf(quiz) + otherAttempts
+            it.copy(quiz = quiz, screen = "quiz", results = null, source = null, inProgress = inProgress)
+        }
         mutable.update { current -> current.copy(document = current.document?.let { JSONObject(it.toString()).put("source_locked", true) }) }
         if (quiz.getBoolean("complete")) {
             val results = JSONObject(repository.call("/quizzes/${quiz.getString("id")}/results"))

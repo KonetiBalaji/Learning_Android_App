@@ -5,16 +5,128 @@ import android.net.Uri
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import com.studycompanion.data.OfflineCache
+import com.studycompanion.data.SessionStore
+import com.studycompanion.data.StudyRepository
+import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Disposable local backend at 18763 plus simulated-outage fixture at 18764; see provider-fallback.md. */
 class LearningFlowTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+
+    @Test fun uploadRetryAfterRefreshFailureDoesNotPostAgain() {
+        val app = rule.activity.application
+        val store = ViewModelStore()
+        val uploads = AtomicInteger()
+        val failRefresh = AtomicBoolean()
+        val client = OkHttpClient.Builder().readTimeout(120, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request()
+                if (request.method == "GET" && request.url.encodedPath == "/documents" &&
+                    failRefresh.compareAndSet(true, false)) throw IOException("Injected library refresh failure")
+                chain.proceed(request).also { response ->
+                    if (request.method == "POST" && request.url.encodedPath == "/documents" && response.isSuccessful &&
+                        uploads.incrementAndGet() == 1) failRefresh.set(true)
+                }
+            }.build()
+        lateinit var model: StudyViewModel
+        rule.runOnIdle {
+            val factory = object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    modelClass.cast(StudyViewModel(app, StudyRepository(
+                        app, SessionStore(app), client)))!!
+            }
+            model = ViewModelProvider(store, factory)[StudyViewModel::class.java]
+        }
+        try {
+            signInForRegression(model, "uploadretry")
+            uploadRegressionSample(model, "retry-upload.txt")
+            rule.waitUntil(30_000) { model.state.value.error != null && !model.state.value.busy }
+            assertEquals("Injected library refresh failure", model.state.value.error)
+            rule.runOnIdle { model.retry() }
+            rule.waitUntil(30_000) { model.state.value.screen == "configure" && !model.state.value.busy }
+            assertEquals(1, uploads.get())
+            assertEquals(listOf(model.state.value.document!!.getString("id")),
+                model.state.value.documents.map { it.getString("id") })
+        } finally {
+            deleteRegressionAccount(model)
+            rule.runOnIdle { store.clear() }
+        }
+    }
+
+    @Test fun openOfflineResultAndSourceDisappearAtExpiry() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        signInForRegression(model, "expiry")
+        try {
+            uploadRegressionSample(model, "expiry-biology.txt")
+            rule.waitUntil(30_000) { model.state.value.document != null && !model.state.value.busy }
+            val docId = model.state.value.document!!.getString("id")
+            rule.runOnIdle { model.saveOffline() }
+            rule.waitUntil(30_000) { model.state.value.offlineDocuments.isNotEmpty() && !model.state.value.busy }
+            rule.runOnIdle { model.openOffline(docId) }
+            rule.waitUntil(30_000) { model.state.value.offlineBundle != null && !model.state.value.busy }
+            rule.runOnIdle { model.startOffline(emptySet(), "", "", 1, "multiple_choice") }
+            rule.waitUntil(30_000) { model.state.value.offlineQuizId != null && !model.state.value.busy }
+            val quizId = model.state.value.offlineQuizId!!
+            val quiz = model.state.value.offlineBundle!!.getJSONArray("local_quizzes").getJSONObject(0)
+            val correct = quiz.getJSONArray("questions").getJSONObject(0).getInt("answer")
+            rule.runOnIdle { model.answerOffline((correct + 1) % 4) }
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            rule.runOnIdle { model.nextOffline() }
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            val shortBundle = JSONObject(model.state.value.offlineBundle.toString())
+                .put("expires_at", (System.currentTimeMillis() + 8_000) / 1000.0)
+            runBlocking {
+                OfflineCache(rule.activity).save(model.session.server, model.session.ownerId, shortBundle)
+            }
+            rule.runOnIdle { model.openOffline(docId) }
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            rule.runOnIdle { model.resumeOffline(quizId) }
+            rule.onNodeWithText("Offline result: 0 / 1").assertExists()
+            rule.onNodeWithText("Read saved source").performScrollTo().performClick()
+            rule.onNodeWithText("Saved source passage").assertExists()
+            rule.waitUntil(15_000) { model.state.value.offlineBundle == null }
+            rule.onNodeWithText("Offline result: 0 / 1").assertDoesNotExist()
+            rule.onNodeWithText("Saved source passage").assertDoesNotExist()
+            rule.onNodeWithText("Open saved expiry-biology").assertDoesNotExist()
+        } finally {
+            deleteRegressionAccount(model)
+        }
+    }
+
+    private fun signInForRegression(model: StudyViewModel, prefix: String) {
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        rule.runOnIdle { model.authenticate(prefix + System.currentTimeMillis(), "disposable-regression-password", true, "http://10.0.2.2:18763") }
+        rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
+        assertNull(model.state.value.error)
+    }
+
+    private fun uploadRegressionSample(model: StudyViewModel, filename: String) {
+        val file = File(rule.activity.cacheDir, filename).apply {
+            writeText("Chapter 1 Cells\nMitochondria produce usable energy through cellular respiration inside living cells.")
+        }
+        rule.runOnIdle { model.upload(Uri.fromFile(file)) }
+    }
+
+    private fun deleteRegressionAccount(model: StudyViewModel) {
+        rule.runOnIdle { if (model.state.value.signedIn) model.deleteAccount() }
+        rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+    }
 
     @Test fun savedMaterialSupportsAirplaneModeQuizFeedbackAndDeletion() {
         assertTrue("This network-toggle test is for the disposable emulator", android.os.Build.MODEL.contains("sdk"))
@@ -339,6 +451,11 @@ class LearningFlowTest {
         rule.onNodeWithText("Start practice").performScrollTo().performClick()
         rule.waitUntil(120_000) { model.state.value.quiz != null && !model.state.value.busy }
         assertNull(model.state.value.error)
+        val startedQuiz = model.state.value.quiz!!.getString("id")
+        rule.onNodeWithText("Library", substring = false).performClick()
+        rule.onNodeWithText("Resume ", substring = true).performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "quiz" && !model.state.value.busy }
+        assertEquals(startedQuiz, model.state.value.quiz!!.getString("id"))
         screenshot("03-question")
         // Select one intentionally wrong option using the exact source retained by the backend.
         for (index in 0 until 10) {

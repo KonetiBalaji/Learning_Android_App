@@ -118,7 +118,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     Button(onClick = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain")) },
                         enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("+ Upload study material") }
                     Text("PDF, DOCX or UTF-8 TXT · up to 50 MB", style = MaterialTheme.typography.bodySmall)
-                    val active = state.progress?.optJSONArray("in_progress")?.objects().orEmpty()
+                    val active = state.inProgress
                     if (active.isNotEmpty()) {
                         Text("Continue studying", style = MaterialTheme.typography.titleMedium)
                         active.forEach { quiz ->

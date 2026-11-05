@@ -65,9 +65,12 @@ class SessionStore(context: Context) {
         set(value) { prefs.edit().putString("owner", value).apply() }
 }
 
-class StudyRepository(private val context: Context, val session: SessionStore) {
-    private val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(210, TimeUnit.SECONDS).writeTimeout(120, TimeUnit.SECONDS).build()
+class StudyRepository(
+    private val context: Context,
+    val session: SessionStore,
+    private val client: OkHttpClient = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(210, TimeUnit.SECONDS).writeTimeout(120, TimeUnit.SECONDS).build(),
+) {
 
     suspend fun call(path: String, method: String = "GET", body: JSONObject? = null): String = withContext(Dispatchers.IO) {
         val payload = body?.toString()?.toRequestBody("application/json".toMediaType())
