@@ -64,7 +64,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::upload) }
     var confirmation by remember { mutableStateOf<String?>(null) }
     BackHandler(state.signedIn && state.screen != "home") {
-        if (!state.busy) model.navigate(if (state.screen == "mistakes") "results" else "home")
+        model.back()
     }
     Scaffold(
         topBar = {
@@ -300,9 +300,13 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
 }
 
 @Composable private fun OcrReview(state: StudyState, model: StudyViewModel) {
-    val page = state.ocrPage ?: run { Text("No scanned pages to review."); return }
-    val editable = state.document?.optBoolean("source_locked") != true && !page.getBoolean("human_reviewed")
-    var text by rememberSaveable(state.document?.optString("id"), page.getInt("page"), page.getBoolean("human_reviewed")) { mutableStateOf(page.getString("text")) }
+    val page = state.ocrPage ?: run {
+        Text("No scanned pages to review.")
+        TextButton(onClick = model::back, enabled = !state.busy) { Text("Back") }
+        return
+    }
+    val editable = state.ocrDocument?.optBoolean("source_locked") != true && !page.getBoolean("human_reviewed")
+    var text by rememberSaveable(state.ocrDocument?.optString("id"), page.getInt("page"), page.getBoolean("human_reviewed")) { mutableStateOf(page.getString("text")) }
     Title("Check page ${page.getInt("page")}", "Compare every line with the original. Confirm only text you can read on the page.")
     val bytes = remember(page.getString("image_base64")) { android.util.Base64.decode(page.getString("image_base64"), android.util.Base64.DEFAULT) }
     val bitmap = remember(bytes) { android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
@@ -324,11 +328,11 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     Text("Recognition confidence estimate: ${(page.getDouble("confidence") * 100).toInt()}%. This is a recognition score, not a guarantee of correct text.", style = MaterialTheme.typography.bodySmall)
     OutlinedTextField(text, { text = it }, label = { Text("Transcription — correct unclear words") }, minLines = 6, maxLines = 16, enabled = !state.busy && editable, modifier = Modifier.fillMaxWidth())
     if (editable) Button(onClick = { model.confirmOcr(text) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Confirm transcription matches page") }
-    if (state.document?.optBoolean("source_locked") == true) Info("Source already used in learning sessions", "Upload a corrected copy if you need to change this transcription. Existing explanations keep their original source.")
+    if (state.ocrDocument?.optBoolean("source_locked") == true) Info("Source already used in learning sessions", "Upload a corrected copy if you need to change this transcription. Existing explanations keep their original source.")
     state.ocrPages.filter { !it.getBoolean("reviewed") && it.getInt("page") != page.getInt("page") }.forEach { other ->
         TextButton(onClick = { model.openOcrReview(other.getInt("page")) }, enabled = !state.busy) { Text("Review page ${other.getInt("page")}") }
     }
-    TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
+    TextButton(onClick = model::back, enabled = !state.busy) { Text(if (state.ocrReturn == "configure") "Back to document" else "Back to study") }
 }
 
 @Composable private fun SemanticSearch(state: StudyState, model: StudyViewModel) {

@@ -37,6 +37,8 @@ data class StudyState(
     val dueOnly: Boolean = true,
     val ocrPages: List<JSONObject> = emptyList(),
     val ocrPage: JSONObject? = null,
+    val ocrDocument: JSONObject? = null,
+    val ocrReturn: String = "configure",
     val studyConfig: JSONObject = JSONObject(),
     val searchSelection: JSONObject = JSONObject(),
     val searchQuery: String = "",
@@ -88,7 +90,26 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun retry() { retryAction?.let { run(it) } }
     fun dismissError() { mutable.update { it.copy(error = null) } }
-    fun navigate(screen: String) { mutable.update { it.copy(screen = screen, error = null, source = null) } }
+    fun navigate(screen: String) {
+        mutable.update { it.copy(screen = screen, error = null, source = null, sourceDocument = null,
+            ocrDocument = null, ocrPage = null, ocrPages = emptyList()) }
+    }
+
+    fun back() {
+        val current = state.value
+        if (current.busy) return
+        when (current.screen) {
+            "ocr" -> navigate(current.ocrReturn)
+            "search", "tutor", "quiz" -> navigate(if (current.document != null) "configure" else "home")
+            "mistakes", "adaptive", "flashcards" -> navigate(if (current.results != null) "results" else "home")
+            "offline" -> when {
+                current.offlineQuizId != null -> resumeOffline(null)
+                current.offlineBundle != null -> showOffline()
+                else -> navigate("home")
+            }
+            else -> navigate("home")
+        }
+    }
 
     fun authenticate(username: String, password: String, register: Boolean, server: String) = run {
         val parsed = Uri.parse(server)
@@ -112,7 +133,11 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun loadHome() {
         val identity = JSONObject(repository.call("/account")).getString("owner_id")
-        if (session.ownerId.isNotEmpty() && session.ownerId != identity) offlineCache.clear()
+        if (session.ownerId.isNotEmpty() && session.ownerId != identity) {
+            offlineCache.clear()
+            session.activeQuiz = ""
+            mutable.value = StudyState(signedIn = true, busy = true)
+        }
         session.ownerId = identity
         val health = JSONObject(repository.call("/health"))
         val docs = JSONArray(repository.call("/documents")).objects()
@@ -129,10 +154,23 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         mutable.update {
             val activeExists = it.document?.optString("id")?.let { id -> id in remoteIds } != false
             val citedExists = it.sourceDocument?.optString("id")?.let { id -> id in remoteIds } != false
-            it.copy(documents = docs, progress = progress, aiMode = health.getString("generation_mode") == "openai",
+            val scanExists = it.ocrDocument?.optString("id")?.let { id -> id in remoteIds } != false
+            val screen = when {
+                !scanExists && it.screen == "ocr" -> "home"
+                !activeExists && it.screen in setOf("configure", "quiz", "results", "mistakes", "search", "tutor", "adaptive") -> "home"
+                else -> it.screen
+            }
+            it.copy(screen = screen, documents = docs, progress = progress, aiMode = health.getString("generation_mode") == "openai",
                 document = if (activeExists) it.document else null, quiz = if (activeExists) it.quiz else null,
                 results = if (activeExists) it.results else null, source = if (activeExists && citedExists) it.source else null,
                 sourceDocument = if (citedExists) it.sourceDocument else null,
+                searchHits = if (activeExists) it.searchHits else null,
+                tutorTurns = if (activeExists) it.tutorTurns else emptyList(),
+                recommendation = if (activeExists) it.recommendation else null,
+                flashcards = it.flashcards.filter { card -> card.getString("document_id") in remoteIds },
+                ocrDocument = if (scanExists) it.ocrDocument else null,
+                ocrPage = if (scanExists) it.ocrPage else null,
+                ocrPages = if (scanExists) it.ocrPages else emptyList(),
                 offlineDocuments = savedDocuments, offlineBundle = refreshed, offlineQuizId = if (refreshed == null) null else it.offlineQuizId)
         }
     }
@@ -270,25 +308,32 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun loadOcrPage(pageNumber: Int? = null) {
-        val document = state.value.document ?: return
+    private suspend fun loadOcrPage(document: JSONObject, returnScreen: String, pageNumber: Int? = null) {
         val id = document.getString("id")
         val pages = JSONArray(repository.call("/documents/$id/ocr-pages")).objects()
         val page = pages.find { it.getInt("page") == pageNumber } ?: pages.find { !it.getBoolean("reviewed") } ?: pages.firstOrNull()
         val detail = page?.let { JSONObject(repository.call("/documents/$id/ocr-pages/${it.getInt("page")}")) }
-        mutable.update { it.copy(ocrPages = pages, ocrPage = detail, screen = "ocr", source = null) }
+        mutable.update { it.copy(ocrPages = pages, ocrPage = detail, ocrDocument = document, ocrReturn = returnScreen,
+            screen = "ocr", source = null, sourceDocument = null) }
     }
 
-    fun openOcrReview(pageNumber: Int? = null) = run { loadOcrPage(pageNumber) }
+    fun openOcrReview(pageNumber: Int? = null) = run {
+        val current = state.value
+        val document = (if (current.screen == "ocr") current.ocrDocument else current.document) ?: return@run
+        loadOcrPage(document, if (current.screen == "ocr") current.ocrReturn else "configure", pageNumber)
+    }
 
     fun confirmOcr(text: String) = run {
-        val document = state.value.document ?: return@run
+        val document = state.value.ocrDocument ?: return@run
         val page = state.value.ocrPage ?: return@run
         val updated = JSONObject(repository.call("/documents/${document.getString("id")}/ocr-pages/${page.getInt("page")}/review", "POST", JSONObject().put("text", text)))
-        mutable.update { it.copy(document = updated) }
+        mutable.update { it.copy(document = if (it.document?.optString("id") == updated.getString("id")) updated else it.document,
+            ocrDocument = updated) }
         loadHome()
-        if (updated.getString("processing_state") == "ready") mutable.update { it.copy(screen = "configure", ocrPage = null) }
-        else loadOcrPage()
+        val returnScreen = state.value.ocrReturn
+        if (updated.getString("processing_state") == "ready") {
+            mutable.update { it.copy(screen = returnScreen, ocrPage = null, ocrDocument = null, ocrPages = emptyList()) }
+        } else loadOcrPage(updated, returnScreen)
     }
 
     fun upload(uri: Uri) = run {
@@ -382,10 +427,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     fun openOriginalScan() = run {
         val source = state.value.source ?: return@run
         val document = state.value.sourceDocument ?: state.value.document ?: return@run
-        val same = document.getString("id") == state.value.document?.optString("id")
-        mutable.update { it.copy(document = document, quiz = if (same) it.quiz else null, results = if (same) it.results else null,
-            studyConfig = if (same) it.studyConfig else JSONObject(), searchSelection = if (same) it.searchSelection else JSONObject(), searchHits = if (same) it.searchHits else null) }
-        loadOcrPage(source.getInt("page"))
+        loadOcrPage(document, state.value.screen, source.getInt("page"))
     }
 
     private suspend fun loadCards(dueOnly: Boolean) {

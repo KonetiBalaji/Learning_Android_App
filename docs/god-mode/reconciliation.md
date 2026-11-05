@@ -7,6 +7,8 @@
 - New delivery branch: `god-mode`, pushed to `https://github.com/KonetiBalaji/Learning_Android_App.git`. The initial pushed revision equals the preserved Windows MVP.
 - The reported separate `python3 -m unittest discover -s tests -t .` run of 51 tests has no source location or revision. That result remains **REPORTED ONLY — NOT VERIFIED**, not a replacement for the actual suites below. A command and its claimed output do not identify the source tree.
 
+Disposition for dev closeout: archive the 51-test claim separately as a provenance record. No source tree or revision was available in the report or identified in the repository history by its test count or description. If the exact source is recovered, preserve it under a separate archival ref and audit it independently before considering individual changes. The archived MVP tag identifies a different app and API and is not evidence for the 51-test claim.
+
 The default remote branch remains the original documentation scaffold. It was incorrect to generalize that finding to all remote branches: `agent/mvp-implementation` already contains substantial application code.
 
 ## Conflicts identified before integration

@@ -233,14 +233,37 @@ class LearningFlowTest {
         rule.onNodeWithText("Confirm transcription matches page").performScrollTo().performClick()
         rule.waitUntil(30_000) { model.state.value.screen == "configure" && !model.state.value.busy }
         assertEquals("ready", model.state.value.document!!.getString("processing_state"))
+        val savedOwner = model.session.ownerId
+        val savedServer = model.session.server
+        val savedId = model.state.value.document!!.getString("id")
+        rule.runOnIdle { model.saveOffline() }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        assertNull(model.state.value.error)
+        assertTrue(model.state.value.offlineDocuments.any { it.getString("id") == savedId })
+        rule.runOnIdle { model.navigate("configure") }
         rule.onNodeWithText("Questions · 1–50").performScrollTo().performTextClearance()
         rule.onNodeWithText("Questions · 1–50").performTextInput("5")
         rule.onNodeWithText("Start practice").performScrollTo().performClick()
         rule.waitUntil(30_000) { model.state.value.screen == "quiz" && !model.state.value.busy }
         assertNull(model.state.value.error)
         assertEquals(1, model.state.value.quiz!!.getJSONObject("question").getInt("page"))
+        val quizId = model.state.value.quiz!!.getString("id")
+        rule.runOnIdle { model.answer(0) }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        rule.onNodeWithText("Read source passage").performScrollTo().performClick()
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        rule.onNodeWithText("View original scanned page").performClick()
+        rule.waitUntil(30_000) { model.state.value.screen == "ocr" && !model.state.value.busy }
+        rule.onNodeWithText("Back to study").performScrollTo().performClick()
+        assertEquals("quiz", model.state.value.screen)
+        assertEquals(quizId, model.state.value.quiz!!.getString("id"))
         rule.runOnIdle { model.deleteAccount() }
         rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+        kotlinx.coroutines.runBlocking {
+            val cache = com.studycompanion.data.OfflineCache(rule.activity)
+            try { assertNull(cache.load(savedServer, savedOwner, savedId)) }
+            finally { cache.close() }
+        }
     }
 
     @Test fun uploadFeedbackResumeResultsAndMistakeReview() {
