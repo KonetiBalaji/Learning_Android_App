@@ -209,6 +209,11 @@ STARTER_CHAPTERS = {
                 "How does water fall back to the ground?",
             ]),
         "requires": "evaporation",
+        "legacy_diagnostic_total": 1,
+        "diagnostics": [
+            ("Which change forms the tiny liquid droplets in a cloud?",
+             ["Melting ice", "Liquid water evaporating", "Water vapor condensing", "Rain falling"], 2),
+        ],
     },
     "combining-sentences": {
         **lesson(6, "English", "Combining related sentences",
@@ -231,6 +236,11 @@ STARTER_CHAPTERS = {
                 "Which details in the trail sentence show that relationship?",
             ]),
         "requires": "complete-sentences",
+        "legacy_diagnostic_total": 1,
+        "diagnostics": [
+            ("Which word shows a result? The battery was empty, ___ the toy stopped.",
+             ["and", "but", "or", "so"], 3),
+        ],
     },
     "corroborating-sources": {
         **lesson(6, "Social Studies", "Corroborating historical evidence",
@@ -254,6 +264,11 @@ STARTER_CHAPTERS = {
                 "Which claim are the two sources being used to check?",
             ]),
         "requires": "primary-sources",
+        "legacy_diagnostic_total": 1,
+        "diagnostics": [
+            ("One student describes an event. A second student repeats that story without seeing the event. How many independent accounts are there?",
+             ["None", "One", "Two", "Three"], 1),
+        ],
     },
     "unit-rates": lesson(
         7, "Mathematics", "Unit rates", "Three notebooks cost $12. What is the cost per notebook?",

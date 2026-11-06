@@ -113,12 +113,16 @@ def catalog(lessons):
 
 
 def new_lesson(identifier, started):
+    diagnostic_total = 1 + len(CHAPTERS[identifier].get("diagnostics", ()))
     return {"chapter_id": identifier, "started": started, "phase": "diagnostic", "version": 0,
+            "diagnostic_total": diagnostic_total,
             "practice_index": 0, "correct": None, "feedback": ""}
 
 
-def diagnostic_items(chapter):
-    return [(chapter["prompt"], chapter["choices"], chapter["answer"]), *chapter.get("diagnostics", ())]
+def diagnostic_items(chapter, lesson):
+    items = [(chapter["prompt"], chapter["choices"], chapter["answer"]), *chapter.get("diagnostics", ())]
+    total = lesson.get("diagnostic_total", chapter.get("legacy_diagnostic_total", len(items)))
+    return items[:total]
 
 
 def snapshot(lesson):
@@ -126,13 +130,13 @@ def snapshot(lesson):
     phase = lesson["phase"]
     result = {key: lesson[key] for key in ("chapter_id", "phase", "version", "feedback")}
     if phase == "diagnostic":
-        items = diagnostic_items(chapter)
+        items = diagnostic_items(chapter, lesson)
         index = lesson.get("diagnostic_index", 0)
         prompt, choices, _ = items[index]
         result.update(prompt=prompt, choices=choices, diagnostic_index=index, diagnostic_total=len(items))
     elif phase == "coach":
         result.update(explanation=chapter["explanation"], example=chapter["example"],
-                      diagnostic_remaining=0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter)))
+                      diagnostic_remaining=0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter, lesson)))
         if "example_steps" in chapter:
             result["example_steps"] = chapter["example_steps"]
         if "example_variants" in chapter:
@@ -155,7 +159,7 @@ def advance(lesson, action, choice, response, now):
     chapter = CHAPTERS[lesson["chapter_id"]]
     phase = lesson["phase"]
     if phase == "diagnostic" and action == "diagnostic" and choice is not None and choice >= 0:
-        items = diagnostic_items(chapter)
+        items = diagnostic_items(chapter, lesson)
         index = lesson.get("diagnostic_index", 0)
         _, choices, answer = items[index]
         if choice >= len(choices):
@@ -174,7 +178,7 @@ def advance(lesson, action, choice, response, now):
             guidance = guidance or "Review the worked example, then continue."
             lesson.update(phase="coach", feedback=f"You chose {choices[choice]}. {guidance}")
     elif phase == "coach" and action == "continue":
-        next_phase = "diagnostic" if 0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter)) else "practice"
+        next_phase = "diagnostic" if 0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter, lesson)) else "practice"
         lesson.update(phase=next_phase, feedback="")
     elif phase == "practice" and action == "practice":
         value = response.strip()

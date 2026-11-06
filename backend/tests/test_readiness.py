@@ -4,7 +4,9 @@ from test_learning_flow import account, client
 def finish(client, headers, chapter, choice, practice, explanation):
     path = f"/curriculum/{chapter}/lesson"
     assert client.post(path, headers=headers).status_code == 200
-    steps = [("diagnostic", {"choice": choice}), ("practice", {"response": practice}),
+    choices = (choice,) if isinstance(choice, int) else choice
+    steps = [("diagnostic", {"choice": answer}) for answer in choices]
+    steps += [("practice", {"response": practice}),
              ("rewrite", {"response": explanation})]
     for version, (action, data) in enumerate(steps):
         reply = client.post(path + "/actions", headers=headers, json={"action": action, "version": version, **data})

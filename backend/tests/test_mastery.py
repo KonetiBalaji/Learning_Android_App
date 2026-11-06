@@ -191,17 +191,17 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
     (
         "Science",
         ("evaporation", 2, "condensation", "Evaporation turns liquid into vapor. Condensation reverses it."),
-        ("water-cycle", 2, "condensation", "Water evaporates, condenses into clouds, and falls as rain."),
+        ("water-cycle", (2, 2), "condensation", "Water evaporates, condenses into clouds, and falls as rain."),
     ),
     (
         "English",
         ("complete-sentences", 1, "glowed", "Birds is the subject and sang is the verb."),
-        ("combining-sentences", 1, "but", "But signals contrast because they reached the top despite the steep trail."),
+        ("combining-sentences", (1, 3), "but", "But signals contrast because they reached the top despite the steep trail."),
     ),
     (
         "Social Studies",
         ("primary-sources", 1, "secondary", "The sailor wrote the diary during the voyage."),
-        ("corroborating-sources", 2, "dependent", "The city record is an independent source for the opening date."),
+        ("corroborating-sources", (2, 1), "dependent", "The city record is an independent source for the opening date."),
     ),
 ])
 def test_grade_six_subject_paths_unlock_for_the_student_only(client, subject, prerequisite, next_chapter):
@@ -278,18 +278,22 @@ def test_math_practice_uses_a_third_question_after_two_misses(client, chapter, c
 
 @pytest.mark.parametrize("chapter, choice, third_answer, expected_hint", [
     ("evaporation", 2, "Condensation.", "Which process explains why the puddle got smaller?"),
-    ("water-cycle", 2, "Precipitation", "Which process moves water from the lake into the air?"),
+    ("water-cycle", (2, 2), "Precipitation", "Which process moves water from the lake into the air?"),
     ("complete-sentences", 1, "flooded", "What do we call the part of the sentence that tells who or what it is about?"),
-    ("combining-sentences", 1, "but", "Which joining word are you explaining?"),
+    ("combining-sentences", (1, 3), "but", "Which joining word are you explaining?"),
     ("primary-sources", 1, "secondary", "Which source are you describing, and who wrote it?"),
-    ("corroborating-sources", 2, "dependent", "Which source provides a second account?"),
+    ("corroborating-sources", (2, 1), "dependent", "Which source provides a second account?"),
 ])
 def test_grade_six_subject_practice_rotation_and_revision_hint(chapter, choice, third_answer, expected_hint):
     from study.mastery import advance, new_lesson, snapshot
 
     def attempt():
         lesson = new_lesson(chapter, 0)
-        advance(lesson, "diagnostic", choice, None, 1)
+        choices = (choice,) if isinstance(choice, int) else choice
+        assert snapshot(lesson)["diagnostic_total"] == len(choices)
+        for index, answer in enumerate(choices):
+            assert snapshot(lesson)["diagnostic_index"] == index
+            advance(lesson, "diagnostic", answer, None, index + 1)
         assert snapshot(lesson)["phase"] == "practice"
         return lesson
 
@@ -314,3 +318,15 @@ def test_grade_six_subject_practice_rotation_and_revision_hint(chapter, choice, 
     revision = snapshot(lesson)
     assert revision["phase"] == "rewrite"
     assert revision["feedback"] == expected_hint
+
+
+def test_existing_water_cycle_coaching_resumes_its_original_diagnostic():
+    from study.mastery import advance, new_lesson, snapshot
+
+    lesson = new_lesson("water-cycle", 0)
+    del lesson["diagnostic_total"]
+    assert snapshot(lesson)["diagnostic_total"] == 1
+    advance(lesson, "diagnostic", 0, None, 1)
+    assert not snapshot(lesson)["diagnostic_remaining"]
+    advance(lesson, "continue", None, None, 2)
+    assert snapshot(lesson)["phase"] == "practice"
