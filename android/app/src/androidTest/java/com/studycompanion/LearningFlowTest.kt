@@ -922,6 +922,7 @@ class LearningFlowTest {
         assertNull(model.state.value.error)
         assertEquals("local_practice", model.state.value.quiz!!.getString("mode"))
         assertEquals("easy", model.state.value.quiz!!.getJSONObject("question").getString("difficulty"))
+        rule.onNodeWithText("Difficulty: Easy").assertExists()
         rule.onNodeWithText("Local fallback practice").assertExists()
         rule.onNodeWithText("AI is unavailable. This quiz uses local passage recall at Easy difficulty, rather than the requested AI difficulty.").assertExists()
         rule.runOnIdle { model.deleteAccount() }

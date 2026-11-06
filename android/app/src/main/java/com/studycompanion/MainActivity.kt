@@ -465,6 +465,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     val count = quiz.getInt("count")
     Title("Question ${index + 1} of $count", "Take your time. Understanding comes with practice.")
     if (!quiz.isNull("notice")) Info("Local fallback practice", quiz.getString("notice"))
+    question.optString("difficulty").takeIf(String::isNotBlank)?.let { difficulty ->
+        Text("Difficulty: ${difficulty.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.labelMedium)
+    }
     LinearProgressIndicator(progress = { (index.toFloat() / count) }, modifier = Modifier.fillMaxWidth())
     Text(question.getString("prompt"), style = MaterialTheme.typography.titleLarge)
     question.getJSONArray("choices").strings().forEachIndexed { choice, label ->
