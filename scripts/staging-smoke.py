@@ -155,9 +155,11 @@ try:
     }
     fractions = "/curriculum/fractions/lesson"
     decimals = "/curriculum/decimals/lesson"
-    readiness = "/curriculum/readiness/grade6-math"
+    unfinished_readiness = "/curriculum/readiness"
+    readiness = unfinished_readiness + "/grade6-math"
     call(decimals, "POST", token=owner, expected=409)
     call(readiness, "POST", token=owner, expected=409)
+    assert call(unfinished_readiness, token=owner) == []
     lesson = call(fractions, "POST", token=owner)
     for action, fields, expected_phase in (
         ("diagnostic", {"choice": 0}, "coach"),
@@ -194,7 +196,12 @@ try:
         assert attempt["index"] == index + 1
         if index < 5:
             assert not attempt["complete"] and "correct" not in attempt
+        if index == 0:
+            assert call(unfinished_readiness, token=owner) == ["grade6-math"]
+            assert call(unfinished_readiness, token=outsider) == []
+            assert call(readiness, "POST", token=owner) == attempt
     assert attempt["complete"] and attempt["correct"] == 5 and attempt["total"] == 6
+    assert call(unfinished_readiness, token=owner) == []
     assert "answers" not in attempt
     assert call(readiness + "/answers", "POST", {"index": 0, "choice": 1}, owner) == attempt
     invitation = call("/progress-sharing/invitations", "POST", {"role": "parent"}, owner, 201)
@@ -208,7 +215,7 @@ try:
     assert report["readiness"] == {"correct": 5, "total": 6, "by_chapter": attempt["by_chapter"]}
     call(shared, "DELETE", token=owner, expected=204)
     call(shared + "/report", token=outsider, expected=404)
-    print("Verified readiness scoring, retry, parent report aggregates and revocation over HTTPS.")
+    print("Verified readiness resume, account isolation, scoring, retry, parent aggregates and revocation over HTTPS.")
     sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
     document = upload("sample.txt", sample, "text/plain", owner)
     root = f'/documents/{document["id"]}'
