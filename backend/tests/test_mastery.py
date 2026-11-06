@@ -85,6 +85,8 @@ def test_correct_diagnostic_advances_to_the_next_question(client):
     ("expected-value", (2, 0), "3", "6", "Multiply the ten dollar payout by probability one half to get five."),
 ])
 def test_authored_starter_chapter_diagnostic_practice_and_rewrite(client, chapter, choice, first_answer, second_answer, rewrite):
+    from study.mastery import CHAPTERS
+
     auth = account(client)
     path = f"/curriculum/{chapter}/lesson"
 
@@ -101,7 +103,9 @@ def test_authored_starter_chapter_diagnostic_practice_and_rewrite(client, chapte
     assert practice["phase"] == "practice"
     writing = act(practice, "practice", response=first_answer)
     assert writing["phase"] == "rewrite"
-    assert act(writing, "rewrite", response="I guessed the right answer.")["phase"] == "rewrite"
+    revision = act(writing, "rewrite", response="I guessed the right answer before writing.")
+    assert revision["phase"] == "rewrite"
+    assert revision["feedback"] == CHAPTERS[chapter]["rewrite_hints"][0]
     current = client.post(path, headers=auth).json()
     coached = act(current, "review")
     assert coached["phase"] == "coach"
@@ -380,12 +384,10 @@ def test_existing_water_cycle_coaching_resumes_its_original_diagnostic():
     assert snapshot(lesson)["phase"] == "practice"
 
 
-def test_grade_six_lesson_banks_have_valid_diagnostics_and_distinct_practice_prompts():
+def test_lesson_banks_have_valid_diagnostics_and_distinct_practice_prompts():
     from study.mastery import CHAPTERS, diagnostic_items, new_lesson
 
-    chapters = {key: chapter for key, chapter in CHAPTERS.items() if chapter["grade"] == 6}
-    assert len(chapters) == 12
-    for key, chapter in chapters.items():
+    for key, chapter in CHAPTERS.items():
         diagnostics = diagnostic_items(chapter, new_lesson(key, 0))
         assert len(diagnostics) >= 2, key
         assert len({prompt for prompt, _, _ in diagnostics}) == len(diagnostics), key

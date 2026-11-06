@@ -26,6 +26,11 @@ STARTER_CHAPTERS = {
         "Say the starting number, then count two or three more steps.",
         "Explain how to count on when adding 2 to 4.",
         [r"\b(start|begin)\b", r"\b(count|steps?)\b", r"\b(6|six)\b"], numeric=True,
+        rewrite_hints=[
+            "Which number do you start from?",
+            "What do you do once for each bead you add?",
+            "What number do you land on?",
+        ],
         diagnostics=[
             ("Start at 6 and count two more. Where do you land?",
              ["7","8","9","10"], 1),
@@ -44,6 +49,11 @@ STARTER_CHAPTERS = {
         "Each ten is a group of ten. Add the remaining ones.",
         "Explain how 4 tens and 7 ones make 47.",
         [r"\b(40|forty)\b", r"\b(7|seven)\b", r"\b(47|forty.seven)\b"], numeric=True,
+        rewrite_hints=[
+            "What value do the four tens represent?",
+            "How many single ones are there?",
+            "What number do the tens and ones make together?",
+        ],
         diagnostics=[
             ("Which number has 6 tens and 4 ones?",
              ["46","10","604","64"], 3),
@@ -62,6 +72,12 @@ STARTER_CHAPTERS = {
         "Write the size of one group as many times as there are groups.",
         "Explain why 3 groups of 4 make 12.",
         [r"\b(three|3)\b", r"\b(four|4)\b", r"\b(add|groups?)\b", r"\b(12|twelve)\b"], numeric=True,
+        rewrite_hints=[
+            "How many groups are there?",
+            "How many objects are in each group?",
+            "How can you combine the equal groups?",
+            "What total do you get?",
+        ],
         diagnostics=[
             ("Which sum shows 4 groups of 2?",
              ["2 + 2 + 2 + 2","4 + 4 + 4 + 4","4 + 2","2 + 2"], 0),
@@ -81,6 +97,11 @@ STARTER_CHAPTERS = {
         "Add all four sides, using the length and width twice each.",
         "Explain why the perimeter of the 5 cm by 3 cm rectangle is 16 cm.",
         [r"\b(add|sum)\b", r"\b(sides?|edges?)\b", r"\b(two|twice|four|4)\b"], numeric=True,
+        rewrite_hints=[
+            "What operation combines the side lengths?",
+            "Which lengths do you include as you go around the rectangle?",
+            "How often does each side length appear?",
+        ],
         diagnostics=[
             ("Which expression finds the perimeter of a 9 cm by 4 cm rectangle?",
              ["9 × 4","9 + 4","9 + 4 + 9 + 4","9 × 4 × 2"], 2),
@@ -100,6 +121,11 @@ STARTER_CHAPTERS = {
         "Find the size of one layer, then account for the height.",
         "Explain how layers help you find the volume of a 4 by 3 by 2 box.",
         [r"\blayers?\b", r"\b(12|twelve)\b", r"\b(24|twenty.four)\b"], numeric=True,
+        rewrite_hints=[
+            "How can you split the box into layers?",
+            "How many cubes fit in one layer?",
+            "What is the total across both layers?",
+        ],
         diagnostics=[
             ("Each layer holds 10 cubes. How many cubes are in 3 layers?",
              ["13","30","7","1000"], 1),
@@ -432,6 +458,11 @@ STARTER_CHAPTERS = {
         "Find the amount for one item by dividing the total by the number of items.",
         "Explain how to find the cost of one notebook if three cost $12.",
         [r"\b(divide|division|share)\b", r"\b(12|twelve)\b", r"\b(3|three)\b"], numeric=True,
+        rewrite_hints=[
+            "How can you share the total cost equally?",
+            "What is the total cost in the question?",
+            "How many notebooks share that cost?",
+        ],
         diagnostics=[
             ("Eight identical markers cost $24. What is the price per marker?",
              ["$2","$4","$8","$3"], 3),
@@ -450,6 +481,11 @@ STARTER_CHAPTERS = {
         "Undo addition first, then undo multiplication.",
         "Explain the operations on both sides when solving 3x + 2 = 14.",
         [r"\bsubtract\b", r"\bdivide\b", r"\bboth sides\b"], numeric=True,
+        rewrite_hints=[
+            "Which operation undoes the added two?",
+            "Which operation undoes multiplication by three?",
+            "Where must you apply each operation to keep the equation balanced?",
+        ],
         diagnostics=[
             ("Which equation results from subtracting 3 from both sides of 5x + 3 = 18?",
              ["5x = 15","5x = 18","5x = 21","2x = 15"], 0),
@@ -469,6 +505,11 @@ STARTER_CHAPTERS = {
         "Find the vertical change first, then the horizontal change.",
         "Explain how the coordinate changes give a slope of 2 from (0, 2) to (3, 8).",
         [r"\b(y|vertical)\b", r"\b(x|horizontal)\b", r"\b(divide|over|ratio)\b"], numeric=True,
+        rewrite_hints=[
+            "Which coordinates give the vertical change?",
+            "Which coordinates give the horizontal change?",
+            "How do you combine the two changes to get slope?",
+        ],
         diagnostics=[
             ("What is the slope between (2, 8) and (5, 2)?",
              ["2","−1/2","−2","1/2"], 2),
@@ -488,6 +529,11 @@ STARTER_CHAPTERS = {
         "Square the two legs, add the squares, then take the square root.",
         "Explain why legs of length 3 and 4 give a hypotenuse of length 5.",
         [r"\bsquare[ds]?\b", r"\b(add|sum)\b", r"\bsquare root\b"], numeric=True,
+        rewrite_hints=[
+            "What do you do to each leg length first?",
+            "How do you combine those two results?",
+            "Which operation recovers a length from its square?",
+        ],
         diagnostics=[
             ("The squares of the legs add to 81. What is the hypotenuse?",
              ["81","9","40.5","27"], 1),
@@ -507,6 +553,11 @@ STARTER_CHAPTERS = {
         "Apply the factor once for every completed period.",
         "Explain why doubling 20 for three days gives 160.",
         [r"\b(2|two|doubl\w+)\b", r"\b(3|three)\b", r"\b(multiply|factor|times)\b"], numeric=True,
+        rewrite_hints=[
+            "What growth factor represents doubling?",
+            "How many growth periods have passed?",
+            "How do you apply the growth factor for each period?",
+        ],
         diagnostics=[
             ("A population starts at 4 and triples every period. What is it after 2 periods?",
              ["8","12","24","36"], 3),
@@ -526,6 +577,11 @@ STARTER_CHAPTERS = {
         "Weight each possible payout by its probability.",
         "Explain why the expected payout of the fair coin game is $5.",
         [r"\b(probability|half|1/2)\b", r"\b(multiply|weight|average)\b", r"\b(5|five)\b"], numeric=True,
+        rewrite_hints=[
+            "What is the probability of receiving the ten-dollar payout?",
+            "How do you combine each payout with its probability?",
+            "What average payout do the contributions give?",
+        ],
         diagnostics=[
             ("A game pays $10 with probability 1/5 and $0 otherwise. What is the expected payout?",
              ["$2","$5","$8","$10"], 0),
