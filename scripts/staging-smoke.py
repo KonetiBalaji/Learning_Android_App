@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--ca-file")
 parser.add_argument("--host", default="localhost")
 parser.add_argument("--scan", type=Path)
+parser.add_argument("--check-google-deletion", action="store_true")
 args = parser.parse_args()
 context = ssl.create_default_context(cafile=args.ca_file)
 host = args.host
@@ -20,7 +21,7 @@ host = args.host
 
 def call(path, method="GET", body=None, token=None, expected=200, content_type="application/json"):
     headers = {"Content-Type": content_type}
-    if path == "/delete-account" and method == "POST":
+    if path in ("/delete-account", "/delete-account/google") and method == "POST":
         headers["Origin"] = f"https://{host}"
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -69,6 +70,30 @@ try:
         })
         tokens.append(call("/auth/register", "POST", credentials[-1])["token"])
     owner, outsider = tokens
+    catalog = call("/curriculum", token=owner)
+    assert {chapter["subject"] for chapter in catalog if chapter["grade"] == 6} == {
+        "Mathematics", "Science", "English", "Social Studies",
+    }
+    fractions = "/curriculum/fractions/lesson"
+    decimals = "/curriculum/decimals/lesson"
+    call(decimals, "POST", token=owner, expected=409)
+    lesson = call(fractions, "POST", token=owner)
+    for action, fields, expected_phase in (
+        ("diagnostic", {"choice": 0}, "coach"),
+        ("continue", {}, "practice"),
+        ("practice", {"response": "3/4"}, "rewrite"),
+        ("rewrite", {"response": "Add the numerators and keep the denominator unchanged."}, "mastered"),
+    ):
+        lesson = call(fractions + "/actions", "POST",
+                      {"version": lesson["version"], "action": action, **fields}, owner)
+        assert lesson["phase"] == expected_phase
+        if expected_phase == "coach":
+            assert "You chose 1/2." in lesson["feedback"]
+            assert {"Soccer", "Gaming"} <= lesson["example_variants"].keys()
+    assert lesson["diagnostic_score"] == {"correct": 0, "total": 1}
+    assert call(decimals, "POST", token=owner)["phase"] == "diagnostic"
+    call(decimals, "POST", token=outsider, expected=409)
+    print("Verified curriculum coaching, mastery, diagnostic scoring and owner-only chapter unlock.")
     sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
     document = upload("sample.txt", sample, "text/plain", owner)
     root = f'/documents/{document["id"]}'
@@ -89,7 +114,16 @@ try:
     call(root, "DELETE", token=owner, expected=204)
     call(root + "/offline-bundle", token=owner, expected=404)
     call(f'/quizzes/{quiz["id"]}', token=owner, expected=404)
-    assert "Delete your Saras account" in call("/delete-account")
+    deletion_page = call("/delete-account")
+    assert "Delete your Saras account" in deletion_page
+    if args.check_google_deletion:
+        assert 'href="/delete-account/google"' in deletion_page
+        google_page = call("/delete-account/google")
+        assert 'https://accounts.google.com/gsi/client' in google_page
+        assert 'data-nonce="' in google_page
+        call("/delete-account/google", "POST", b"", expected=400,
+             content_type="application/x-www-form-urlencoded")
+        print("Verified Google deletion page wiring and rejection without confirmation. No Google session was requested.")
     form = urlencode({**credentials[0], "confirm": "yes"}).encode()
     assert "were deleted" in call("/delete-account", "POST", form, content_type="application/x-www-form-urlencoded")
     tokens.remove(owner)

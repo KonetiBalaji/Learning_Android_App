@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 25
     env:
       STUDY_SITE: localhost
+      # Synthetic public identifier for page wiring. This job does not contact Google.
+      STUDY_GOOGLE_CLIENT_ID: staging-fixture.apps.googleusercontent.com
     steps:
       - uses: actions/checkout@v4
       - name: Generate disposable storage key
@@ -37,7 +39,7 @@ jobs:
           image.save(pdf, format="PDF")
           sys.stdout.buffer.write(pdf.getvalue())
           PY
-          python3 scripts/staging-smoke.py --ca-file "$RUNNER_TEMP/saras-ca.crt" --scan "$RUNNER_TEMP/saras-scan.pdf"
+          python3 scripts/staging-smoke.py --ca-file "$RUNNER_TEMP/saras-ca.crt" --scan "$RUNNER_TEMP/saras-scan.pdf" --check-google-deletion
       - name: Stop disposable stack
         if: always()
         run: docker compose down --volumes
