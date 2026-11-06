@@ -449,6 +449,12 @@ class LearningFlowTest {
             }
             tap("0.05")
             phase("coach")
+            tap("Show example steps")
+            tap("Gaming example")
+            rule.onNodeWithText("You earn 30% of the 50 available badges. Multiply 0.30 × 50 to get 15 badges.")
+                .assertExists()
+            rule.onNodeWithText("Step 1 of 3").assertExists()
+            tap("Clear example theme")
             tap("Next diagnostic question")
             phase("diagnostic")
             rule.onNodeWithText("Diagnostic question 3 of 3").assertExists()

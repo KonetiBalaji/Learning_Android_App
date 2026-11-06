@@ -134,6 +134,9 @@ def test_curriculum_coaching_exposes_ordered_worked_steps():
         assert coach["phase"] == "coach", identifier
         assert coach["example_steps"] == chapter["example_steps"]
         assert len(set(coach["example_steps"])) == 3, identifier
+        if chapter["grade"] == 6 and chapter["subject"] == "Mathematics":
+            assert coach["example_variants"] == chapter["example_variants"]
+            assert set(coach["example_variants"]) == {"Soccer", "Gaming"}, identifier
 
 
 def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnostics(client):

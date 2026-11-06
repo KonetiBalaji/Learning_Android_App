@@ -112,6 +112,10 @@ STARTER_CHAPTERS = {
             "The whole amount is 50. Multiply it by 0.30.",
             "0.30 × 50 = 15, so thirty percent of 50 is 15.",
         ],
+        "example_variants": {
+            "Soccer": "A team puts 30% of its 50 shots on target. Multiply 0.30 × 50 to get 15 shots on target.",
+            "Gaming": "You earn 30% of the 50 available badges. Multiply 0.30 × 50 to get 15 badges.",
+        },
         "diagnostics": [
             ("Which decimal equals 50%?", ["0.05", "5", "0.5", "50"], 2),
             ("A $20 item is discounted by 10%. How much is the discount?", ["$1", "$2", "$10", "$18"], 1),
@@ -140,6 +144,10 @@ STARTER_CHAPTERS = {
             "On the left, adding and subtracting 4 cancel. On the right, 10 − 4 = 6.",
             "So x = 6. Substituting gives 6 + 4 = 10, which checks the answer.",
         ],
+        "example_variants": {
+            "Soccer": "You score x goals in the first week and 4 in the second, for 10 total. Solve x + 4 = 10 by subtracting 4. You scored 6 goals in the first week.",
+            "Gaming": "After finding 4 coins, you have 10. If x is your starting total, x + 4 = 10. Subtract 4 to find that you started with 6 coins.",
+        },
         "diagnostics": [
             ("What is 3x when x = 4?", ["7", "12", "34", "1"], 1),
             ("Which equation describes a number plus 3 equals 9?", ["x - 3 = 9", "3x = 9", "x + 9 = 3", "x + 3 = 9"], 3),
@@ -171,6 +179,10 @@ STARTER_CHAPTERS = {
             "A parallelogram with that base and height has area 6 × 4 = 24 cm².",
             "The triangle covers half that area, so 24 ÷ 2 = 12 cm².",
         ],
+        "example_variants": {
+            "Soccer": "A triangular passing drill has a 6 m base and a perpendicular height of 4 m. Its area is 6 × 4 ÷ 2 = 12 m².",
+            "Gaming": "A triangular patch on a map has a 6-tile base and a perpendicular height of 4 tiles. Its area is 6 × 4 ÷ 2 = 12 square tiles.",
+        },
         "diagnostics": [
             ("Which segment is the height relative to a chosen triangle base?",
              ["Any side", "A perpendicular segment to the base line", "The longest side", "The base itself"], 1),
