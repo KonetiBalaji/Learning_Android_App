@@ -11,7 +11,9 @@ In the Saras Google Cloud project:
 
 Check the Google account chooser, consent, first sign-in, sign-out, a second Google account, and returning to the first account. Use only disposable study data. Verify each account sees only its own library. Google sign-in is disabled on a backend without the client ID. Username and password sign-in remains available.
 
-Google accounts can delete their account and associated data in Saras Settings. The standalone password-based deletion page currently serves password accounts. Provide and verify a Google-capable web deletion option before a public Play release that enables Google sign-in.
+Google accounts can delete their account and associated data in Saras Settings or by following the Google account link on the web deletion page at `/delete-account`. The web flow asks for explicit confirmation, then lets the user choose their Google account. It uses a one-use deletion challenge, verifies the Google token against the configured client ID, and deletes only an existing account tied to that Google subject.
+
+Add the deployment origin under Authorized JavaScript origins for the Web client. Verify the browser flow on the public HTTPS origin before release, using disposable accounts. Confirm that the deleted account loses its sessions and data and that a second account remains accessible. Backend tests exercise this boundary with locally signed test tokens. Live browser verification remains open.
 
 Automated backend tests verify signed test tokens using a local test certificate, rejection of invalid claims and replay, account isolation, session revocation, and deletion. Live sign-in against a Saras OAuth client requires the configured Google Cloud project and a consented test account.
 

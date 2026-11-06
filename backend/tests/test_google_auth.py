@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from types import SimpleNamespace
 
@@ -108,3 +109,51 @@ def test_google_is_disabled_without_configuration(tmp_path, monkeypatch):
     with TestClient(api.create_app(tmp_path)) as client:
         assert client.post("/auth/google/challenge").status_code == 503
         assert sign_in(client, "unused-token").status_code == 503
+
+
+def test_google_web_deletion_confirms_origin_and_deletes_only_verified_owner(google):
+    client, store, issue = google
+    owner = sign_in(client, issue(nonce=challenge(client)))
+    other = sign_in(client, issue(nonce=challenge(client), sub="google-account-b"))
+    owner_auth = authorization(owner)
+    other_auth = authorization(other)
+    document = client.post("/documents", headers=owner_auth,
+                           files={"file": ("cells.txt", b"Cells use energy from cellular respiration.")})
+    assert document.status_code == 201
+    assert '/delete-account/google' in client.get("/delete-account").text
+
+    path = "/delete-account/google"
+    page = client.get(path)
+    assert page.status_code == 200
+    assert page.headers["cache-control"] == "no-store"
+    assert f'data-client-id="{AUDIENCE}"' in page.text
+    nonce = re.search(r'data-nonce="([^"]+)"', page.text).group(1)
+    token = issue(nonce=nonce)
+    headers = {"Origin": "http://testserver"}
+    data = {"credential": token, "confirm": "yes"}
+    assert client.post(path, headers={"Origin": "https://other.example"}, data=data).status_code == 403
+    assert client.post(path, headers=headers, data={"credential": token}).status_code == 400
+    assert sign_in(client, token).status_code == 401
+    login_token = issue(nonce=challenge(client))
+    assert client.post(path, headers=headers, data=data | {"credential": login_token}).status_code == 401
+    assert client.get("/account", headers=owner_auth).status_code == 200
+
+    deleted = client.post(path, headers=headers, data=data)
+    assert deleted.status_code == 200
+    assert "server study data were deleted" in deleted.text
+    assert token not in deleted.text
+    assert client.get("/account", headers=owner_auth).status_code == 401
+    assert client.get("/account", headers=other_auth).status_code == 200
+    assert store.db.execute("SELECT count(*) FROM records").fetchone()[0] == 0
+    assert client.post(path, headers=headers, data=data).status_code == 401
+
+
+def test_google_web_deletion_does_not_register_unknown_subject(google):
+    client, store, issue = google
+    page = client.get("/delete-account/google")
+    nonce = re.search(r'data-nonce="([^"]+)"', page.text).group(1)
+    reply = client.post("/delete-account/google", headers={"Origin": "http://testserver"},
+                        data={"credential": issue(nonce=nonce), "confirm": "yes"})
+    assert reply.status_code == 404
+    assert store.db.execute("SELECT count(*) FROM users").fetchone()[0] == 0
+    assert store.db.execute("SELECT count(*) FROM sessions").fetchone()[0] == 0

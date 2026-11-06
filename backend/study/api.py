@@ -10,6 +10,7 @@ import sqlite3
 import time
 import uuid
 from contextlib import asynccontextmanager
+from html import escape
 from pathlib import Path
 from typing import Literal
 
@@ -203,7 +204,7 @@ def create_app(data_dir: Path | None = None):
         # Bound the entire request before multipart parsing can spool unbounded data.
         is_upload = request.url.path.endswith("/documents")
         is_offline_sync = request.url.path.endswith("/offline-attempts")
-        is_web_deletion = request.url.path == "/delete-account"
+        is_web_deletion = request.url.path in ("/delete-account", "/delete-account/google")
         if (is_upload or is_offline_sync or is_web_deletion) and request.method == "POST":
             if is_upload:
                 maximum, limit_message = MAX_BYTES + 1024 * 1024, "Upload exceeds 50 MB."
@@ -470,8 +471,7 @@ def create_app(data_dir: Path | None = None):
                 raise HTTPException(429, "Too many attempts. Try again in a minute.")
             history.append(now)
 
-    @app.post("/auth/google/challenge")
-    def google_challenge(request: Request):
+    def issue_google_challenge(request: Request, purpose: str):
         if not google_client_id:
             raise HTTPException(503, "Google sign-in is not configured on this server.")
         limit_auth_attempt(request)
@@ -482,15 +482,21 @@ def create_app(data_dir: Path | None = None):
             if store.db.execute("SELECT count(*) FROM google_challenges").fetchone()[0] >= 4096:
                 raise HTTPException(429, "Too many sign-in requests. Try again shortly.")
             store.db.execute("INSERT INTO google_challenges VALUES (?, ?)",
-                             (hashlib.sha256(nonce.encode()).hexdigest(), now + 300))
+                             (google_nonce_digest(nonce, purpose), now + 300))
         return {"client_id": google_client_id, "nonce": nonce}
 
-    @app.post("/auth/google")
-    def google_login(body: GoogleCredential, request: Request):
+    def google_nonce_digest(nonce, purpose):
+        value = nonce if purpose == "login" else f"{purpose}:{nonce}"
+        return hashlib.sha256(value.encode()).hexdigest()
+
+    @app.post("/auth/google/challenge")
+    def google_challenge(request: Request):
+        return issue_google_challenge(request, "login")
+
+    def google_subject(token, request, purpose):
         if not google_client_id:
             raise HTTPException(503, "Google sign-in is not configured on this server.")
         limit_auth_attempt(request)
-        token = body.id_token.get_secret_value()
         invalid = "Google sign-in could not be verified. Try signing in again."
         if not 1 <= len(token) <= 8192:
             raise HTTPException(401, invalid)
@@ -503,11 +509,19 @@ def create_app(data_dir: Path | None = None):
         subject, nonce = claims.get("sub"), claims.get("nonce")
         if not isinstance(subject, str) or not 1 <= len(subject) <= 255 or not isinstance(nonce, str) or len(nonce) != 43:
             raise HTTPException(401, invalid)
-        digest = hashlib.sha256(nonce.encode()).hexdigest()
+        return subject, google_nonce_digest(nonce, purpose)
+
+    def consume_google_challenge(digest):
+        consumed = store.db.execute("DELETE FROM google_challenges WHERE digest=? AND expires>?", (digest, time.time()))
+        if consumed.rowcount != 1:
+            raise HTTPException(401, "Google sign-in could not be verified. Try signing in again.")
+
+
+    @app.post("/auth/google")
+    def google_login(body: GoogleCredential, request: Request):
+        subject, digest = google_subject(body.id_token.get_secret_value(), request, "login")
         with store.lock, store.db:
-            consumed = store.db.execute("DELETE FROM google_challenges WHERE digest=? AND expires>?", (digest, time.time()))
-            if consumed.rowcount != 1:
-                raise HTTPException(401, invalid)
+            consume_google_challenge(digest)
             row = store.db.execute("SELECT owner FROM google_accounts WHERE subject=?", (subject,)).fetchone()
             if row:
                 user = row["owner"]
@@ -554,6 +568,8 @@ def create_app(data_dir: Path | None = None):
         return {"owner_id": user}
 
     def deletion_page(message="", status=200, *, show_form=True):
+        google_link = ('<p><a href="/delete-account/google">Delete an account created with Google</a></p>'
+                       if show_form and google_client_id else "")
         form = """
         <form method="post" action="/delete-account">
           <p><label>Email or username <input name="username" required maxlength="254" autocomplete="username"></label></p>
@@ -565,7 +581,7 @@ def create_app(data_dir: Path | None = None):
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Delete a Saras account</title><main><h1>Delete your Saras account</h1>
         <p>Sign in with your Saras credentials to remove your account, documents and progress from this server.</p>
-        <p role="status">{message}</p>{form}</main></html>""", status_code=status, headers={
+        <p role="status">{escape(message)}</p>{form}{google_link}</main></html>""", status_code=status, headers={
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
             "Referrer-Policy": "no-referrer",
@@ -600,6 +616,93 @@ def create_app(data_dir: Path | None = None):
             message = "Too many attempts. Try again in a minute." if error.status_code == 429 else "Email, username or password is incorrect."
             return deletion_page(message, error.status_code)
         return deletion_page("Your Saras account and server study data were deleted.", show_form=False)
+
+    @app.get("/delete-account/google", response_class=HTMLResponse, include_in_schema=False)
+    def show_google_deletion(request: Request):
+        try:
+            challenge = issue_google_challenge(request, "delete")
+        except HTTPException as error:
+            return deletion_page(error.detail, error.status_code, show_form=False)
+        script_nonce = secrets.token_urlsafe(24)
+        client_id = escape(challenge["client_id"], quote=True)
+        nonce = escape(challenge["nonce"], quote=True)
+        return HTMLResponse(f"""<!doctype html><html lang="en"><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Delete a Saras Google account</title><main>
+        <h1>Delete your Saras account created with Google</h1>
+        <p>Choose the Google account you used with Saras. This permanently deletes its study data from this server.</p>
+        <form id="deletion" method="post" action="/delete-account/google" data-client-id="{client_id}" data-nonce="{nonce}">
+          <p><label><input id="confirm" type="checkbox" name="confirm" value="yes" required>
+            I understand that continuing with Google permanently deletes my Saras account and study data.</label></p>
+          <input id="credential" type="hidden" name="credential">
+          <div id="google-button" hidden></div>
+          <p id="status" role="status"></p>
+        </form>
+        <p><a href="/delete-account">Back to account deletion</a></p>
+        <script src="https://accounts.google.com/gsi/client"></script>
+        <script nonce="{script_nonce}">
+        const form = document.getElementById("deletion");
+        const confirmation = document.getElementById("confirm");
+        const button = document.getElementById("google-button");
+        const status = document.getElementById("status");
+        if (window.google?.accounts?.id) {{
+            google.accounts.id.initialize({{
+                client_id: form.dataset.clientId, nonce: form.dataset.nonce,
+                callback: (reply) => {{
+                    if (!confirmation.checked || !reply.credential) return;
+                    document.getElementById("credential").value = reply.credential;
+                    form.requestSubmit();
+                }},
+            }});
+            google.accounts.id.renderButton(button, {{type: "standard", text: "continue_with"}});
+            const updateButton = () => {{ button.hidden = !confirmation.checked; }};
+            confirmation.addEventListener("change", updateButton);
+            updateButton();
+        }} else {{
+            status.textContent = "Google could not load. Reload the page and try again.";
+        }}
+        </script></main></html>""", headers={
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": (
+                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; "
+                f"script-src 'nonce-{script_nonce}' https://accounts.google.com/gsi/client; "
+                "frame-src https://accounts.google.com/gsi/; connect-src https://accounts.google.com/gsi/; "
+                "style-src https://accounts.google.com/gsi/style"
+            ),
+            "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+        })
+
+    @app.post("/delete-account/google", response_class=HTMLResponse, include_in_schema=False)
+    async def submit_google_deletion(request: Request):
+        if request.headers.get("origin") != f"{request.url.scheme}://{request.url.netloc}":
+            return deletion_page("Open this page directly and submit the form again.", 403)
+        if request.headers.get("content-type", "").split(";")[0] != "application/x-www-form-urlencoded":
+            return deletion_page("Submit the account deletion form.", 415)
+        async with request.form() as form:
+            if form.get("confirm") != "yes":
+                return deletion_page("Confirm permanent deletion before continuing.", 400)
+            credential = form.get("credential")
+        if not isinstance(credential, str):
+            return deletion_page("Choose your Google account to continue.", 400)
+
+        def verify_and_delete():
+            subject, digest = google_subject(credential, request, "delete")
+            with store.lock, store.db:
+                consume_google_challenge(digest)
+                account = store.db.execute("SELECT owner FROM google_accounts WHERE subject=?", (subject,)).fetchone()
+                if account:
+                    store.db.execute("DELETE FROM users WHERE id=?", (account["owner"],))
+            return account is not None
+
+        try:
+            deleted = await asyncio.to_thread(verify_and_delete)
+        except HTTPException as error:
+            return deletion_page(error.detail, error.status_code)
+        if not deleted:
+            return deletion_page("No Saras account was found for the selected Google account.", 404)
+        return deletion_page("Your Saras account and server study data were deleted.", show_form=False)
+
 
     def metadata(doc):
         return {k: v for k, v in doc.items() if k != "passages" and not k.startswith("_")}
