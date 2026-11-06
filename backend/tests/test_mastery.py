@@ -69,20 +69,20 @@ def test_correct_diagnostic_advances_to_the_next_question(client):
     assert completed.status_code == 200 and completed.json()["phase"] == "practice"
 
 @pytest.mark.parametrize("chapter, choice, first_answer, second_answer, rewrite", [
-    ("counting-on", 2, "7", "9", "Start at four and count two steps to six."),
-    ("place-value", 1, "53", "72", "Four tens make forty, and seven ones make forty-seven altogether."),
-    ("equal-groups", 2, "12", "20", "Add four for each of the three groups to get twelve."),
-    ("rectangle-perimeter", 2, "20", "18", "Add all four sides, using each measurement twice."),
-    ("volume", 2, "30", "32", "There are twelve cubes per layer, so two layers contain twenty-four cubes."),
+    ("counting-on", (2, 1), "7", "9", "Start at four and count two steps to six."),
+    ("place-value", (1, 3), "53", "72", "Four tens make forty, and seven ones make forty-seven altogether."),
+    ("equal-groups", (2, 0), "12", "20", "Add four for each of the three groups to get twelve."),
+    ("rectangle-perimeter", (2, 2), "20", "18", "Add all four sides, using each measurement twice."),
+    ("volume", (2, 1), "30", "32", "There are twelve cubes per layer, so two layers contain twenty-four cubes."),
     ("evaporation", (2, 0), "Condensation.", "evaporation", "Evaporation changes liquid to vapor. Condensation changes vapor to liquid."),
     ("complete-sentences", (1, 1), "glowed", "rang", "Birds is the subject and sang is the verb."),
     ("primary-sources", (1, 3), "secondary", "Primary", "The sailor wrote the diary during the voyage as a direct witness."),
-    ("unit-rates", 1, "7", "6", "Divide twelve dollars by three notebooks to find the cost per notebook."),
-    ("linear-equations", 2, "6", "5", "Subtract two on both sides, then divide both sides by three."),
-    ("linear-slope", 1, "3", "0.5", "Divide the vertical change in y by the horizontal change in x."),
-    ("right-triangles", 0, "13", "17", "Add the squares of the legs and take the square root."),
-    ("exponential-growth", 3, "120", "135", "Multiply by the factor two once for each of the three days."),
-    ("expected-value", 2, "3", "6", "Multiply the ten dollar payout by probability one half to get five."),
+    ("unit-rates", (1, 3), "7", "6", "Divide twelve dollars by three notebooks to find the cost per notebook."),
+    ("linear-equations", (2, 0), "6", "5", "Subtract two on both sides, then divide both sides by three."),
+    ("linear-slope", (1, 2), "3", "0.5", "Divide the vertical change in y by the horizontal change in x."),
+    ("right-triangles", (0, 1), "13", "17", "Add the squares of the legs and take the square root."),
+    ("exponential-growth", (3, 3), "120", "135", "Multiply by the factor two once for each of the three days."),
+    ("expected-value", (2, 0), "3", "6", "Multiply the ten dollar payout by probability one half to get five."),
 ])
 def test_authored_starter_chapter_diagnostic_practice_and_rewrite(client, chapter, choice, first_answer, second_answer, rewrite):
     auth = account(client)
@@ -94,9 +94,9 @@ def test_authored_starter_chapter_diagnostic_practice_and_rewrite(client, chapte
         return reply.json()
 
     initial = client.post(path, headers=auth).json()
-    choices = (choice,) if isinstance(choice, int) else choice
+    assert initial["diagnostic_total"] == len(choice)
     practice = initial
-    for answer in choices:
+    for answer in choice:
         practice = act(practice, "diagnostic", choice=answer)
     assert practice["phase"] == "practice"
     writing = act(practice, "practice", response=first_answer)
@@ -260,6 +260,19 @@ def test_grade_six_subject_paths_unlock_for_the_student_only(client, subject, pr
         assert client.post("/curriculum/runoff-and-infiltration/lesson", headers=other).status_code == 409
     assert subject_chapters(student)[1]["mastered"]
     assert not subject_chapters(other)[1]["started"]
+
+
+def test_existing_starter_attempt_retains_its_original_question_count():
+    from study.mastery import advance, new_lesson, snapshot
+
+    lesson = new_lesson("counting-on", 0)
+    assert snapshot(lesson)["diagnostic_total"] == 2
+    for stored_total in ({}, {"diagnostic_total": 1}):
+        existing = {key: value for key, value in lesson.items() if key != "diagnostic_total"}
+        existing.update(stored_total)
+        assert snapshot(existing)["diagnostic_total"] == 1
+        advance(existing, "diagnostic", 2, None, 1)
+        assert snapshot(existing)["phase"] == "practice"
 
 
 def test_legacy_partial_diagnostic_completes_without_inventing_a_score():

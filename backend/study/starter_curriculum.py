@@ -26,6 +26,10 @@ STARTER_CHAPTERS = {
         "Say the starting number, then count two or three more steps.",
         "Explain how to count on when adding 2 to 4.",
         [r"\b(start|begin)\b", r"\b(count|steps?)\b", r"\b(6|six)\b"], numeric=True,
+        diagnostics=[
+            ("Start at 6 and count two more. Where do you land?",
+             ["7","8","9","10"], 1),
+        ],
         example_steps=[
             "Start at 3.",
             "Count one more: 4.",
@@ -40,6 +44,10 @@ STARTER_CHAPTERS = {
         "Each ten is a group of ten. Add the remaining ones.",
         "Explain how 4 tens and 7 ones make 47.",
         [r"\b(40|forty)\b", r"\b(7|seven)\b", r"\b(47|forty.seven)\b"], numeric=True,
+        diagnostics=[
+            ("Which number has 6 tens and 4 ones?",
+             ["46","10","604","64"], 3),
+        ],
         example_steps=[
             "Look at 32. The 3 is in the tens place.",
             "Three tens make 30.",
@@ -54,6 +62,10 @@ STARTER_CHAPTERS = {
         "Write the size of one group as many times as there are groups.",
         "Explain why 3 groups of 4 make 12.",
         [r"\b(three|3)\b", r"\b(four|4)\b", r"\b(add|groups?)\b", r"\b(12|twelve)\b"], numeric=True,
+        diagnostics=[
+            ("Which sum shows 4 groups of 2?",
+             ["2 + 2 + 2 + 2","4 + 4 + 4 + 4","4 + 2","2 + 2"], 0),
+        ],
         example_steps=[
             "Put 5 objects in the first group.",
             "Put 5 more objects in the second group.",
@@ -69,6 +81,10 @@ STARTER_CHAPTERS = {
         "Add all four sides, using the length and width twice each.",
         "Explain why the perimeter of the 5 cm by 3 cm rectangle is 16 cm.",
         [r"\b(add|sum)\b", r"\b(sides?|edges?)\b", r"\b(two|twice|four|4)\b"], numeric=True,
+        diagnostics=[
+            ("Which expression finds the perimeter of a 9 cm by 4 cm rectangle?",
+             ["9 × 4","9 + 4","9 + 4 + 9 + 4","9 × 4 × 2"], 2),
+        ],
         example_steps=[
             "Start along a 4 cm side, then turn along a 2 cm side.",
             "The opposite sides also measure 4 cm and 2 cm.",
@@ -84,6 +100,10 @@ STARTER_CHAPTERS = {
         "Find the size of one layer, then account for the height.",
         "Explain how layers help you find the volume of a 4 by 3 by 2 box.",
         [r"\blayers?\b", r"\b(12|twelve)\b", r"\b(24|twenty.four)\b"], numeric=True,
+        diagnostics=[
+            ("Each layer holds 10 cubes. How many cubes are in 3 layers?",
+             ["13","30","7","1000"], 1),
+        ],
         example_steps=[
             "One layer has 3 rows with 2 cubes in each row.",
             "Multiply 3 × 2 to get 6 cubes in one layer.",
@@ -412,6 +432,10 @@ STARTER_CHAPTERS = {
         "Find the amount for one item by dividing the total by the number of items.",
         "Explain how to find the cost of one notebook if three cost $12.",
         [r"\b(divide|division|share)\b", r"\b(12|twelve)\b", r"\b(3|three)\b"], numeric=True,
+        diagnostics=[
+            ("Eight identical markers cost $24. What is the price per marker?",
+             ["$2","$4","$8","$3"], 3),
+        ],
         example_steps=[
             "Start with the total cost, $18.",
             "Share that cost equally among 6 pencils: 18 ÷ 6 = 3.",
@@ -426,6 +450,10 @@ STARTER_CHAPTERS = {
         "Undo addition first, then undo multiplication.",
         "Explain the operations on both sides when solving 3x + 2 = 14.",
         [r"\bsubtract\b", r"\bdivide\b", r"\bboth sides\b"], numeric=True,
+        diagnostics=[
+            ("Which equation results from subtracting 3 from both sides of 5x + 3 = 18?",
+             ["5x = 15","5x = 18","5x = 21","2x = 15"], 0),
+        ],
         example_steps=[
             "Subtract 1 from both sides of 2x + 1 = 9.",
             "This leaves 2x = 8. Divide both sides by 2.",
@@ -441,6 +469,10 @@ STARTER_CHAPTERS = {
         "Find the vertical change first, then the horizontal change.",
         "Explain how the coordinate changes give a slope of 2 from (0, 2) to (3, 8).",
         [r"\b(y|vertical)\b", r"\b(x|horizontal)\b", r"\b(divide|over|ratio)\b"], numeric=True,
+        diagnostics=[
+            ("What is the slope between (2, 8) and (5, 2)?",
+             ["2","−1/2","−2","1/2"], 2),
+        ],
         example_steps=[
             "From (1, 1) to (3, 7), the vertical change is 7 − 1 = 6.",
             "In the same direction, the horizontal change is 3 − 1 = 2.",
@@ -456,6 +488,10 @@ STARTER_CHAPTERS = {
         "Square the two legs, add the squares, then take the square root.",
         "Explain why legs of length 3 and 4 give a hypotenuse of length 5.",
         [r"\bsquare[ds]?\b", r"\b(add|sum)\b", r"\bsquare root\b"], numeric=True,
+        diagnostics=[
+            ("The squares of the legs add to 81. What is the hypotenuse?",
+             ["81","9","40.5","27"], 1),
+        ],
         example_steps=[
             "Square the two legs: 6² = 36 and 8² = 64.",
             "Add those squares: 36 + 64 = 100.",
@@ -471,6 +507,10 @@ STARTER_CHAPTERS = {
         "Apply the factor once for every completed period.",
         "Explain why doubling 20 for three days gives 160.",
         [r"\b(2|two|doubl\w+)\b", r"\b(3|three)\b", r"\b(multiply|factor|times)\b"], numeric=True,
+        diagnostics=[
+            ("A population starts at 4 and triples every period. What is it after 2 periods?",
+             ["8","12","24","36"], 3),
+        ],
         example_steps=[
             "Start with 10 cells before the first period.",
             "After one period, there are 10 × 2 = 20 cells.",
@@ -486,6 +526,10 @@ STARTER_CHAPTERS = {
         "Weight each possible payout by its probability.",
         "Explain why the expected payout of the fair coin game is $5.",
         [r"\b(probability|half|1/2)\b", r"\b(multiply|weight|average)\b", r"\b(5|five)\b"], numeric=True,
+        diagnostics=[
+            ("A game pays $10 with probability 1/5 and $0 otherwise. What is the expected payout?",
+             ["$2","$5","$8","$10"], 0),
+        ],
         example_steps=[
             "Weight the $8 payout by its probability: 8 × 1/4 = 2.",
             "The other outcome pays $0 with probability 3/4, contributing 0.",

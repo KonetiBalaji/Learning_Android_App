@@ -317,7 +317,14 @@ class LearningFlowTest {
                 tap("Mathematics")
                 tap(chapter)
                 phase("diagnostic")
-                rule.onNodeWithText("Diagnostic question 1 of 1").assertExists()
+                rule.onNodeWithText("Diagnostic question 1 of 2").assertExists()
+                if (grade == 12) {
+                    tap("$5")
+                    rule.waitUntil(30_000) {
+                        !model.state.value.busy && model.state.value.curriculumLesson?.optInt("diagnostic_index") == 1
+                    }
+                    rule.onNodeWithText("Diagnostic question 2 of 2").assertExists()
+                }
                 tap("Back to chapters")
                 rule.waitUntil(30_000) { !model.state.value.busy }
                 tap("Back to subjects")
