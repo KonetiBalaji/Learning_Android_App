@@ -450,6 +450,11 @@ class LearningFlowTest {
                     rule.activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO))
                 tap("Dictate response")
                 rule.onNodeWithText("Cancel dictation").assertExists()
+                if (arguments.getString("requireActiveDictation") == "true") {
+                    rule.waitUntil(5_000) {
+                        rule.onAllNodesWithText("Listening…").fetchSemanticsNodes().isNotEmpty()
+                    }
+                }
                 rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
                 rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
                 rule.onNodeWithText("Dictate response").assertExists()

@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -36,6 +37,7 @@ import java.util.Locale
 @Composable
 fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
     val context = LocalContext.current
+    val deviceLocale = LocalConfiguration.current.locales[0]
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val deliver by rememberUpdatedState(onTranscript)
     val available by rememberUpdatedState(enabled)
@@ -92,9 +94,11 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
                 }
             })
             status = "Starting dictation…"
+            val speechLocale = deviceLocale.takeIf { it.language == "en" && it.country.isNotBlank() }
+                ?: Locale.US
             session.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US.toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, speechLocale.toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             })
