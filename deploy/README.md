@@ -6,6 +6,11 @@ Use a Linux Docker host with the Docker Compose plugin. The API runs as UID 1000
 3. Run `docker compose up --build --wait`. Check `https://YOUR_HOST/health` and `https://YOUR_HOST/ready` with certificate verification enabled. Retain the Caddy data volume so the proxy can reuse and renew its certificates.
 4. Before opening access, run `python3 scripts/staging-smoke.py --host YOUR_HOST`. Use `--ca-file` for a private CA. The smoke requires a local-practice deployment and creates and deletes disposable accounts. Live AI verification is a separate release gate. Back up existing volumes before upgrading. Use `docker compose down` to stop a live deployment while retaining volumes.
 
+Once the public endpoint passes smoke testing, build the Android release with
+`-PsarasServerUrl=https://YOUR_HOST` alongside the authorized signing configuration.
+The installed app uses that HTTPS origin automatically for password accounts and Google sign-in.
+An unconfigured release build disables sign-in. Debug builds without the property retain the editable server field.
+
 The default generation mode is local practice. Request limits are per client IP in one process, with a default of 120 requests per minute and separate sign-in throttling. The API trusts forwarded addresses from its private Compose network, so keep port 8000 unpublished and limit network membership to this stack. Request logs contain the route template, status and latency. Document and linked progress records expire after 30 days. Database and proxy volumes should be backed up with appropriate host permissions.
 
 The GitHub Actions staging job deploys the same stack on loopback with Caddy's private CA, validates certificate trust explicitly, and exercises document study, curriculum mastery, and owner-only chapter unlocks. It also checks the Google deletion page with a synthetic public client ID and confirms that deletion requires explicit confirmation. Its cleanup deletes only the disposable runner volumes. Public certificate issuance and a persistent production host require the deployment hostname and access.

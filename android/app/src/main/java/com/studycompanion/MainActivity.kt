@@ -226,9 +226,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                 "settings" -> {
                     Title("Your study space", "Privacy and account settings")
                     PracticeNotice(state.aiMode)
-                    Info("Server", model.session.server)
+                    if (model.session.canEditServer) Info("Server", model.session.server)
                     Info("Your data", "Document text and quizzes are encrypted in the local backend database. Uploaded originals are discarded after extraction. Documents and related progress expire after 30 days. Delete a document from its study screen, or delete your account below.")
-                    Info("Connection", "Debug builds allow HTTP only to the emulator host and localhost. Use HTTPS for a deployed server. Your session is protected by Android Keystore.")
+                    Info("Connection", "Your session is protected by Android Keystore.")
                     OutlinedButton(onClick = {
                         model.signOut()
                         scope.launch {
@@ -285,17 +285,24 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
 @Composable private fun Login(model: StudyViewModel, busy: Boolean, googleToken: suspend (String, String) -> String?) {
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var server by rememberSaveable { mutableStateOf(model.session.server) }
+    val canEditServer = model.session.canEditServer
+    var debugServer by rememberSaveable { mutableStateOf(model.session.server) }
+    val server = if (canEditServer) debugServer else model.session.server
+    val canSignIn = !busy && server.isNotBlank()
     var register by rememberSaveable { mutableStateOf(true) }
     Title("Make room for understanding.", "Upload your notes. Practice one question at a time. Learn from every answer.")
     PracticeNotice()
     OutlinedTextField(username, { username = it }, label = { Text("Email or username") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     OutlinedTextField(password, { password = it }, label = { Text("Password · 10+ characters") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-    OutlinedTextField(server, { server = it }, label = { Text("Study server URL") }, supportingText = { Text("Android emulator: http://10.0.2.2:8000") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-    Button(onClick = { model.authenticate(username, password, register, server); password = "" }, enabled = !busy && username.length >= 3 && password.length >= 10, modifier = Modifier.fillMaxWidth()) {
+    if (canEditServer) {
+        OutlinedTextField(debugServer, { debugServer = it }, label = { Text("Study server URL") }, supportingText = { Text("Android emulator: http://10.0.2.2:8000") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+    } else if (server.isEmpty()) {
+        Info("Sign-in unavailable", "This build is missing its study service configuration.")
+    }
+    Button(onClick = { model.authenticate(username, password, register, server); password = "" }, enabled = canSignIn && username.length >= 3 && password.length >= 10, modifier = Modifier.fillMaxWidth()) {
         Text(if (register) "Create your study account" else "Sign in")
     }
-    OutlinedButton(onClick = { model.signInWithGoogle(server, googleToken) }, enabled = !busy,
+    OutlinedButton(onClick = { model.signInWithGoogle(server, googleToken) }, enabled = canSignIn,
         modifier = Modifier.fillMaxWidth()) { Text("Sign in with Google") }
     TextButton(onClick = { register = !register }, enabled = !busy) { Text(if (register) "Already have an account? Sign in" else "New here? Create an account") }
 }

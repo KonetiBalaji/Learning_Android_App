@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -8,6 +10,14 @@ val releaseSigning = listOf(
     "SARAS_KEYSTORE_PATH", "SARAS_KEYSTORE_PASSWORD", "SARAS_KEY_ALIAS", "SARAS_KEY_PASSWORD"
 ).associateWith { providers.environmentVariable(it).orNull }
 val signingRequested = releaseSigning.values.any { !it.isNullOrBlank() }
+val studyServerUrl = providers.gradleProperty("sarasServerUrl").orNull?.trim()?.trimEnd('/').orEmpty()
+if (studyServerUrl.isNotEmpty()) {
+    val uri = URI(studyServerUrl)
+    require(uri.scheme == "https" && uri.host != null && uri.userInfo == null &&
+        uri.rawPath.isEmpty() && uri.rawQuery == null && uri.rawFragment == null) {
+        "sarasServerUrl must be an HTTPS origin."
+    }
+}
 if (signingRequested) {
     require(releaseSigning.values.all { !it.isNullOrBlank() }) { "Supply all four Saras signing variables." }
 }
@@ -22,6 +32,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "STUDY_SERVER_URL", "\"$studyServerUrl\"")
     }
     if (providers.gradleProperty("sarasQaInstall").orNull == "true") {
         buildTypes.getByName("debug").applicationIdSuffix = ".qa"
@@ -35,7 +46,10 @@ android {
         }
         buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

@@ -6,6 +6,7 @@ import android.provider.OpenableColumns
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.studycompanion.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -29,6 +30,16 @@ class ApiException(val status: Int, message: String) : IOException(message)
 /** Token encryption uses a non-exportable Android Keystore key; backups are disabled. */
 class SessionStore(context: Context) {
     private val prefs = context.getSharedPreferences("session", Context.MODE_PRIVATE)
+    private val configuredServer = BuildConfig.STUDY_SERVER_URL
+    val canEditServer = BuildConfig.DEBUG && configuredServer.isEmpty()
+
+    init {
+        if (!canEditServer && prefs.getString("server", null) != configuredServer) {
+            // Sessions and offline scopes belong to the server that issued them.
+            prefs.edit().remove("token").remove("owner").remove("quiz")
+                .putString("server", configuredServer).apply()
+        }
+    }
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         return store.getKey("study-session", null) as? SecretKey ?: KeyGenerator.getInstance("AES", "AndroidKeyStore").run {
@@ -55,8 +66,12 @@ class SessionStore(context: Context) {
             }
         }
     var server: String
-        get() = prefs.getString("server", "http://10.0.2.2:8000")!!
-        set(value) { prefs.edit().putString("server", value.trim().trimEnd('/')).apply() }
+        get() = if (canEditServer) prefs.getString("server", "http://10.0.2.2:8000")!! else configuredServer
+        set(value) {
+            val normalized = value.trim().trimEnd('/')
+            require(canEditServer || normalized == configuredServer) { "This build uses its configured study server." }
+            prefs.edit().putString("server", normalized).apply()
+        }
     var activeQuiz: String
         get() = prefs.getString("quiz", "")!!
         set(value) { prefs.edit().putString("quiz", value).apply() }

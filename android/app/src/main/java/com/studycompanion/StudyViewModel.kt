@@ -152,16 +152,18 @@ class StudyViewModel internal constructor(application: Application, private val 
     }
 
     private suspend fun selectServer(server: String) {
-        val parsed = server.trim().toUri()
+        val normalized = server.trim().trimEnd('/')
+        require(session.canEditServer || normalized == session.server) { "This build uses its configured study server." }
+        val parsed = normalized.toUri()
         require(parsed.scheme in listOf("http", "https") && !parsed.host.isNullOrEmpty() &&
             parsed.userInfo == null && parsed.query == null && parsed.fragment == null) { "Enter a valid server URL." }
-        if (session.server != server.trim().trimEnd('/')) {
+        if (session.server != normalized) {
             offlineCache.clear()
             session.ownerId = ""
             session.token = ""
             session.activeQuiz = ""
         }
-        session.server = server
+        session.server = normalized
     }
 
     private suspend fun acceptSignIn(reply: JSONObject) {
