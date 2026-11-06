@@ -17,7 +17,7 @@ from google.auth import exceptions as google_auth_errors
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2.id_token import verify_oauth2_token
 
-from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, SecretStr, ValidationError, field_validator
 from starlette.responses import HTMLResponse, JSONResponse
@@ -31,7 +31,7 @@ from .flashcards import from_question, public_card, review as rate_flashcard
 from .processing import analyze_upload, update_review_state
 from .semantic import SemanticUnavailable, build_index, fingerprint, search as semantic_search
 from .adaptive import recommend
-from . import mastery
+from . import mastery, progress_sharing
 from .document_tutor import reply as tutor_reply
 from .offline import OfflineAttempt, reconstruct as reconstruct_offline
 
@@ -56,6 +56,14 @@ class Credentials(BaseModel):
                     and all(re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label) for label in labels)):
                 return identifier
         raise ValueError("Enter a valid email address or username.")
+
+
+class ProgressInvitation(BaseModel):
+    role: Literal["teacher", "parent"]
+
+
+class ProgressInviteCode(BaseModel):
+    code: SecretStr
 
 
 class MasteryAction(BaseModel):
@@ -304,6 +312,80 @@ def create_app(data_dir: Path | None = None):
                 raise HTTPException(422, str(error)) from None
             store.save(identifier, user, "mastery", identifier, lesson["started"], lesson)
             return mastery.snapshot(lesson)
+
+    @app.get("/progress-sharing")
+    def progress_links(user=Depends(owner)):
+        with store.lock:
+            rows = store.db.execute(
+                "SELECT id, student, role FROM progress_links WHERE student=? OR viewer=? ORDER BY created DESC",
+                (user, user),
+            ).fetchall()
+            return [{"id": row["id"], "role": row["role"], "direction": "shared" if row["student"] == user else "received"}
+                    for row in rows]
+
+    @app.post("/progress-sharing/invitations", status_code=201)
+    def invite_progress_viewer(body: ProgressInvitation, response: Response, user=Depends(owner)):
+        response.headers["Cache-Control"] = "no-store"
+        code = secrets.token_urlsafe(24)
+        expires = time.time() + 15 * 60
+        with store.lock, store.db:
+            store.db.execute(
+                "INSERT OR REPLACE INTO progress_invitations VALUES (?,?,?,?)",
+                (progress_sharing.digest(code), user, body.role, expires),
+            )
+        return {"code": code, "expires_at": expires}
+
+    @app.delete("/progress-sharing/invitations/{role}", status_code=204)
+    def cancel_progress_invite(role: Literal["teacher", "parent"], user=Depends(owner)):
+        with store.lock, store.db:
+            store.db.execute("DELETE FROM progress_invitations WHERE student=? AND role=?", (user, role))
+
+    @app.post("/progress-sharing/redeem", status_code=201)
+    def redeem_progress_invite(body: ProgressInviteCode, user=Depends(owner)):
+        code = body.code.get_secret_value().strip()
+        if len(code) != 32:
+            raise HTTPException(404, "Invitation is invalid or expired.")
+        digest = progress_sharing.digest(code)
+        now = time.time()
+        with store.lock, store.db:
+            invite = store.db.execute(
+                "SELECT student, role FROM progress_invitations WHERE digest=? AND expires>?", (digest, now),
+            ).fetchone()
+            if not invite:
+                raise HTTPException(404, "Invitation is invalid or expired.")
+            if invite["student"] == user:
+                raise HTTPException(409, "Use a different Saras account to accept the invitation.")
+            existing = store.db.execute(
+                "SELECT id FROM progress_links WHERE student=? AND viewer=? AND role=?",
+                (invite["student"], user, invite["role"]),
+            ).fetchone()
+            identifier = existing["id"] if existing else str(uuid.uuid4())
+            if not existing:
+                store.db.execute(
+                    "INSERT INTO progress_links VALUES (?,?,?,?,?)",
+                    (identifier, invite["student"], user, invite["role"], now),
+                )
+            store.db.execute("DELETE FROM progress_invitations WHERE digest=?", (digest,))
+            return {"id": identifier, "role": invite["role"]}
+
+    @app.get("/progress-sharing/{identifier}/report")
+    def shared_progress_report(identifier: str, response: Response, user=Depends(owner)):
+        response.headers["Cache-Control"] = "no-store"
+        with store.lock:
+            link = store.db.execute(
+                "SELECT student, role FROM progress_links WHERE id=? AND viewer=?", (identifier, user),
+            ).fetchone()
+            if not link:
+                raise HTTPException(404, "Shared progress is unavailable.")
+            return progress_sharing.report(store.all(link["student"], "mastery"), link["role"], time.time())
+
+    @app.delete("/progress-sharing/{identifier}", status_code=204)
+    def revoke_progress_link(identifier: str, user=Depends(owner)):
+        with store.lock, store.db:
+            removed = store.db.execute("DELETE FROM progress_links WHERE id=? AND (student=? OR viewer=?)",
+                                       (identifier, user, user))
+            if not removed.rowcount:
+                raise HTTPException(404, "Shared progress is unavailable.")
 
     @app.get("/health")
     def health():

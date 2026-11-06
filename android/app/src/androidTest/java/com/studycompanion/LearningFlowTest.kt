@@ -39,6 +39,55 @@ class LearningFlowTest {
     private val studyServer get() =
         fixtureUrl(InstrumentationRegistry.getArguments().getString("studyPort", "18763").toInt())
 
+    @Test fun invitedParentCanOpenOnlyTheSharedCurriculumReport() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
+        val student = "sharestudent" + System.currentTimeMillis()
+        val password = "disposable-sharing-password"
+
+        fun waitUntilIdle() = rule.waitUntil(30_000) { !model.state.value.busy }
+        fun tap(label: String) = rule.onNodeWithText(label, substring = false).performScrollTo().performClick()
+        fun openReports() {
+            rule.onNodeWithText("Progress", substring = false).performClick()
+            tap("Teacher and parent reports")
+            rule.waitUntil(30_000) { model.state.value.screen == "progress-sharing" && !model.state.value.busy }
+        }
+
+        try {
+            rule.runOnIdle { model.authenticate(student, password, true, studyServer) }
+            waitUntilIdle()
+            assertTrue(model.state.value.signedIn)
+            openReports()
+            tap("Invite a parent")
+            rule.waitUntil(30_000) { model.state.value.progressInvite != null && !model.state.value.busy }
+            val code = model.state.value.progressInvite!!.getString("code")
+            rule.runOnIdle { model.signOut() }
+            waitUntilIdle()
+            assertNull(model.state.value.progressInvite)
+            signInForRegression(model, "shareviewer")
+            openReports()
+            rule.onNodeWithText("Invitation code").performScrollTo().performTextReplacement(code)
+            tap("Accept invitation")
+            rule.waitUntil(30_000) { model.state.value.progressLinks.size == 1 && !model.state.value.busy }
+            tap("Open parent report 1")
+            rule.waitUntil(30_000) { model.state.value.progressReport != null && !model.state.value.busy }
+            rule.onNodeWithText("Student progress").assertExists()
+            rule.onNodeWithText("Last 7 days: 0 active chapters · 0 mastered").assertExists()
+            tap("Back to shared reports")
+            waitUntilIdle()
+            tap("Remove link 1")
+            rule.onNodeWithText("Remove access", substring = false).performClick()
+            rule.waitUntil(30_000) { model.state.value.progressLinks.isEmpty() && !model.state.value.busy }
+        } finally {
+            deleteRegressionAccount(model)
+            rule.runOnIdle { model.authenticate(student, password, false, studyServer) }
+            waitUntilIdle()
+            deleteRegressionAccount(model)
+        }
+    }
+
     @Test fun loginScreenAdaptsToSystemDarkMode() {
         assumeTrue(android.os.Build.VERSION.SDK_INT >= 31)
         val manager = rule.activity.getSystemService(android.app.UiModeManager::class.java)

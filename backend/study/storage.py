@@ -37,6 +37,16 @@ class Store:
             CREATE TABLE IF NOT EXISTS google_accounts (
                 subject TEXT PRIMARY KEY, owner TEXT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS google_challenges (digest TEXT PRIMARY KEY, expires REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS progress_invitations (
+                digest TEXT PRIMARY KEY, student TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                role TEXT NOT NULL CHECK(role IN ('teacher', 'parent')), expires REAL NOT NULL,
+                UNIQUE(student, role));
+            CREATE TABLE IF NOT EXISTS progress_links (
+                id TEXT PRIMARY KEY, student TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                viewer TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                role TEXT NOT NULL CHECK(role IN ('teacher', 'parent')), created REAL NOT NULL,
+                UNIQUE(student, viewer, role), CHECK(student <> viewer));
+            CREATE INDEX IF NOT EXISTS progress_viewer_links ON progress_links(viewer);
             CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, owner TEXT REFERENCES users(id) ON DELETE CASCADE, expires REAL);
             CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, owner TEXT REFERENCES users(id) ON DELETE CASCADE,
                 kind TEXT, document TEXT, created REAL, payload BLOB);
@@ -113,6 +123,7 @@ class Store:
             if owner is None:
                 self.db.execute("DELETE FROM sessions WHERE expires<=?", (now,))
                 self.db.execute("DELETE FROM google_challenges WHERE expires<=?", (now,))
+                self.db.execute("DELETE FROM progress_invitations WHERE expires<=?", (now,))
 
     def for_document(self, owner, kind, document, limit=50):
         return [self.decode(row[0]) for row in self.db.execute(

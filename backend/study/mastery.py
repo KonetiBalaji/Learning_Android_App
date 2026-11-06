@@ -105,7 +105,7 @@ def advance(lesson, action, choice, response, now):
         if (len(normalized.split()) >= 6 and not re.search(r"\b(not|never|wrong)\b", normalized)
                 and all(re.search(pattern, normalized) for pattern in chapter["checks"])):
             lesson.update(phase="mastered", feedback="You completed the practice and explained the key rule.",
-                          elapsed_seconds=max(0, int(now - lesson["started"])))
+                          elapsed_seconds=max(0, int(now - lesson["started"])), mastered_at=now)
         else:
             lesson["rewrite_revisions"] = lesson.get("rewrite_revisions", 0) + 1
             lesson.update(feedback="Use the prompt to identify the key ideas, or return to the worked example.")
@@ -113,4 +113,5 @@ def advance(lesson, action, choice, response, now):
         lesson.update(phase="coach", feedback="")
     else:
         raise ValueError("This action is not available at the current learning step.")
+    lesson["last_activity"] = now
     lesson["version"] += 1

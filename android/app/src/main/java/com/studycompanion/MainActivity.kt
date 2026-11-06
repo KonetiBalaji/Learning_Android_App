@@ -218,6 +218,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     TextButton(onClick = { model.navigate("results") }) { Text("Back to results") }
                 }
                 "progress" -> Progress(state, model)
+                "progress-sharing" -> ProgressSharingScreen(state, model)
                 "flashcards" -> Flashcards(state, model)
                 "settings" -> {
                     Title("Your study space", "Privacy and account settings")
@@ -558,6 +559,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                 }
             }
         }
+    }
+    OutlinedButton(onClick = model::showProgressSharing, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+        Text("Teacher and parent reports")
     }
     TextButton(onClick = model::refresh, enabled = !state.busy) { Text("Refresh progress") }
 }

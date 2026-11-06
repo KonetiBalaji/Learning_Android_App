@@ -56,6 +56,9 @@ data class StudyState(
     val offlineQuizId: String? = null,
     val curriculumChapters: List<JSONObject> = emptyList(),
     val curriculumLesson: JSONObject? = null,
+    val progressLinks: List<JSONObject> = emptyList(),
+    val progressInvite: JSONObject? = null,
+    val progressReport: JSONObject? = null,
 )
 
 class StudyViewModel internal constructor(application: Application, private val repository: StudyRepository) : AndroidViewModel(application) {
@@ -119,7 +122,8 @@ class StudyViewModel internal constructor(application: Application, private val 
     fun dismissError() { mutable.update { it.copy(error = null) } }
     fun navigate(screen: String) {
         mutable.update { it.copy(screen = screen, error = null, source = null, sourceDocument = null,
-            ocrDocument = null, ocrPage = null, ocrPages = emptyList()) }
+            ocrDocument = null, ocrPage = null, ocrPages = emptyList(),
+            progressInvite = null, progressReport = null) }
     }
 
     fun back() {
@@ -127,6 +131,7 @@ class StudyViewModel internal constructor(application: Application, private val 
         if (current.busy) return
         when (current.screen) {
             "ocr" -> navigate(current.ocrReturn)
+            "progress-sharing" -> if (current.progressReport != null) showProgressSharing() else navigate("progress")
             "curriculum" -> if (current.curriculumLesson != null) closeCurriculumChapter() else navigate("home")
             "search", "tutor", "quiz" -> navigate(if (current.document != null) "configure" else "home")
             "mistakes", "adaptive", "flashcards" -> navigate(if (current.results != null) "results" else "home")
@@ -218,6 +223,40 @@ class StudyViewModel internal constructor(application: Application, private val 
                 ocrPages = if (scanExists) it.ocrPages else emptyList(),
                 offlineDocuments = savedDocuments, offlineBundle = refreshed, offlineQuizId = if (refreshed == null) null else it.offlineQuizId)
         }
+    }
+
+    private suspend fun loadProgressSharing() {
+        val links = JSONArray(repository.call("/progress-sharing")).objects()
+        mutable.update { it.copy(screen = "progress-sharing", progressLinks = links, progressReport = null) }
+    }
+
+    fun showProgressSharing() = run { loadProgressSharing() }
+
+    fun inviteProgressViewer(role: String) = run {
+        val invite = JSONObject(repository.call("/progress-sharing/invitations", "POST", JSONObject().put("role", role)))
+        mutable.update { it.copy(progressInvite = invite.put("role", role)) }
+    }
+
+    fun cancelProgressInvite(role: String) = run {
+        repository.call("/progress-sharing/invitations/$role", "DELETE")
+        mutable.update { if (it.progressInvite?.optString("role") == role) it.copy(progressInvite = null) else it }
+    }
+
+    fun redeemProgressInvite(code: String) = run {
+        repository.call("/progress-sharing/redeem", "POST", JSONObject().put("code", code))
+        retryAction = { loadProgressSharing() }
+        loadProgressSharing()
+    }
+
+    fun readSharedProgress(id: String) = run {
+        val report = JSONObject(repository.call("/progress-sharing/$id/report"))
+        mutable.update { it.copy(progressReport = report) }
+    }
+
+    fun revokeProgressLink(id: String) = run {
+        repository.call("/progress-sharing/$id", "DELETE")
+        mutable.update { it.copy(progressLinks = it.progressLinks.filterNot { link -> link.getString("id") == id },
+            progressReport = null) }
     }
 
     fun showCurriculum() = run {

@@ -120,6 +120,229 @@
         }
       }
     },
+    "/progress-sharing": {
+      "get": {
+        "summary": "Progress Links",
+        "operationId": "progress_links_progress_sharing_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/progress-sharing/invitations": {
+      "post": {
+        "summary": "Invite Progress Viewer",
+        "operationId": "invite_progress_viewer_progress_sharing_invitations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressInvitation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/progress-sharing/invitations/{role}": {
+      "delete": {
+        "summary": "Cancel Progress Invite",
+        "operationId": "cancel_progress_invite_progress_sharing_invitations__role__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "teacher",
+                "parent"
+              ],
+              "type": "string",
+              "title": "Role"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/progress-sharing/redeem": {
+      "post": {
+        "summary": "Redeem Progress Invite",
+        "operationId": "redeem_progress_invite_progress_sharing_redeem_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressInviteCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/progress-sharing/{identifier}/report": {
+      "get": {
+        "summary": "Shared Progress Report",
+        "operationId": "shared_progress_report_progress_sharing__identifier__report_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/progress-sharing/{identifier}": {
+      "delete": {
+        "summary": "Revoke Progress Link",
+        "operationId": "revoke_progress_link_progress_sharing__identifier__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -2132,6 +2355,38 @@
           "in_progress"
         ],
         "title": "Progress"
+      },
+      "ProgressInvitation": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "teacher",
+              "parent"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "ProgressInvitation"
+      },
+      "ProgressInviteCode": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "format": "password",
+            "title": "Code",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "ProgressInviteCode"
       },
       "PublicQuestion": {
         "properties": {
