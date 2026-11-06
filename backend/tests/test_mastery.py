@@ -131,6 +131,19 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
         assert reply.status_code == 200, reply.text
         return reply.json()
 
+    def after_two_misses(path, practice, expected_prompt):
+        prompts = [practice["prompt"]]
+        for _ in range(2):
+            coach = advance(path, practice, "practice", response="0")
+            assert coach["phase"] == "coach"
+            assert advance(path, practice, "practice", response="0") == coach
+            practice = advance(path, coach, "continue")
+            prompts.append(practice["prompt"])
+        assert len(set(prompts)) == 3 and prompts[-1] == expected_prompt
+        assert open_lesson(path) == practice
+        assert "answer" not in practice
+        return practice
+
     initial = open_lesson(percentages)
     assert (initial["diagnostic_index"], initial["diagnostic_total"]) == (0, 3)
     second = advance(percentages, initial, "diagnostic", choice=1)
@@ -144,7 +157,8 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
     assert third["phase"] == "diagnostic" and third["diagnostic_index"] == 2
     practice = advance(percentages, third, "diagnostic", choice=1)
     assert practice["phase"] == "practice" and "answer" not in practice
-    rewrite = advance(percentages, practice, "practice", response="16")
+    practice = after_two_misses(percentages, practice, "Enter 25% of 20.")
+    rewrite = advance(percentages, practice, "practice", response="5")
     mastered = advance(percentages, rewrite, "rewrite", response="Multiply sixty by 0.25 to find twenty-five percent.")
     assert mastered["phase"] == "mastered" and not mastered["diagnostic_correct"]
     assert mastered["diagnostic_score"] == {"correct": 2, "total": 3}
@@ -155,13 +169,17 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
     for choice in (2, 1, 3):
         lesson = advance(algebra, lesson, "diagnostic", choice=choice)
     assert lesson["phase"] == "practice"
-    lesson = advance(algebra, lesson, "practice", response="9")
+    lesson = after_two_misses(algebra, lesson, "Enter x in x + 2 = 16.")
+    lesson = advance(algebra, lesson, "practice", response="14")
     lesson = advance(algebra, lesson, "rewrite", response="Subtract five from both sides and the value is seven.")
     assert lesson["phase"] == "mastered"
     lesson = open_lesson(geometry)
     for choice in (1, 1, 3):
         lesson = advance(geometry, lesson, "diagnostic", choice=choice)
-    lesson = advance(geometry, lesson, "practice", response="30")
+    lesson = after_two_misses(
+        geometry, lesson, "Enter the area in square centimeters for base 5 cm and height 3 cm."
+    )
+    lesson = advance(geometry, lesson, "practice", response="7.5")
     lesson = advance(geometry, lesson, "rewrite", response="Multiply the base by the perpendicular height and take half.")
     assert lesson["phase"] == "mastered"
 

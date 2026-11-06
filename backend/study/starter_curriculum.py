@@ -1,4 +1,6 @@
-"""Authored starter lessons. Each entry supplies two distinct practice prompts."""
+"""Authored starter lessons with exact-arithmetic practice variants for Grade 6 Mathematics."""
+
+from fractions import Fraction
 
 def lesson(grade, subject, title, diagnostic, choices, answer, explanation, example,
            practice, hint, rewrite, checks, *, numeric=False):
@@ -61,7 +63,10 @@ STARTER_CHAPTERS = {
             "What is 25% of 60?", ["10", "15", "25", "35"], 1,
             "A percent is a number out of 100. Convert the percent to a fraction or decimal, then multiply by the whole.",
             "Thirty percent of 50 is 30/100 × 50 = 15.",
-            [("Enter 20% of 80.", "16"), ("Enter 15% of 40.", "6")],
+            [("Enter 20% of 80.", "16"), ("Enter 15% of 40.", "6")] + [
+                (f"Enter {percent}% of {whole}.", str(Fraction(percent * whole, 100)))
+                for percent in (25, 35, 55) for whole in (20, 40, 100, 120)
+            ],
             "Change the percent to a decimal before multiplying.",
             "Explain how to find 25% of 60.",
             [r"\b(25|0\.25|quarter)\b", r"\b(60|sixty)\b", r"\b(multiply|quarter|divide)\b"], numeric=True),
@@ -76,7 +81,10 @@ STARTER_CHAPTERS = {
             "What value of x makes x + 5 = 12 true?", ["5", "6", "7", "17"], 2,
             "An equation says both sides have the same value. Undo an operation by doing its inverse to both sides.",
             "For x + 4 = 10, subtract 4 from both sides to get x = 6.",
-            [("Enter x in x + 8 = 17.", "9"), ("Enter x in x + 6 = 14.", "8")],
+            [("Enter x in x + 8 = 17.", "9"), ("Enter x in x + 6 = 14.", "8")] + [
+                (f"Enter x in x + {addend} = {total}.", str(total - addend))
+                for addend in (2, 3, 7, 10) for total in (16, 19, 23, 26)
+            ],
             "Undo the addition by subtracting the same amount from both sides.",
             "Explain why subtracting 5 from both sides solves x + 5 = 12.",
             [r"\b(subtract|subtracting|undo)\b", r"\bboth sides\b", r"\b(7|seven)\b"], numeric=True),
@@ -93,7 +101,11 @@ STARTER_CHAPTERS = {
             "A triangle has half the area of a parallelogram with the same base and perpendicular height.",
             "A triangle with base 6 cm and height 4 cm has area 6 × 4 ÷ 2 = 12 cm².",
             [("Enter the area in square centimeters for base 10 cm and height 6 cm.", "30"),
-             ("Enter the area in square centimeters for base 8 cm and height 7 cm.", "28")],
+             ("Enter the area in square centimeters for base 8 cm and height 7 cm.", "28")] + [
+                (f"Enter the area in square centimeters for base {base} cm and height {height} cm.",
+                 str(Fraction(base * height, 2)))
+                for base in (5, 7, 11, 13) for height in (3, 4, 6, 8)
+            ],
             "Multiply the base and perpendicular height, then take half.",
             "Explain why the triangle with base 8 cm and perpendicular height 5 cm has area 20 cm².",
             [r"\bbase\b", r"\bheight\b", r"\b(half|divide|dividing)\b"], numeric=True),
