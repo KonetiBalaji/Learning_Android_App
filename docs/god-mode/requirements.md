@@ -21,8 +21,8 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Encrypted offline cache, local quizzes, validated progress import and revision/deletion reconciliation. Verified airplane mode, sync replay, and recovery after an actual process stop in `offline-study.md`.
 - [x] Adaptive next quiz integrated with recent, distinct learning evidence; live AI difficulty still pending.
 - [x] Tutor chat from the selected document's retrieved passages, with citations and a tested no-support response. Local source excerpt mode and Android citation flow verified; live AI explanations remain pending below.
-- [x] Connect all learning tools with return paths; see the [navigation audit](final-audit.md) and connected test results.
-- [x] Cover owner access, retention, document deletion and account deletion for linked records and local cache; see the [lifecycle audit](final-audit.md).
+- [x] Connect all learning tools with return paths, refresh-only retry after successful upload, and immediate access to unfinished quizzes. See the [navigation audit](final-audit.md) and connected test results.
+- [x] Cover owner access, retention, document deletion and account deletion for linked records and local cache, including expiry while an offline result and its citation are open. See the [lifecycle audit](final-audit.md).
 
 ## Live AI
 
@@ -37,7 +37,7 @@ The full objective is the user's attached “Take the Saras learning app to God 
 - [x] Identify the Saras Modern/Heritage assets from the user-supplied email; preserve a clearly named placeholder until real files are available.
 - [ ] Import supplied assets into light/dark header, launcher, and splash surfaces after re-supply/access.
 - [x] Docker and HTTPS configuration, mounted storage key validation, per-client rate limiting, safe request logs, readiness and background retention cleanup.
-- [x] Verify trusted TLS, readiness, actual OCR and semantic retrieval, owner isolation and web account deletion on a disposable Linux Compose stack. [Staging run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/41950761292)
+- [x] Verify trusted TLS, readiness, actual OCR and semantic retrieval, owner isolation and web account deletion on a disposable Linux Compose stack. [Staging run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42026775931)
 - [ ] Provision the persistent production host, public DNS and certificate. Rerun smoke checks against that host.
 - [x] Configure Android API 36 and environment-based release signing.
 - [ ] Build the distribution bundle with the authorized Play upload key and verify its certificate.

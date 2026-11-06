@@ -1,5 +1,5 @@
 SARAS LEARNING APP — STATUS FOR SIVARAJ
-Program Director, TCS | dev closeout | Runtime: 793bd26
+Program Director, TCS | dev closeout | Runtime: ad03dda
 
 VERIFIED IN REPO
 - Import PDF, DOCX and TXT. Review and correct scanned PDF text.
@@ -9,9 +9,12 @@ VERIFIED IN REPO
 - Ask the document tutor for cited excerpts. It says when the source
   does not support an answer.
 - Save encrypted study material, practice offline, and sync results
-  without duplicate attempts. Owner isolation and deletion are tested.
+  without duplicate attempts. Open offline results close at expiry.
+- A failed library refresh can be retried without repeating a successful
+  upload. New quizzes are immediately available in Continue studying.
 - Disposable Docker staging serves trusted HTTPS and passes the
   readiness, OCR, retrieval, owner isolation and deletion smoke checks.
+  102 backend, 4 Android unit and 9 Android emulator tests passed.
 - Android targets API 36. Demo, privacy and Play listing drafts exist.
   The named placeholder remains in use.
 
