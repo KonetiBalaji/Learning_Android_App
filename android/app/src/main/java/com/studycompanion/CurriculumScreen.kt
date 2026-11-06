@@ -3,6 +3,7 @@ package com.studycompanion
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -44,11 +45,22 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
             }
             else -> {
                 Text("$subject · Chapters", style = MaterialTheme.typography.headlineSmall)
-                state.curriculumChapters.filter { it.getInt("grade") == grade && it.getString("subject") == subject }
-                    .forEach { chapter ->
+                val chapters = state.curriculumChapters.filter { it.getInt("grade") == grade && it.getString("subject") == subject }
+                val mastered = chapters.count { it.getBoolean("mastered") }
+                Text("$mastered of ${chapters.size} chapters mastered")
+                if (chapters.isNotEmpty()) {
+                    LinearProgressIndicator(progress = { mastered.toFloat() / chapters.size }, modifier = Modifier.fillMaxWidth())
+                }
+                val next = chapters.firstOrNull { it.optBoolean("needs_practice") }
+                    ?: chapters.firstOrNull { it.optBoolean("started") && !it.getBoolean("mastered") }
+                    ?: chapters.firstOrNull { !it.getBoolean("locked") && !it.getBoolean("mastered") }
+                next?.let { Text("Suggested next: ${it.getString("title")}") }
+                chapters.forEach { chapter ->
                         val label = when {
                             chapter.getBoolean("mastered") -> " · Mastered"
                             chapter.getBoolean("locked") -> " · Locked"
+                            chapter.optBoolean("needs_practice") -> " · Needs practice"
+                            chapter.optBoolean("started") -> " · In progress"
                             else -> ""
                         }
                         CurriculumButton(chapter.getString("title") + label, !state.busy && !chapter.getBoolean("locked")) {

@@ -232,6 +232,10 @@ class StudyViewModel internal constructor(application: Application, private val 
 
     fun closeCurriculumChapter() {
         mutable.update { it.copy(curriculumLesson = null) }
+        run {
+            val chapters = JSONArray(repository.call("/curriculum")).objects()
+            mutable.update { it.copy(curriculumChapters = chapters) }
+        }
     }
 
     fun answerCurriculum(action: String, choice: Int? = null, response: String = "") {

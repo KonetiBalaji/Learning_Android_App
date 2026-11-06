@@ -1,3 +1,5 @@
+import pytest
+
 from test_learning_flow import account, client
 
 
@@ -29,7 +31,12 @@ def test_curriculum_coaching_retries_mastery_and_owner_isolation(client):
     assert action(3, "continue")["prompt"] != practice["prompt"]
     assert action(4, "practice", response="8/14")["phase"] == "rewrite"
     assert action(5, "rewrite", response="Just add the fractions")["phase"] == "rewrite"
+    progress = client.get("/curriculum", headers=first).json()[0]
+    assert progress["needs_practice"] and progress["practice_misses"] == 1 and progress["rewrite_revisions"] == 1
+    assert client.get("/curriculum", headers=second).json()[0]["started"] is False
     assert action(6, "rewrite", response="Add the numerators and keep the denominator unchanged.")["phase"] == "mastered"
+    progress = client.get("/curriculum", headers=first).json()[0]
+    assert progress["mastered"] and not progress["needs_practice"]
     assert client.post(fractions, headers=first).json()["phase"] == "mastered"
     assert client.post(decimals, headers=first).json()["phase"] == "diagnostic"
     assert client.post(decimals, headers=second).status_code == 409
@@ -45,3 +52,53 @@ def test_correct_diagnostic_moves_straight_to_practice(client):
     result = client.post(path + "/actions", headers=student, json={"version": 0, "action": "diagnostic", "choice": 1})
     assert result.status_code == 200
     assert result.json()["phase"] == "practice"
+
+@pytest.mark.parametrize("chapter, choice, first_answer, second_answer, rewrite", [
+    ("counting-on", 2, "7", "9", "Start at four and count two steps to six."),
+    ("place-value", 1, "53", "72", "Four tens make forty, and seven ones make forty-seven altogether."),
+    ("equal-groups", 2, "12", "20", "Add four for each of the three groups to get twelve."),
+    ("rectangle-perimeter", 2, "20", "18", "Add all four sides, using each measurement twice."),
+    ("volume", 2, "30", "32", "There are twelve cubes per layer, so two layers contain twenty-four cubes."),
+    ("evaporation", 2, "Condensation.", "evaporation", "Evaporation changes liquid to vapor. Condensation changes vapor to liquid."),
+    ("complete-sentences", 1, "glowed", "rang", "Birds is the subject and sang is the verb."),
+    ("primary-sources", 1, "secondary", "Primary", "The sailor wrote the diary during the voyage as a direct witness."),
+    ("unit-rates", 1, "7", "6", "Divide twelve dollars by three notebooks to find the cost per notebook."),
+    ("linear-equations", 2, "6", "5", "Subtract two on both sides, then divide both sides by three."),
+    ("linear-slope", 1, "3", "0.5", "Divide the vertical change in y by the horizontal change in x."),
+    ("right-triangles", 0, "13", "17", "Add the squares of the legs and take the square root."),
+    ("exponential-growth", 3, "120", "135", "Multiply by the factor two once for each of the three days."),
+    ("expected-value", 2, "3", "6", "Multiply the ten dollar payout by probability one half to get five."),
+])
+def test_authored_starter_chapter_diagnostic_practice_and_rewrite(client, chapter, choice, first_answer, second_answer, rewrite):
+    auth = account(client)
+    path = f"/curriculum/{chapter}/lesson"
+
+    def act(lesson, action, **fields):
+        reply = client.post(path + "/actions", headers=auth, json={"version": lesson["version"], "action": action, **fields})
+        assert reply.status_code == 200, reply.text
+        return reply.json()
+
+    initial = client.post(path, headers=auth).json()
+    practice = act(initial, "diagnostic", choice=choice)
+    assert practice["phase"] == "practice"
+    writing = act(practice, "practice", response=first_answer)
+    assert writing["phase"] == "rewrite"
+    assert act(writing, "rewrite", response="I guessed the right answer.")["phase"] == "rewrite"
+    current = client.post(path, headers=auth).json()
+    coached = act(current, "review")
+    assert coached["phase"] == "coach"
+    original = act(coached, "continue")
+    wrong = act(original, "practice", response="irrelevant")
+    alternate = act(wrong, "continue")
+    assert alternate["prompt"] != original["prompt"]
+    writing = act(alternate, "practice", response=second_answer)
+    assert writing["phase"] == "rewrite"
+    assert act(writing, "rewrite", response=rewrite)["phase"] == "mastered"
+
+
+def test_catalog_offers_all_grades_and_the_four_grade_six_subjects(client):
+    chapters = client.get("/curriculum", headers=account(client)).json()
+    assert {chapter["grade"] for chapter in chapters} == set(range(1, 13))
+    assert {chapter["subject"] for chapter in chapters if chapter["grade"] == 6} == {
+        "Mathematics", "Science", "English", "Social Studies"
+    }

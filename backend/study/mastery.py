@@ -1,6 +1,8 @@
 import re
 from fractions import Fraction
 
+from .starter_curriculum import STARTER_CHAPTERS
+
 
 # Reviewed starter curriculum. The catalog advertises only chapters with authored material.
 CHAPTERS = {
@@ -26,13 +28,27 @@ CHAPTERS = {
         "checks": [r"\b(align|line up|match)\b.{0,25}\bdecimal points?\b",
                    r"\b(place values?|hundredths|tenths)\b"],
     },
+    **STARTER_CHAPTERS,
 }
 
 
-def catalog(mastered):
-    return [{"id": identifier, "grade": chapter["grade"], "subject": chapter["subject"], "title": chapter["title"],
-             "mastered": identifier in mastered, "locked": chapter["requires"] not in (None, *mastered)}
-            for identifier, chapter in CHAPTERS.items()]
+def catalog(lessons):
+    progress = {lesson["chapter_id"]: lesson for lesson in lessons}
+    mastered = {identifier for identifier, lesson in progress.items() if lesson["phase"] == "mastered"}
+    result = []
+    for identifier, chapter in CHAPTERS.items():
+        lesson = progress.get(identifier, {})
+        misses = lesson.get("practice_misses", 0)
+        revisions = lesson.get("rewrite_revisions", 0)
+        diagnostic_miss = lesson.get("correct") is False
+        locked = chapter["requires"] is not None and chapter["requires"] not in mastered
+        result.append({
+            "id": identifier, "grade": chapter["grade"], "subject": chapter["subject"], "title": chapter["title"],
+            "mastered": identifier in mastered, "locked": locked, "started": bool(lesson),
+            "practice_misses": misses, "rewrite_revisions": revisions,
+            "needs_practice": bool(lesson) and identifier not in mastered and (diagnostic_miss or misses > 0 or revisions > 0),
+        })
+    return result
 
 
 def new_lesson(identifier, started):
@@ -68,25 +84,31 @@ def advance(lesson, action, choice, response, now):
         lesson.update(phase="practice", feedback="")
     elif phase == "practice" and action == "practice":
         value = response.strip()
-        try:
-            correct = bool(re.fullmatch(r"[0-9]{1,8}(?:[./][0-9]{1,8})?", value)) and (
-                Fraction(value) == Fraction(chapter["practice"][lesson["practice_index"]][1]))
-        except (ValueError, ZeroDivisionError):
-            correct = False
+        expected = chapter["practice"][lesson["practice_index"]][1]
+        if chapter.get("numeric", True):
+            try:
+                correct = bool(re.fullmatch(r"[0-9]{1,8}(?:[./][0-9]{1,8})?", value)) and (
+                    Fraction(value) == Fraction(expected))
+            except (ValueError, ZeroDivisionError):
+                correct = False
+        else:
+            correct = value.casefold().rstrip(".") == expected
         if correct:
             lesson.update(phase="rewrite", feedback="Correct. Now explain the rule in your own words.")
         else:
+            lesson["practice_misses"] = lesson.get("practice_misses", 0) + 1
             lesson.update(phase="coach", feedback="That answer needs another try. Review the example first.",
                           practice_index=(lesson["practice_index"] + 1) % len(chapter["practice"]))
     elif phase == "rewrite" and action == "rewrite":
         normalized = response.lower()
         # A narrow checklist, not a general evaluation of free-form writing.
-        if (len(normalized.split()) >= 6 and not re.search(r"\b(not|never|wrong|subtract|multiply|divide)\b", normalized)
+        if (len(normalized.split()) >= 6 and not re.search(r"\b(not|never|wrong)\b", normalized)
                 and all(re.search(pattern, normalized) for pattern in chapter["checks"])):
             lesson.update(phase="mastered", feedback="You completed the practice and explained the key rule.",
                           elapsed_seconds=max(0, int(now - lesson["started"])))
         else:
-            lesson.update(feedback="Include both ideas in the prompt, or return to the worked example.")
+            lesson["rewrite_revisions"] = lesson.get("rewrite_revisions", 0) + 1
+            lesson.update(feedback="Use the prompt to identify the key ideas, or return to the worked example.")
     elif phase == "rewrite" and action == "review":
         lesson.update(phase="coach", feedback="")
     else:

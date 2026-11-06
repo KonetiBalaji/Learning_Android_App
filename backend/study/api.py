@@ -274,7 +274,7 @@ def create_app(data_dir: Path | None = None):
     @app.get("/curriculum")
     def curriculum(user=Depends(owner)):
         with store.lock:
-            return mastery.catalog(mastery_progress(user))
+            return mastery.catalog(store.all(user, "mastery"))
 
     @app.post("/curriculum/{chapter}/lesson")
     def open_mastery_lesson(chapter: str, user=Depends(owner)):

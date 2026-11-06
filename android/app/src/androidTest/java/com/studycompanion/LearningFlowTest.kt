@@ -102,6 +102,9 @@ class LearningFlowTest {
             rule.onNodeWithText("Concept mastered").assertExists()
             rule.onNodeWithText("Mastery badge earned").assertExists()
             tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            rule.onNodeWithText("1 of 2 chapters mastered").assertExists()
+            rule.onNodeWithText("Suggested next: Adding decimals").assertExists()
             tap("Adding decimals")
             phase("diagnostic")
             assertEquals("decimals", model.state.value.curriculumLesson!!.getString("chapter_id"))
