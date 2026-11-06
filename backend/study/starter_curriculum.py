@@ -3,10 +3,11 @@
 from fractions import Fraction
 
 def lesson(grade, subject, title, diagnostic, choices, answer, explanation, example,
-           practice, hint, rewrite, checks, *, numeric=False):
+           practice, hint, rewrite, checks, *, numeric=False, rewrite_hints=()):
     return dict(grade=grade, subject=subject, title=title, requires=None, prompt=diagnostic,
                 choices=choices, answer=answer, explanation=explanation, example=example,
-                practice=practice, hint=hint, rewrite=rewrite, checks=checks, numeric=numeric)
+                practice=practice, hint=hint, rewrite=rewrite, checks=checks, numeric=numeric,
+                rewrite_hints=rewrite_hints)
 
 
 STARTER_CHAPTERS = {
@@ -144,7 +145,13 @@ STARTER_CHAPTERS = {
          ("Liquid droplets form when warm, humid air cools. Name the process.", "condensation")],
         "Ask whether the change goes from liquid to gas or from gas to liquid.",
         "Explain how evaporation differs from condensation.",
-        [r"\bevaporation\b", r"\bcondensation\b", r"\bliquid\b", r"\b(vapor|vapour|gas)\b"]),
+        [r"\bevaporation\b", r"\bcondensation\b", r"\bliquid\b", r"\b(vapor|vapour|gas)\b"],
+        rewrite_hints=[
+            "Which process explains why the puddle got smaller?",
+            "Which process explains the drops on the cold glass?",
+            "What state is the water in when it forms drops?",
+            "What state is the water in while it is mixed into the air?",
+        ]),
     "complete-sentences": lesson(
         6, "English", "Complete sentences", "Which option is a complete sentence?",
         ["After the storm", "The birds sang", "In the tall tree", "Because it was cold"], 1,
@@ -157,7 +164,13 @@ STARTER_CHAPTERS = {
          ("Enter the verb in: The garden grew.", "grew")],
         "Look for the word that tells what the subject did.",
         "Explain why 'The birds sang' is a complete sentence.",
-        [r"\bsubject\b", r"\bverb\b", r"\bbirds\b", r"\bsang\b"]),
+        [r"\bsubject\b", r"\bverb\b", r"\bbirds\b", r"\bsang\b"],
+        rewrite_hints=[
+            "What do we call the part of the sentence that tells who or what it is about?",
+            "What do we call the word that tells what the subject did?",
+            "Who or what is the sentence about? Point to the word in the sentence.",
+            "Which word tells what the birds did?",
+        ]),
     "primary-sources": lesson(
         6, "Social Studies", "Primary and secondary sources", "Which is a primary source for studying a historical voyage?",
         ["A modern textbook", "A sailor's diary from the voyage", "A recent encyclopedia", "A later documentary"], 1,
@@ -170,7 +183,12 @@ STARTER_CHAPTERS = {
          ("A historian's book summarizes several records of a voyage centuries later. Is the book primary or secondary for that voyage?", "secondary")],
         "Check whether the source comes from the event itself or interprets it later.",
         "Explain why the sailor's diary is a primary source for the voyage.",
-        [r"\b(diary|sailor)\b", r"\b(voyage|event)\b", r"\b(during|firsthand|first.hand|direct)\b"]),
+        [r"\b(diary|sailor)\b", r"\b(voyage|event)\b", r"\b(during|firsthand|first.hand|direct)\b"],
+        rewrite_hints=[
+            "Which source are you describing, and who wrote it?",
+            "Which event are you using the source to study?",
+            "How was the writer connected to the event being studied?",
+        ]),
     "water-cycle": {
         **lesson(6, "Science", "The water cycle",
             "What is it called when water falls from clouds as rain or snow?",
@@ -184,7 +202,12 @@ STARTER_CHAPTERS = {
              ("Water vapor cools and becomes liquid droplets in fog. Name the process.", "condensation")],
             "Separate the formation of cloud droplets from the water falling out of a cloud.",
             "Explain how lake water can travel into the air and return as rain.",
-            [r"\bevaporat\w*\b", r"\bcondens\w*\b", r"\b(precipitation|rain)\b"]),
+            [r"\bevaporat\w*\b", r"\bcondens\w*\b", r"\b(precipitation|rain)\b"],
+            rewrite_hints=[
+                "Which process moves water from the lake into the air?",
+                "How does water vapor turn into cloud droplets?",
+                "How does water fall back to the ground?",
+            ]),
         "requires": "evaporation",
     },
     "combining-sentences": {
@@ -201,7 +224,12 @@ STARTER_CHAPTERS = {
             "Use 'but' for contrast and 'so' when the second idea is a result of the first.",
             "Explain why 'but' fits in 'The trail was steep, but we reached the top.'",
             [r"\bbut\b", r"\b(contrast|unexpected|despite|although|even though)\b",
-             r"\b(steep|top|reached)\b"]),
+             r"\b(steep|top|reached)\b"],
+            rewrite_hints=[
+                "Which joining word are you explaining?",
+                "What relationship does the joining word show between the two ideas?",
+                "Which details in the trail sentence show that relationship?",
+            ]),
         "requires": "complete-sentences",
     },
     "corroborating-sources": {
@@ -219,7 +247,12 @@ STARTER_CHAPTERS = {
             "Ask whether the accounts were created separately or whether one repeats the other.",
             "Explain why the city record corroborates the letter's claim more strongly than a website quoting the letter.",
             [r"\b(record|city)\b", r"\b(independent|separate|separately)\b",
-             r"\b(date|1910|opening)\b"]),
+             r"\b(date|1910|opening)\b"],
+            rewrite_hints=[
+                "Which source provides a second account?",
+                "How can you tell whether one account depends on the other?",
+                "Which claim are the two sources being used to check?",
+            ]),
         "requires": "primary-sources",
     },
     "unit-rates": lesson(

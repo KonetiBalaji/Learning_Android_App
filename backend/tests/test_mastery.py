@@ -276,15 +276,15 @@ def test_math_practice_uses_a_third_question_after_two_misses(client, chapter, c
     assert act(practice, "practice", response=equivalent)["phase"] == "rewrite"
 
 
-@pytest.mark.parametrize("chapter, choice, third_answer", [
-    ("evaporation", 2, "Condensation."),
-    ("water-cycle", 2, "Precipitation"),
-    ("complete-sentences", 1, "flooded"),
-    ("combining-sentences", 1, "but"),
-    ("primary-sources", 1, "secondary"),
-    ("corroborating-sources", 2, "dependent"),
+@pytest.mark.parametrize("chapter, choice, third_answer, expected_hint", [
+    ("evaporation", 2, "Condensation.", "Which process explains why the puddle got smaller?"),
+    ("water-cycle", 2, "Precipitation", "Which process moves water from the lake into the air?"),
+    ("complete-sentences", 1, "flooded", "What do we call the part of the sentence that tells who or what it is about?"),
+    ("combining-sentences", 1, "but", "Which joining word are you explaining?"),
+    ("primary-sources", 1, "secondary", "Which source are you describing, and who wrote it?"),
+    ("corroborating-sources", 2, "dependent", "Which source provides a second account?"),
 ])
-def test_grade_six_subject_practice_moves_through_five_distinct_prompts(chapter, choice, third_answer):
+def test_grade_six_subject_practice_rotation_and_revision_hint(chapter, choice, third_answer, expected_hint):
     from study.mastery import advance, new_lesson, snapshot
 
     def attempt():
@@ -310,3 +310,7 @@ def test_grade_six_subject_practice_moves_through_five_distinct_prompts(chapter,
     assert miss(lesson) == prompts[2]
     advance(lesson, "practice", None, third_answer, 4)
     assert snapshot(lesson)["phase"] == "rewrite"
+    advance(lesson, "rewrite", None, "I thought carefully and chose my response.", 5)
+    revision = snapshot(lesson)
+    assert revision["phase"] == "rewrite"
+    assert revision["feedback"] == expected_hint
