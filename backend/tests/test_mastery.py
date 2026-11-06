@@ -155,3 +155,45 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
     lesson = advance(geometry, lesson, "practice", response="30")
     lesson = advance(geometry, lesson, "rewrite", response="Multiply the base by the perpendicular height and take half.")
     assert lesson["phase"] == "mastered"
+
+
+@pytest.mark.parametrize("subject, prerequisite, next_chapter", [
+    (
+        "Science",
+        ("evaporation", 2, "condensation", "Evaporation turns liquid into vapor. Condensation reverses it."),
+        ("water-cycle", 2, "condensation", "Water evaporates, condenses into clouds, and falls as rain."),
+    ),
+    (
+        "English",
+        ("complete-sentences", 1, "glowed", "Birds is the subject and sang is the verb."),
+        ("combining-sentences", 1, "but", "But signals contrast because they reached the top despite the steep trail."),
+    ),
+    (
+        "Social Studies",
+        ("primary-sources", 1, "secondary", "The sailor wrote the diary during the voyage."),
+        ("corroborating-sources", 2, "dependent", "The city record is an independent source for the opening date."),
+    ),
+])
+def test_grade_six_subject_paths_unlock_for_the_student_only(client, subject, prerequisite, next_chapter):
+    from test_readiness import finish
+
+    student = account(client, "student")
+    other = account(client, "other")
+    path = f"/curriculum/{next_chapter[0]}/lesson"
+
+    def subject_chapters(headers):
+        return [chapter for chapter in client.get("/curriculum", headers=headers).json()
+                if chapter["grade"] == 6 and chapter["subject"] == subject]
+
+    first, second = subject_chapters(student)
+    assert (first["id"], second["id"]) == (prerequisite[0], next_chapter[0])
+    assert not first["locked"] and second["locked"]
+    assert client.post(path, headers=student).status_code == 409
+
+    finish(client, student, *prerequisite)
+    first, second = subject_chapters(student)
+    assert first["mastered"] and not second["locked"]
+    assert client.post(path, headers=other).status_code == 409
+    finish(client, student, *next_chapter)
+    assert subject_chapters(student)[1]["mastered"]
+    assert not subject_chapters(other)[1]["started"]
