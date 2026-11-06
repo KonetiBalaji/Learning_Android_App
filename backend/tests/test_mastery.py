@@ -396,9 +396,31 @@ def test_lesson_banks_have_valid_diagnostics_and_distinct_practice_prompts():
             assert len({choice.strip().casefold() for choice in choices}) == len(choices), key
             assert all(choice.strip() for choice in choices), key
         practice = chapter["practice"]
+        assert len(practice) >= 5, key
         assert len({prompt for prompt, _ in practice}) == len(practice), key
         assert all(prompt.strip() and answer.strip() for prompt, answer in practice), key
         assert len(chapter["rewrite_hints"]) == len(chapter["checks"]), key
+
+
+def test_starter_practice_retries_reach_the_added_questions_and_wrap():
+    from study.mastery import advance, new_lesson, snapshot
+
+    lesson = new_lesson("linear-slope", 0)
+    advance(lesson, "diagnostic", 1, None, 1)
+    advance(lesson, "diagnostic", 2, None, 2)
+    first = snapshot(lesson)["prompt"]
+    prompts = {first}
+    for now in (3, 5, 7, 9):
+        advance(lesson, "practice", None, "99", now)
+        assert snapshot(lesson)["phase"] == "coach"
+        advance(lesson, "continue", None, None, now + 1)
+        prompt = snapshot(lesson)["prompt"]
+        assert prompt not in prompts
+        prompts.add(prompt)
+    assert "Enter the slope from (1, 7) to (4, 1)." in prompts
+    advance(lesson, "practice", None, "99", 11)
+    advance(lesson, "continue", None, None, 12)
+    assert snapshot(lesson)["prompt"] == first
 
 
 def test_grade_six_math_practice_answers_match_their_operands():
