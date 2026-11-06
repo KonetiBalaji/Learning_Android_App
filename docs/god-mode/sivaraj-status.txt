@@ -1,5 +1,5 @@
 SARAS LEARNING APP — STATUS FOR SIVARAJ
-Program Director, TCS | dev | Hosted checkpoint: 8f6620f
+Program Director, TCS | promoted checkpoint: 5ba4418
 
 VERIFIED IN REPO
 - Import PDF, DOCX and TXT. Review and correct scanned PDF text.
@@ -14,9 +14,10 @@ VERIFIED IN REPO
   upload. New quizzes are immediately available in Continue studying.
 - Disposable Docker staging serves trusted HTTPS and passes the
   readiness, OCR, retrieval, owner isolation and deletion smoke checks.
-  138 backend, 4 Android unit and 15 Android emulator tests passed.
+  154 backend, 4 Android unit and 15 Android emulator tests passed.
 - Grade 1–12 Mathematics starter lessons and four Grade 6 subjects.
-  Grade 6 includes chapter unlocks, worked coaching, and private
+  All 11 Grade 6 chapters have multi-question diagnostics. The app
+  includes chapter unlocks, worked coaching, and private
   teacher/parent reports. Google sign-in passed on one private test
   account on an Android 13 phone.
 - Android targets API 36. Demo, privacy and Play listing drafts exist.

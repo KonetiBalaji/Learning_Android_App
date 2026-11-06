@@ -1,5 +1,24 @@
 # Saras dev verification report
 
+## Promoted runtime checkpoint
+
+Commit `5ba44181d85dd3eea35fa52b7583daac2109393d` passed the following checks on `dev` before `main` was fast-forwarded to the same revision.
+
+| Check | Observed result |
+|---|---|
+| Backend pytest | 154 passed, one Starlette/httpx deprecation warning |
+| Android unit tests | 4 passed, zero failures or errors |
+| Android 15 emulator | 15 passed |
+| Android build and lint | Debug and instrumentation APKs built. Lint reported zero errors and 15 warnings. |
+| Docker HTTPS staging | Passed, including document study, curriculum coaching and owner-only chapter unlock, password-based account deletion, and Google deletion page wiring with a synthetic client ID. |
+| Android release bundle | `bundleRelease` succeeded, `bundletool validate` passed, and `jarsigner` reported a verified signature from a short-lived, self-signed test certificate. The manifest identifies `com.studycompanion`, target API 36, with no debug flag. The verifier reported self-signed trust, missing timestamp, and differences between JAR file and stream verification. |
+
+[Hosted verification on dev](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42170621266) · [Docker HTTPS staging on dev](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42170621255)
+
+The Grade 6 checks validate answer-key indexes, independently recalculate all 89 math practice answers, and compare normalized prompt text across lesson and readiness banks. These checks cover the authored catalog and scoring. Validation against actual exam outcomes remains open.
+
+The [release blocker list](external-blockers.md) tracks live AI, approved branding, public hosting, Google OAuth and account deletion on the public origin, authorized Play signing, and publication. The [curriculum matrix](../product/curriculum-verification.md) tracks remaining product and device verification, including physical voice testing.
+
 ## Hosted verification of the curriculum and tutor changes
 
 Runtime revision `8f6620f` passed [backend and Android verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42166542893) and [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42166542958).
