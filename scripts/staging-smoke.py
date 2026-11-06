@@ -53,7 +53,7 @@ def upload(name, content, content_type, token):
     return call("/documents", "POST", multipart, token, 201, f"multipart/form-data; boundary={boundary}")
 
 
-def verify_disposable_restore(owner, outsider, document_id, quiz_id, readiness_result):
+def verify_disposable_restore(owner, outsider, document_id, quiz_id, readiness_result, credentials):
     compose = ["docker", "compose"]
     snapshot = subprocess.check_output(compose + ["exec", "-T", "api", "python", "-c", """
 import sqlite3
@@ -71,27 +71,43 @@ with TemporaryDirectory() as directory:
 """])
     image = subprocess.check_output(compose + ["images", "-q", "api"], text=True).strip()
     key = Path(os.environ["STUDY_STORAGE_KEY_PATH"]).resolve(strict=True)
-    fixture = json.dumps([owner, outsider, document_id, quiz_id, readiness_result]).encode()
+    fixture = json.dumps([owner, outsider, document_id, quiz_id, readiness_result, credentials]).encode()
     subprocess.run(
         ["docker", "run", "--rm", "-i", "--network", "none", "--mount", "type=volume,target=/data",
          "--mount", f"type=bind,source={key},target=/run/secrets/storage_key,readonly",
          "-e", "STUDY_STORAGE_KEY_FILE=/run/secrets/storage_key", "-e", "STUDY_GENERATION_MODE=local_practice",
          image, "python", "-c", """
 import json
+import os
 import sqlite3
 import sys
 from contextlib import closing
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from study.api import create_app
 
-owner, outsider, document_id, quiz_id, expected = json.loads(sys.stdin.buffer.readline())
+owner, outsider, document_id, quiz_id, expected, credentials = json.loads(sys.stdin.buffer.readline())
 with Path("/data/study.sqlite3").open("xb") as database:
     database.write(sys.stdin.buffer.read())
 with closing(sqlite3.connect("/data/study.sqlite3")) as database:
     assert database.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
     assert database.execute("PRAGMA foreign_key_check").fetchall() == []
+original_key = os.environ["STUDY_STORAGE_KEY_FILE"]
+with TemporaryDirectory() as directory:
+    wrong_key = Path(directory) / "wrong.key"
+    wrong_key.write_bytes(Fernet.generate_key())
+    os.environ["STUDY_STORAGE_KEY_FILE"] = str(wrong_key)
+    try:
+        create_app()
+    except RuntimeError as error:
+        assert str(error) == "The storage key does not match this database."
+    else:
+        raise AssertionError("Restored database opened with the wrong key.")
+    finally:
+        os.environ["STUDY_STORAGE_KEY_FILE"] = original_key
 with TestClient(create_app()) as client:
     headers = {"Authorization": f"Bearer {owner}"}
     documents = client.get("/documents", headers=headers)
@@ -99,12 +115,17 @@ with TestClient(create_app()) as client:
     assert client.get(f"/quizzes/{quiz_id}", headers=headers).status_code == 200
     attempt = client.post("/curriculum/readiness/grade6-math", headers=headers)
     assert attempt.status_code == 200 and attempt.json() == expected
+    login = client.post("/auth/login", json=credentials)
+    assert login.status_code == 200
+    fresh_headers = {"Authorization": "Bearer " + login.json()["token"]}
+    fresh_documents = client.get("/documents", headers=fresh_headers)
+    assert fresh_documents.status_code == 200 and fresh_documents.json() == documents.json()
     outsider_headers = {"Authorization": f"Bearer {outsider}"}
     assert client.get(f"/documents/{document_id}/offline-bundle", headers=outsider_headers).status_code == 404
 """],
         input=fixture + b"\n" + snapshot, check=True,
     )
-    print("Verified SQLite backup recovery in a fresh Docker volume with the original mounted key.")
+    print("Verified SQLite backup recovery, fresh sign-in, and rejection of an incorrect mounted key.")
 
 
 redirect = http.client.HTTPConnection(host, timeout=5)
@@ -208,7 +229,7 @@ try:
         assert call(readiness, "POST", token=owner) == attempt
         call(root + "/offline-bundle", token=outsider, expected=404)
         print("Verified existing sessions, encrypted study data and readiness results after replacing the API container.")
-        verify_disposable_restore(owner, outsider, document["id"], quiz["id"], attempt)
+        verify_disposable_restore(owner, outsider, document["id"], quiz["id"], attempt, credentials[0])
     if args.scan:
         scan = upload("sample-scan.pdf", args.scan.read_bytes(), "application/pdf", owner)
         scan_root = f'/documents/{scan["id"]}'
