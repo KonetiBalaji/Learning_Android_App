@@ -16,3 +16,7 @@ Google accounts can delete their account and associated data in Saras Settings. 
 Automated backend tests verify signed test tokens using a local test certificate, rejection of invalid claims and replay, account isolation, session revocation, and deletion. Live sign-in against a Saras OAuth client requires the configured Google Cloud project and a consented test account.
 
 [Android Credential Manager guide](https://developer.android.com/identity/sign-in/credential-manager-siwg-implementation) · [Google backend token verification](https://developers.google.com/identity/sign-in/android/backend-auth)
+
+## Live device verification
+
+On the Android 13 test phone, the debug APK used the dedicated Saras Learning Google Cloud project in Testing mode and a local backend reached through ADB forwarding. The first Google sign-in opened the Library and created one Google account and one Saras session. Signing out returned the phone to the login screen and removed the server session. Signing in again with the same Google account reopened the Library, kept the Google account count at one, and created a new session. The test used one approved Google account. Public access and the Play signing certificate remain separate release checks.
