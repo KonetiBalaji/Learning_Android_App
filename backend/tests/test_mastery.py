@@ -102,3 +102,56 @@ def test_catalog_offers_all_grades_and_the_four_grade_six_subjects(client):
     assert {chapter["subject"] for chapter in chapters if chapter["grade"] == 6} == {
         "Mathematics", "Science", "English", "Social Studies"
     }
+
+def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnostics(client):
+    from test_readiness import finish
+
+    auth = account(client)
+    percentages = "/curriculum/percentages/lesson"
+    algebra = "/curriculum/grade6-algebra/lesson"
+    geometry = "/curriculum/grade6-geometry/lesson"
+    assert all(client.post(path, headers=auth).status_code == 409 for path in (percentages, algebra, geometry))
+    finish(client, auth, "fractions", 1, "3/4", "Add the numerators and keep the denominator unchanged.")
+    finish(client, auth, "decimals", 0, "0.68", "Align the decimal points to add matching place values.")
+
+    def open_lesson(path):
+        reply = client.post(path, headers=auth)
+        assert reply.status_code == 200, reply.text
+        return reply.json()
+
+    def advance(path, current, action, **fields):
+        reply = client.post(path + "/actions", headers=auth,
+                            json={"version": current["version"], "action": action, **fields})
+        assert reply.status_code == 200, reply.text
+        return reply.json()
+
+    initial = open_lesson(percentages)
+    assert (initial["diagnostic_index"], initial["diagnostic_total"]) == (0, 3)
+    second = advance(percentages, initial, "diagnostic", choice=1)
+    assert second["phase"] == "diagnostic" and second["diagnostic_index"] == 1
+    assert advance(percentages, initial, "diagnostic", choice=1) == second
+    assert open_lesson(percentages) == second
+    coach = advance(percentages, second, "diagnostic", choice=0)
+    assert coach["phase"] == "coach" and coach["diagnostic_remaining"]
+    third = advance(percentages, coach, "continue")
+    assert third["phase"] == "diagnostic" and third["diagnostic_index"] == 2
+    practice = advance(percentages, third, "diagnostic", choice=1)
+    assert practice["phase"] == "practice" and "answer" not in practice
+    rewrite = advance(percentages, practice, "practice", response="16")
+    mastered = advance(percentages, rewrite, "rewrite", response="Multiply sixty by 0.25 to find twenty-five percent.")
+    assert mastered["phase"] == "mastered" and not mastered["diagnostic_correct"]
+    assert client.post(geometry, headers=auth).status_code == 409
+
+    lesson = open_lesson(algebra)
+    for choice in (2, 1, 3):
+        lesson = advance(algebra, lesson, "diagnostic", choice=choice)
+    assert lesson["phase"] == "practice"
+    lesson = advance(algebra, lesson, "practice", response="9")
+    lesson = advance(algebra, lesson, "rewrite", response="Subtract five from both sides and the value is seven.")
+    assert lesson["phase"] == "mastered"
+    lesson = open_lesson(geometry)
+    for choice in (1, 1, 3):
+        lesson = advance(geometry, lesson, "diagnostic", choice=choice)
+    lesson = advance(geometry, lesson, "practice", response="30")
+    lesson = advance(geometry, lesson, "rewrite", response="Multiply the base by the perpendicular height and take half.")
+    assert lesson["phase"] == "mastered"

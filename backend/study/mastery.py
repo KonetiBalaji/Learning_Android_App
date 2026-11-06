@@ -56,14 +56,22 @@ def new_lesson(identifier, started):
             "practice_index": 0, "correct": None, "feedback": ""}
 
 
+def diagnostic_items(chapter):
+    return [(chapter["prompt"], chapter["choices"], chapter["answer"]), *chapter.get("diagnostics", ())]
+
+
 def snapshot(lesson):
     chapter = CHAPTERS[lesson["chapter_id"]]
     phase = lesson["phase"]
     result = {key: lesson[key] for key in ("chapter_id", "phase", "version", "feedback")}
     if phase == "diagnostic":
-        result.update(prompt=chapter["prompt"], choices=chapter["choices"])
+        items = diagnostic_items(chapter)
+        index = lesson.get("diagnostic_index", 0)
+        prompt, choices, _ = items[index]
+        result.update(prompt=prompt, choices=choices, diagnostic_index=index, diagnostic_total=len(items))
     elif phase == "coach":
-        result.update(explanation=chapter["explanation"], example=chapter["example"])
+        result.update(explanation=chapter["explanation"], example=chapter["example"],
+                      diagnostic_remaining=0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter)))
     elif phase == "practice":
         result.update(prompt=chapter["practice"][lesson["practice_index"]][0], hint=chapter["hint"])
     elif phase == "rewrite":
@@ -77,11 +85,19 @@ def advance(lesson, action, choice, response, now):
     chapter = CHAPTERS[lesson["chapter_id"]]
     phase = lesson["phase"]
     if phase == "diagnostic" and action == "diagnostic" and choice is not None and 0 <= choice < len(chapter["choices"]):
-        lesson["correct"] = choice == chapter["answer"]
-        lesson["phase"] = "practice" if lesson["correct"] else "coach"
-        lesson["feedback"] = "Correct. Try a new example." if lesson["correct"] else "Review the worked example, then try again."
+        items = diagnostic_items(chapter)
+        index = lesson.get("diagnostic_index", 0)
+        correct = choice == items[index][2]
+        lesson["correct"] = lesson["correct"] is not False and correct
+        lesson["diagnostic_index"] = index + 1
+        if correct:
+            lesson["phase"] = "diagnostic" if index + 1 < len(items) else "practice"
+            lesson["feedback"] = "Correct. Continue to the next question." if lesson["phase"] == "diagnostic" else "Correct. Try a new example."
+        else:
+            lesson.update(phase="coach", feedback="Review the worked example, then continue.")
     elif phase == "coach" and action == "continue":
-        lesson.update(phase="practice", feedback="")
+        next_phase = "diagnostic" if 0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter)) else "practice"
+        lesson.update(phase=next_phase, feedback="")
     elif phase == "practice" and action == "practice":
         value = response.strip()
         expected = chapter["practice"][lesson["practice_index"]][1]

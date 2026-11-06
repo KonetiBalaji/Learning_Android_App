@@ -107,7 +107,9 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
     var hint by rememberSaveable(lesson.getString("chapter_id"), version) { mutableStateOf(false) }
     when (phase) {
         "diagnostic" -> {
-            Text("Diagnostic question", style = MaterialTheme.typography.titleMedium)
+            val number = lesson.optInt("diagnostic_index") + 1
+            val total = lesson.optInt("diagnostic_total", 1)
+            Text("Diagnostic question $number of $total", style = MaterialTheme.typography.titleMedium)
             Text(lesson.getString("prompt"))
             lesson.getJSONArray("choices").strings().forEachIndexed { choice, label ->
                 CurriculumButton(label, !state.busy) { model.answerCurriculum("diagnostic", choice = choice) }
@@ -124,7 +126,8 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
                 showExample = !showExample
             }
             AnimatedVisibility(showExample) { Text(example) }
-            CurriculumButton("Try a practice question", !state.busy) { model.answerCurriculum("continue") }
+            CurriculumButton(if (lesson.optBoolean("diagnostic_remaining")) "Next diagnostic question" else "Try a practice question",
+                !state.busy) { model.answerCurriculum("continue") }
         }
         "practice", "rewrite" -> {
             Text(lesson.getString("prompt"))

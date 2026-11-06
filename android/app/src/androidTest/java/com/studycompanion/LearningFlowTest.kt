@@ -168,7 +168,7 @@ class LearningFlowTest {
             rule.onNodeWithText("Mastery badge earned").assertExists()
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
-            rule.onNodeWithText("1 of 2 chapters mastered").assertExists()
+            rule.onNodeWithText("1 of 5 chapters mastered").assertExists()
             rule.onNodeWithText("Suggested next: Adding decimals").assertExists()
             tap("Adding decimals")
             phase("diagnostic")
@@ -194,6 +194,51 @@ class LearningFlowTest {
             }
             rule.waitUntil(30_000) { model.state.value.readinessCheck?.optBoolean("complete") == true }
             rule.onNodeWithText("6 / 6 correct").assertExists()
+            tap("Back to chapters")
+            tap("Finding percentages")
+            phase("diagnostic")
+            rule.onNodeWithText("Diagnostic question 1 of 3").assertExists()
+            tap("15")
+            rule.waitUntil(30_000) {
+                !model.state.value.busy && model.state.value.curriculumLesson?.optInt("diagnostic_index") == 1
+            }
+            tap("0.05")
+            phase("coach")
+            tap("Next diagnostic question")
+            phase("diagnostic")
+            rule.onNodeWithText("Diagnostic question 3 of 3").assertExists()
+
+            fun completePractice(answer: String, explanation: String) {
+                phase("practice")
+                rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement(answer)
+                tap("Check answer")
+                phase("rewrite")
+                rule.onNodeWithText("Explain in your own words").performScrollTo().performTextReplacement(explanation)
+                tap("Check explanation")
+                phase("mastered")
+                tap("Back to chapters")
+                rule.waitUntil(30_000) { !model.state.value.busy }
+            }
+
+            fun completeDiagnostic(title: String, choices: List<String>) {
+                tap(title)
+                choices.forEachIndexed { index, answer ->
+                    rule.waitUntil(30_000) {
+                        val lesson = model.state.value.curriculumLesson
+                        !model.state.value.busy && lesson?.optString("phase") == "diagnostic" &&
+                            lesson.optInt("diagnostic_index") == index
+                    }
+                    tap(answer)
+                }
+            }
+
+            tap("\$2")
+            completePractice("16", "Multiply sixty by 0.25 to find twenty-five percent.")
+            completeDiagnostic("Introduction to algebra", listOf("7", "12", "x + 3 = 9"))
+            completePractice("9", "Subtract five from both sides and the value is seven.")
+            completeDiagnostic("Area of triangles", listOf("20 cm²", "A perpendicular segment to the base line", "18 m²"))
+            completePractice("30", "Multiply the base by the perpendicular height and take half.")
+            rule.onNodeWithText("5 of 5 chapters mastered").assertExists()
         } finally {
             deleteRegressionAccount(model)
         }
