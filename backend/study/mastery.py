@@ -21,6 +21,10 @@ CHAPTERS = {
             "Combine the pieces: 2 fifths plus 3 fifths makes 5 fifths.",
             "Five fifths make one whole: 5/5 = 1.",
         ],
+        "example_variants": {
+            "Soccer": "A soccer player completed 2/5 of a drill, then completed another 3/5. In total, the player completed 5/5 of the drill.",
+            "Gaming": "A quest meter fills by 2/5 for the first challenge and 3/5 for the second. Together they fill 5/5 of the meter.",
+        },
         "practice": [("What is 2/8 + 4/8?", "3/4"), ("What is 1/7 + 3/7?", "4/7")],
         "hint": "Add the top numbers. The pieces stay the same size. You can simplify your answer.",
         "rewrite": "Explain why 3/4 + 1/4 = 1. Say what happens to the numerators and denominator.",
@@ -42,6 +46,10 @@ CHAPTERS = {
             "Add the matching place values: 20 hundredths plus 35 hundredths is 55 hundredths.",
             "Write 55 hundredths as 0.55.",
         ],
+        "example_variants": {
+            "Soccer": "A player runs 0.20 km to warm up, then runs 0.35 km in a drill. The player runs 0.55 km in total.",
+            "Gaming": "A game timer adds 0.20 seconds for one bonus and 0.35 seconds for another. The total bonus is 0.55 seconds.",
+        },
         "practice": [("What is 0.4 + 0.28?", "0.68"), ("What is 0.06 + 0.2?", "0.26")],
         "hint": "Write both numbers with two decimal places and add matching place values.",
         "rewrite": "Explain how aligning decimal points helps you add 0.30 and 0.45.",
@@ -97,6 +105,8 @@ def snapshot(lesson):
                       diagnostic_remaining=0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter)))
         if "example_steps" in chapter:
             result["example_steps"] = chapter["example_steps"]
+        if "example_variants" in chapter:
+            result["example_variants"] = chapter["example_variants"]
     elif phase == "practice":
         result.update(prompt=chapter["practice"][lesson["practice_index"]][0], hint=chapter["hint"])
     elif phase == "rewrite":

@@ -151,7 +151,13 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
                 showExample = !showExample
             }
             AnimatedVisibility(showExample) {
-                WorkedExample(example, lesson.optJSONArray("example_steps")?.strings().orEmpty(), !state.busy)
+                val variants = lesson.optJSONObject("example_variants")
+                WorkedExample(
+                    example,
+                    lesson.optJSONArray("example_steps")?.strings().orEmpty(),
+                    variants,
+                    !state.busy,
+                )
             }
             CurriculumButton(if (lesson.optBoolean("diagnostic_remaining")) "Next diagnostic question" else "Try a practice question",
                 !state.busy) { model.answerCurriculum("continue") }
@@ -184,8 +190,19 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
 }
 
 @Composable
-private fun WorkedExample(example: String, steps: List<String>, enabled: Boolean) {
+private fun WorkedExample(example: String, steps: List<String>, variants: org.json.JSONObject?, enabled: Boolean) {
     Column {
+        if (variants != null) {
+            var theme by rememberSaveable(example) { mutableStateOf<String?>(null) }
+            Text("Choose an example theme")
+            for (option in listOf("Soccer", "Gaming")) {
+                if (variants.has(option)) CurriculumButton("$option example", enabled) { theme = option }
+            }
+            theme?.let { selected ->
+                Text(variants.getString(selected))
+                CurriculumButton("Clear example theme", enabled) { theme = null }
+            }
+        }
         Text(example)
         if (steps.isNotEmpty()) {
             var index by rememberSaveable(example) { mutableStateOf(0) }
