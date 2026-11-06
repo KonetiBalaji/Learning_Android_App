@@ -476,6 +476,9 @@ class LearningFlowTest {
                 tap("Dictate response")
                 rule.onNodeWithText("On-device dictation is unavailable. You can type your response.").assertExists()
             }
+            if (arguments.getString("verifySpokenDictation") == "true") {
+                verifySpokenDictation { tap("Dictate response") }
+            }
             rule.onNodeWithText("Explain in your own words").performScrollTo()
                 .performTextReplacement("I add the numerators to combine both groups.")
             tap("Check explanation")
@@ -786,6 +789,31 @@ class LearningFlowTest {
             rule.onNodeWithText("Open saved expiry-biology").assertDoesNotExist()
         } finally {
             deleteRegressionAccount(model)
+        }
+    }
+
+    private fun verifySpokenDictation(startDictation: () -> Unit) {
+        val initialized = java.util.concurrent.CompletableFuture<Int>()
+        val engine = android.speech.tts.TextToSpeech(rule.activity.applicationContext) { initialized.complete(it) }
+        try {
+            assertEquals(android.speech.tts.TextToSpeech.SUCCESS, initialized.get(15, java.util.concurrent.TimeUnit.SECONDS))
+            val voice = engine.voices.first {
+                it.locale.language == "en" && !it.isNetworkConnectionRequired && "notInstalled" !in it.features.orEmpty()
+            }
+            assertEquals(android.speech.tts.TextToSpeech.SUCCESS, engine.setVoice(voice))
+            startDictation()
+            rule.waitUntil(5_000) {
+                rule.onAllNodesWithText("Listening…").fetchSemanticsNodes().isNotEmpty()
+            }
+            val sample = "Purple elephant"
+            assertEquals(android.speech.tts.TextToSpeech.SUCCESS,
+                engine.speak(sample, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "dictation-sample"))
+            rule.waitUntil(15_000) {
+                rule.onAllNodesWithText("Review the transcript before submitting.").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithText(sample, substring = true, ignoreCase = true).assertExists()
+        } finally {
+            engine.shutdown()
         }
     }
 
