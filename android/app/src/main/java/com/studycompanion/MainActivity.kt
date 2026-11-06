@@ -149,6 +149,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                 "home" -> {
                     Title("Your learning library", "Turn your own material into a focused practice session.")
                     PracticeNotice(state.aiMode)
+                    OutlinedButton(onClick = model::showCurriculum, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                        Text("Explore grade lessons")
+                    }
                     OutlinedButton(onClick = model::showOffline, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Study saved material offline") }
                     Button(onClick = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain")) },
                         enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("+ Upload study material") }
@@ -176,6 +179,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                 }
                 "configure" -> state.document?.let { doc -> Configure(doc, state.busy, state.aiMode, state.studyConfig, model) { confirmation = "document" } }
                 "offline" -> OfflineStudyScreen(state, model)
+                "curriculum" -> CurriculumScreen(state, model)
                 "ocr" -> OcrReview(state, model)
                 "search" -> SemanticSearch(state, model)
                 "tutor" -> DocumentTutor(state, model)

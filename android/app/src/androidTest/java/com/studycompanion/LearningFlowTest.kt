@@ -36,7 +36,49 @@ class LearningFlowTest {
         return "http://$host:$port"
     }
 
-    private val studyServer get() = fixtureUrl(18763)
+    private val studyServer get() =
+        fixtureUrl(InstrumentationRegistry.getArguments().getString("studyPort", "18763").toInt())
+
+    @Test fun gradeLessonCoachesAndUnlocksTheNextChapter() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
+        signInForRegression(model, "mastery")
+        try {
+            fun tap(label: String) = rule.onNodeWithText(label, substring = false).performScrollTo().performClick()
+            fun phase(expected: String) = rule.waitUntil(30_000) {
+                !model.state.value.busy && model.state.value.curriculumLesson?.optString("phase") == expected
+            }
+            tap("Explore grade lessons")
+            rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
+            tap("Grade 6")
+            tap("Mathematics")
+            rule.onNodeWithText("Adding decimals · Locked").performScrollTo().assertIsNotEnabled()
+            tap("Adding fractions")
+            phase("diagnostic")
+            tap("1/2")
+            phase("coach")
+            rule.onNodeWithText("Worked example").assertExists()
+            tap("Try a practice question")
+            phase("practice")
+            tap("Show hint")
+            rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("6/8")
+            tap("Check answer")
+            phase("rewrite")
+            rule.onNodeWithText("Explain in your own words").performScrollTo()
+                .performTextReplacement("Add the numerators and keep the denominator unchanged.")
+            tap("Check explanation")
+            phase("mastered")
+            rule.onNodeWithText("Concept mastered").assertExists()
+            tap("Back to chapters")
+            tap("Adding decimals")
+            phase("diagnostic")
+            assertEquals("decimals", model.state.value.curriculumLesson!!.getString("chapter_id"))
+        } finally {
+            deleteRegressionAccount(model)
+        }
+    }
 
     @Test fun googleSignInReportsUnconfiguredServerWithoutChangingSession() {
         lateinit var model: StudyViewModel

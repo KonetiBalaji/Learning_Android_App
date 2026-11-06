@@ -1,0 +1,105 @@
+package com.studycompanion
+
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import com.studycompanion.data.strings
+
+@Composable
+fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
+    var grade by rememberSaveable { mutableStateOf<Int?>(null) }
+    var subject by rememberSaveable { mutableStateOf<String?>(null) }
+    val lesson = state.curriculumLesson
+    if (lesson == null) {
+        when {
+            grade == null -> {
+                Text("Select your grade", style = MaterialTheme.typography.headlineSmall)
+                val grades = state.curriculumChapters.map { it.getInt("grade") }.toSet()
+                for (number in 1..12) {
+                    CurriculumButton("Grade $number" + if (number !in grades) " · no lessons yet" else "",
+                        !state.busy && number in grades) { grade = number }
+                }
+            }
+            subject == null -> {
+                Text("Grade $grade · Select a subject", style = MaterialTheme.typography.headlineSmall)
+                state.curriculumChapters.filter { it.getInt("grade") == grade }
+                    .map { it.getString("subject") }.distinct().forEach { name ->
+                        CurriculumButton(name, !state.busy) { subject = name }
+                    }
+                CurriculumButton("Back to grades", !state.busy) { grade = null }
+            }
+            else -> {
+                Text("$subject · Chapters", style = MaterialTheme.typography.headlineSmall)
+                state.curriculumChapters.filter { it.getInt("grade") == grade && it.getString("subject") == subject }
+                    .forEach { chapter ->
+                        val label = when {
+                            chapter.getBoolean("mastered") -> " · Mastered"
+                            chapter.getBoolean("locked") -> " · Locked"
+                            else -> ""
+                        }
+                        CurriculumButton(chapter.getString("title") + label, !state.busy && !chapter.getBoolean("locked")) {
+                            model.openCurriculumChapter(chapter.getString("id"))
+                        }
+                    }
+                CurriculumButton("Back to subjects", !state.busy) { subject = null }
+            }
+        }
+        return
+    }
+
+    val chapter = state.curriculumChapters.firstOrNull { it.getString("id") == lesson.getString("chapter_id") }
+    Text(chapter?.getString("title").orEmpty(), style = MaterialTheme.typography.headlineSmall)
+    lesson.getString("feedback").takeIf(String::isNotEmpty)?.let { Text(it) }
+    val phase = lesson.getString("phase")
+    val version = lesson.getInt("version")
+    var response by rememberSaveable(lesson.getString("chapter_id"), version) { mutableStateOf("") }
+    var hint by rememberSaveable(lesson.getString("chapter_id"), version) { mutableStateOf(false) }
+    when (phase) {
+        "diagnostic" -> {
+            Text("Diagnostic question", style = MaterialTheme.typography.titleMedium)
+            Text(lesson.getString("prompt"))
+            lesson.getJSONArray("choices").strings().forEachIndexed { choice, label ->
+                CurriculumButton(label, !state.busy) { model.answerCurriculum("diagnostic", choice = choice) }
+            }
+        }
+        "coach" -> {
+            Text("Worked example", style = MaterialTheme.typography.titleMedium)
+            Text(lesson.getString("explanation"))
+            Text(lesson.getString("example"))
+            CurriculumButton("Try a practice question", !state.busy) { model.answerCurriculum("continue") }
+        }
+        "practice", "rewrite" -> {
+            Text(lesson.getString("prompt"))
+            if (phase == "practice") {
+                CurriculumButton("Show hint", !state.busy) { hint = true }
+                if (hint) Text(lesson.getString("hint"))
+            }
+            OutlinedTextField(response, { if (it.length <= 1000) response = it }, modifier = Modifier.fillMaxWidth(),
+                enabled = !state.busy, label = { Text(if (phase == "practice") "Your answer" else "Explain in your own words") })
+            Button(onClick = { model.answerCurriculum(phase, response = response) }, enabled = !state.busy && response.isNotBlank()) {
+                Text(if (phase == "practice") "Check answer" else "Check explanation")
+            }
+            if (phase == "rewrite") CurriculumButton("Review the worked example", !state.busy) { model.answerCurriculum("review") }
+        }
+        "mastered" -> {
+            Text("Concept mastered", style = MaterialTheme.typography.titleLarge)
+            Text("Elapsed time: ${lesson.getInt("elapsed_seconds")} seconds")
+            Text("Verified against the lesson's answer and explanation checklist.")
+        }
+    }
+    CurriculumButton("Back to chapters", !state.busy, model::closeCurriculumChapter)
+}
+
+@Composable
+private fun CurriculumButton(text: String, enabled: Boolean, action: () -> Unit) {
+    OutlinedButton(onClick = action, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(text) }
+}

@@ -30,6 +30,7 @@ from .flashcards import from_question, public_card, review as rate_flashcard
 from .processing import analyze_upload, update_review_state
 from .semantic import SemanticUnavailable, build_index, fingerprint, search as semantic_search
 from .adaptive import recommend
+from . import mastery
 from .document_tutor import reply as tutor_reply
 from .offline import OfflineAttempt, reconstruct as reconstruct_offline
 
@@ -37,6 +38,13 @@ from .offline import OfflineAttempt, reconstruct as reconstruct_offline
 class Credentials(BaseModel):
     username: str = Field(min_length=3, max_length=80, pattern=r"^[a-zA-Z0-9_.-]+$")
     password: str = Field(min_length=10, max_length=128)
+
+
+class MasteryAction(BaseModel):
+    action: Literal["diagnostic", "continue", "practice", "rewrite", "review"]
+    version: int = Field(ge=0)
+    choice: int | None = Field(default=None, ge=0, le=3)
+    response: str = Field(default="", max_length=1000)
 
 
 class GoogleCredential(BaseModel):
@@ -238,6 +246,46 @@ def create_app(data_dir: Path | None = None):
         store.db.execute("INSERT INTO sessions VALUES (?,?,?)", (hashlib.sha256(token.encode()).hexdigest(), user, time.time() + 30 * 86400))
         store.db.commit()
         return {"token": token, "owner_id": user, "expires_in": 30 * 86400}
+
+    def mastery_id(user, chapter):
+        return f"mastery:{user}:{chapter}"
+
+    def mastery_progress(user):
+        return {lesson["chapter_id"] for lesson in store.all(user, "mastery") if lesson["phase"] == "mastered"}
+
+    @app.get("/curriculum")
+    def curriculum(user=Depends(owner)):
+        with store.lock:
+            return mastery.catalog(mastery_progress(user))
+
+    @app.post("/curriculum/{chapter}/lesson")
+    def open_mastery_lesson(chapter: str, user=Depends(owner)):
+        material = mastery.CHAPTERS.get(chapter)
+        if material is None:
+            raise HTTPException(404, "Chapter not found.")
+        identifier = mastery_id(user, chapter)
+        with store.lock:
+            if material["requires"] and material["requires"] not in mastery_progress(user):
+                raise HTTPException(409, "Complete the previous chapter first.")
+            lesson = store.get(identifier, user, "mastery")
+            if lesson is None:
+                lesson = mastery.new_lesson(chapter, time.time())
+                store.save(identifier, user, "mastery", identifier, lesson["started"], lesson)
+            return mastery.snapshot(lesson)
+
+    @app.post("/curriculum/{chapter}/lesson/actions")
+    def answer_mastery_lesson(chapter: str, body: MasteryAction, user=Depends(owner)):
+        identifier = mastery_id(user, chapter)
+        with store.lock:
+            lesson = record(identifier, user, "mastery")
+            if lesson["version"] != body.version:
+                return mastery.snapshot(lesson)
+            try:
+                mastery.advance(lesson, body.action, body.choice, body.response, time.time())
+            except ValueError as error:
+                raise HTTPException(422, str(error)) from None
+            store.save(identifier, user, "mastery", identifier, lesson["started"], lesson)
+            return mastery.snapshot(lesson)
 
     @app.get("/health")
     def health():

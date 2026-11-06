@@ -54,6 +54,8 @@ data class StudyState(
     val offlineDocuments: List<JSONObject> = emptyList(),
     val offlineBundle: JSONObject? = null,
     val offlineQuizId: String? = null,
+    val curriculumChapters: List<JSONObject> = emptyList(),
+    val curriculumLesson: JSONObject? = null,
 )
 
 class StudyViewModel internal constructor(application: Application, private val repository: StudyRepository) : AndroidViewModel(application) {
@@ -125,6 +127,7 @@ class StudyViewModel internal constructor(application: Application, private val 
         if (current.busy) return
         when (current.screen) {
             "ocr" -> navigate(current.ocrReturn)
+            "curriculum" -> if (current.curriculumLesson != null) closeCurriculumChapter() else navigate("home")
             "search", "tutor", "quiz" -> navigate(if (current.document != null) "configure" else "home")
             "mistakes", "adaptive", "flashcards" -> navigate(if (current.results != null) "results" else "home")
             "offline" -> when {
@@ -214,6 +217,33 @@ class StudyViewModel internal constructor(application: Application, private val 
                 ocrPage = if (scanExists) it.ocrPage else null,
                 ocrPages = if (scanExists) it.ocrPages else emptyList(),
                 offlineDocuments = savedDocuments, offlineBundle = refreshed, offlineQuizId = if (refreshed == null) null else it.offlineQuizId)
+        }
+    }
+
+    fun showCurriculum() = run {
+        val chapters = JSONArray(repository.call("/curriculum")).objects()
+        mutable.update { it.copy(screen = "curriculum", curriculumChapters = chapters, curriculumLesson = null) }
+    }
+
+    fun openCurriculumChapter(id: String) = run {
+        val lesson = JSONObject(repository.call("/curriculum/$id/lesson", "POST"))
+        mutable.update { it.copy(curriculumLesson = lesson) }
+    }
+
+    fun closeCurriculumChapter() {
+        mutable.update { it.copy(curriculumLesson = null) }
+    }
+
+    fun answerCurriculum(action: String, choice: Int? = null, response: String = "") {
+        val current = state.value.curriculumLesson ?: return
+        val id = current.getString("chapter_id")
+        val body = JSONObject().put("action", action).put("version", current.getInt("version"))
+            .put("response", response).apply { if (choice != null) put("choice", choice) }
+        run {
+            val lesson = JSONObject(repository.call("/curriculum/$id/lesson/actions", "POST", body))
+            val chapters = if (lesson.getString("phase") == "mastered") JSONArray(repository.call("/curriculum")).objects()
+                else state.value.curriculumChapters
+            mutable.update { it.copy(curriculumLesson = lesson, curriculumChapters = chapters) }
         }
     }
 

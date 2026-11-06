@@ -5,6 +5,121 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/curriculum": {
+      "get": {
+        "summary": "Curriculum",
+        "operationId": "curriculum_curriculum_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/curriculum/{chapter}/lesson": {
+      "post": {
+        "summary": "Open Mastery Lesson",
+        "operationId": "open_mastery_lesson_curriculum__chapter__lesson_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chapter",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Chapter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/curriculum/{chapter}/lesson/actions": {
+      "post": {
+        "summary": "Answer Mastery Lesson",
+        "operationId": "answer_mastery_lesson_curriculum__chapter__lesson_actions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chapter",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Chapter"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MasteryAction"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -1777,6 +1892,51 @@
           "created"
         ],
         "title": "History"
+      },
+      "MasteryAction": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "diagnostic",
+              "continue",
+              "practice",
+              "rewrite",
+              "review"
+            ],
+            "title": "Action"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version"
+          },
+          "choice": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice"
+          },
+          "response": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Response",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "version"
+        ],
+        "title": "MasteryAction"
       },
       "Mistake": {
         "properties": {
