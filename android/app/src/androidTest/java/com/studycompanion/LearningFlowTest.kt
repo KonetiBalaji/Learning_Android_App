@@ -247,6 +247,36 @@ class LearningFlowTest {
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
             rule.onNodeWithText("The water cycle · Repeated difficulty").assertExists()
+            rule.onNodeWithText("Runoff and infiltration · Locked").performScrollTo().assertIsNotEnabled()
+            tap("The water cycle · Repeated difficulty")
+            phase("coach")
+            tap("Try a practice question")
+            phase("practice")
+            rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("precipitation")
+            tap("Check answer")
+            phase("rewrite")
+            rule.onNodeWithText("Explain in your own words").performScrollTo()
+                .performTextReplacement("Lake water evaporates, condenses into clouds, and falls as rain.")
+            tap("Check explanation")
+            phase("mastered")
+            tap("Continue to Runoff and infiltration")
+            phase("diagnostic")
+            tap("Runoff")
+            rule.waitUntil(30_000) {
+                !model.state.value.busy && model.state.value.curriculumLesson?.optInt("diagnostic_index") == 1
+            }
+            tap("Loose garden soil")
+            phase("practice")
+            rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("infiltration")
+            tap("Check answer")
+            phase("rewrite")
+            rule.onNodeWithText("Explain in your own words").performScrollTo()
+                .performTextReplacement("Runoff flows over the surface while infiltration moves water into soil.")
+            tap("Check explanation")
+            phase("mastered")
+            tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            rule.onNodeWithText("3 of 3 chapters mastered").assertExists()
             tap("Back to subjects")
             verifyPath(
                 "English", "Complete sentences", "Combining related sentences",
