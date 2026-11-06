@@ -2,6 +2,7 @@
 import argparse
 import http.client
 import json
+import os
 import secrets
 import ssl
 import subprocess
@@ -50,6 +51,60 @@ def upload(name, content, content_type, token):
         f'Content-Type: {content_type}\r\n\r\n'
     ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
     return call("/documents", "POST", multipart, token, 201, f"multipart/form-data; boundary={boundary}")
+
+
+def verify_disposable_restore(owner, outsider, document_id, quiz_id, readiness_result):
+    compose = ["docker", "compose"]
+    snapshot = subprocess.check_output(compose + ["exec", "-T", "api", "python", "-c", """
+import sqlite3
+import sys
+from contextlib import closing
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+with TemporaryDirectory() as directory:
+    target = Path(directory) / "backup.sqlite3"
+    with closing(sqlite3.connect("file:/data/study.sqlite3?mode=ro", uri=True)) as source:
+        with closing(sqlite3.connect(target)) as backup:
+            source.backup(backup)
+    sys.stdout.buffer.write(target.read_bytes())
+"""])
+    image = subprocess.check_output(compose + ["images", "-q", "api"], text=True).strip()
+    key = Path(os.environ["STUDY_STORAGE_KEY_PATH"]).resolve(strict=True)
+    fixture = json.dumps([owner, outsider, document_id, quiz_id, readiness_result]).encode()
+    subprocess.run(
+        ["docker", "run", "--rm", "-i", "--network", "none", "--mount", "type=volume,target=/data",
+         "--mount", f"type=bind,source={key},target=/run/secrets/storage_key,readonly",
+         "-e", "STUDY_STORAGE_KEY_FILE=/run/secrets/storage_key", "-e", "STUDY_GENERATION_MODE=local_practice",
+         image, "python", "-c", """
+import json
+import sqlite3
+import sys
+from contextlib import closing
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+from study.api import create_app
+
+owner, outsider, document_id, quiz_id, expected = json.loads(sys.stdin.buffer.readline())
+with Path("/data/study.sqlite3").open("xb") as database:
+    database.write(sys.stdin.buffer.read())
+with closing(sqlite3.connect("/data/study.sqlite3")) as database:
+    assert database.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
+    assert database.execute("PRAGMA foreign_key_check").fetchall() == []
+with TestClient(create_app()) as client:
+    headers = {"Authorization": f"Bearer {owner}"}
+    documents = client.get("/documents", headers=headers)
+    assert documents.status_code == 200 and documents.json()[0]["id"] == document_id
+    assert client.get(f"/quizzes/{quiz_id}", headers=headers).status_code == 200
+    attempt = client.post("/curriculum/readiness/grade6-math", headers=headers)
+    assert attempt.status_code == 200 and attempt.json() == expected
+    outsider_headers = {"Authorization": f"Bearer {outsider}"}
+    assert client.get(f"/documents/{document_id}/offline-bundle", headers=outsider_headers).status_code == 404
+"""],
+        input=fixture + b"\n" + snapshot, check=True,
+    )
+    print("Verified SQLite backup recovery in a fresh Docker volume with the original mounted key.")
 
 
 redirect = http.client.HTTPConnection(host, timeout=5)
@@ -153,6 +208,7 @@ try:
         assert call(readiness, "POST", token=owner) == attempt
         call(root + "/offline-bundle", token=outsider, expected=404)
         print("Verified existing sessions, encrypted study data and readiness results after replacing the API container.")
+        verify_disposable_restore(owner, outsider, document["id"], quiz["id"], attempt)
     if args.scan:
         scan = upload("sample-scan.pdf", args.scan.read_bytes(), "application/pdf", owner)
         scan_root = f'/documents/{scan["id"]}'
