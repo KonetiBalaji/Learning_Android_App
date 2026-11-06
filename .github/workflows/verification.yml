@@ -18,6 +18,10 @@ jobs:
           cache-dependency-path: backend/requirements-lock.txt
       - name: Install backend dependencies
         run: python -m pip install -r backend/requirements-lock.txt
+      - name: Verify the published API contract
+        run: |
+          python scripts/export-contract.py
+          git diff --exit-code -- shared/contracts/openapi.json
       - name: Run backend tests
         run: python -m pytest backend/tests -q
       - uses: actions/setup-java@v4
