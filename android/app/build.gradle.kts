@@ -23,6 +23,9 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    if (providers.gradleProperty("sarasQaInstall").orNull == "true") {
+        buildTypes.getByName("debug").applicationIdSuffix = ".qa"
+    }
     if (signingRequested) {
         signingConfigs.create("release") {
             storeFile = file(releaseSigning.getValue("SARAS_KEYSTORE_PATH")!!)

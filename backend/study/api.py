@@ -4,6 +4,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import secrets
 import sqlite3
 import time
@@ -18,7 +19,7 @@ from google.oauth2.id_token import verify_oauth2_token
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field, SecretStr, ValidationError
+from pydantic import BaseModel, Field, SecretStr, ValidationError, field_validator
 from starlette.responses import HTMLResponse, JSONResponse
 
 from .documents import MAX_BYTES, MAX_TEXT, DocumentError, extract, retrieve, structure
@@ -36,8 +37,25 @@ from .offline import OfflineAttempt, reconstruct as reconstruct_offline
 
 
 class Credentials(BaseModel):
-    username: str = Field(min_length=3, max_length=80, pattern=r"^[a-zA-Z0-9_.-]+$")
+    # Retain the wire field name for existing clients.
+    username: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=10, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def validate_identifier(cls, identifier):
+        if "@" not in identifier:
+            if re.fullmatch(r"[a-zA-Z0-9_.-]{3,80}", identifier):
+                return identifier
+        else:
+            local, _, domain = identifier.partition("@")
+            labels = domain.split(".")
+            if (0 < len(local) <= 64 and not local.startswith(".") and not local.endswith(".") and ".." not in local
+                    and re.fullmatch(r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+", local)
+                    and len(labels) >= 2 and re.fullmatch(r"[a-zA-Z]{2,63}", labels[-1])
+                    and all(re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label) for label in labels)):
+                return identifier
+        raise ValueError("Enter a valid email address or username.")
 
 
 class MasteryAction(BaseModel):
@@ -365,11 +383,11 @@ def create_app(data_dir: Path | None = None):
     def authenticate(action: Literal["register", "login"], body: Credentials, request: Request):
         limit_auth_attempt(request)
         with store.lock:
-            username = body.username.lower()
+            username = store.password_account_key(body.username)
             row = store.db.execute("SELECT * FROM users WHERE name=?", (username,)).fetchone()
             if action == "register":
                 if row:
-                    raise HTTPException(409, "This username is already taken.")
+                    raise HTTPException(409, "This email or username is already in use.")
                 salt = os.urandom(16)
                 password = hashlib.scrypt(body.password.encode(), salt=salt, n=16384, r=8, p=1)
                 user = str(uuid.uuid4())
@@ -378,7 +396,7 @@ def create_app(data_dir: Path | None = None):
             salt = row["salt"] if row else b"0" * 16
             password = hashlib.scrypt(body.password.encode(), salt=salt, n=16384, r=8, p=1)
             if not row or not hmac.compare_digest(password, row["password"]):
-                raise HTTPException(401, "Username or password is incorrect.")
+                raise HTTPException(401, "Email, username or password is incorrect.")
             return session(row["id"])
 
     @app.delete("/auth/session", status_code=204)
@@ -400,7 +418,7 @@ def create_app(data_dir: Path | None = None):
     def deletion_page(message="", status=200, *, show_form=True):
         form = """
         <form method="post" action="/delete-account">
-          <p><label>Username <input name="username" required maxlength="80" autocomplete="username"></label></p>
+          <p><label>Email or username <input name="username" required maxlength="254" autocomplete="username"></label></p>
           <p><label>Password <input name="password" type="password" required maxlength="128" autocomplete="current-password"></label></p>
           <p><label><input type="checkbox" name="confirm" value="yes" required> I understand this permanently deletes my account and study data.</label></p>
           <button type="submit">Delete my Saras account</button>
@@ -431,7 +449,7 @@ def create_app(data_dir: Path | None = None):
             try:
                 credentials = Credentials(username=form.get("username"), password=form.get("password"))
             except ValidationError:
-                return deletion_page("Enter a valid username and password.", 400)
+                return deletion_page("Enter a valid email or username and password.", 400)
 
         def verify_and_delete():
             with store.lock:
@@ -441,7 +459,7 @@ def create_app(data_dir: Path | None = None):
         try:
             await asyncio.to_thread(verify_and_delete)
         except HTTPException as error:
-            message = "Too many attempts. Try again in a minute." if error.status_code == 429 else "Username or password is incorrect."
+            message = "Too many attempts. Try again in a minute." if error.status_code == 429 else "Email, username or password is incorrect."
             return deletion_page(message, error.status_code)
         return deletion_page("Your Saras account and server study data were deleted.", show_form=False)
 

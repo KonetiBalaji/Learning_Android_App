@@ -1,3 +1,5 @@
+import base64
+import hmac
 import json
 import os
 import sqlite3
@@ -21,7 +23,9 @@ class Store:
                 file.write(Fernet.generate_key())
             os.chmod(key_path, 0o600)
         try:
-            self.cipher = Fernet(Path(external_key).read_bytes().strip() if external_key else key_path.read_bytes())
+            storage_key = Path(external_key).read_bytes().strip() if external_key else key_path.read_bytes()
+            self.cipher = Fernet(storage_key)
+            self.email_lookup_key = hmac.digest(base64.urlsafe_b64decode(storage_key), b"saras-email-lookup-v1", "sha256")
         except (OSError, ValueError):
             raise RuntimeError("The configured storage key is unavailable or invalid.") from None
         self.lock = threading.RLock()
@@ -53,6 +57,13 @@ class Store:
             self.db.close()
             raise RuntimeError("The storage key does not match this database.") from None
         self.db.commit()
+
+    def password_account_key(self, identifier):
+        normalized = identifier.lower()
+        if "@" not in normalized:
+            return normalized
+        digest = hmac.digest(self.email_lookup_key, normalized.encode("ascii"), "sha256").hex()
+        return "email:" + digest
 
     def encode(self, value):
         return self.cipher.encrypt(json.dumps(value).encode())

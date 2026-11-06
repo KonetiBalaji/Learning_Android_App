@@ -1583,9 +1583,8 @@
         "properties": {
           "username": {
             "type": "string",
-            "maxLength": 80,
+            "maxLength": 254,
             "minLength": 3,
-            "pattern": "^[a-zA-Z0-9_.-]+$",
             "title": "Username"
           },
           "password": {

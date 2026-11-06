@@ -23,6 +23,11 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
         when {
             grade == null -> {
                 Text("Select your grade", style = MaterialTheme.typography.headlineSmall)
+                val badges = state.curriculumChapters.filter { it.getBoolean("mastered") }
+                if (badges.isNotEmpty()) {
+                    Text("Mastery badges", style = MaterialTheme.typography.titleMedium)
+                    badges.forEach { Text(it.getString("title") + " badge earned") }
+                }
                 val grades = state.curriculumChapters.map { it.getInt("grade") }.toSet()
                 for (number in 1..12) {
                     CurriculumButton("Grade $number" + if (number !in grades) " · no lessons yet" else "",
@@ -92,6 +97,7 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
         }
         "mastered" -> {
             Text("Concept mastered", style = MaterialTheme.typography.titleLarge)
+            Text("Mastery badge earned")
             Text("Elapsed time: ${lesson.getInt("elapsed_seconds")} seconds")
             Text("Verified against the lesson's answer and explanation checklist.")
         }

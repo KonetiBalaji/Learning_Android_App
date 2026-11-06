@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -56,9 +57,17 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(
+            val dark = isSystemInDarkTheme()
+            SideEffect { WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !dark }
+            MaterialTheme(colorScheme = if (dark) darkColorScheme(
+                primary = Color(0xFFA6D9C9), onPrimary = Color(0xFF00382D),
+                primaryContainer = Color(0xFF145043), onPrimaryContainer = Color(0xFFC4F4E4),
+                secondary = Color(0xFFB6C8E1), surfaceVariant = Color(0xFF3F4945),
+                onSurfaceVariant = Color(0xFFBFC9C4), background = Color(0xFF111714),
+                onBackground = Color(0xFFE2E9E4), surface = Color(0xFF111714),
+                onSurface = Color(0xFFE2E9E4)
+            ) else lightColorScheme(
                 primary = Color(0xFF246B5C), onPrimary = Color.White,
                 primaryContainer = Color(0xFFD7EEE3), onPrimaryContainer = Color(0xFF163D33), secondary = Color(0xFF536A82),
                 surfaceVariant = Color(0xFFE8EEE9), onSurfaceVariant = Color(0xFF47534D),
@@ -276,7 +285,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     var register by rememberSaveable { mutableStateOf(true) }
     Title("Make room for understanding.", "Upload your notes. Practice one question at a time. Learn from every answer.")
     PracticeNotice()
-    OutlinedTextField(username, { username = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+    OutlinedTextField(username, { username = it }, label = { Text("Email or username") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     OutlinedTextField(password, { password = it }, label = { Text("Password · 10+ characters") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     OutlinedTextField(server, { server = it }, label = { Text("Study server URL") }, supportingText = { Text("Android emulator: http://10.0.2.2:8000") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
     Button(onClick = { model.authenticate(username, password, register, server); password = "" }, enabled = !busy && username.length >= 3 && password.length >= 10, modifier = Modifier.fillMaxWidth()) {

@@ -39,6 +39,37 @@ class LearningFlowTest {
     private val studyServer get() =
         fixtureUrl(InstrumentationRegistry.getArguments().getString("studyPort", "18763").toInt())
 
+    @Test fun loginScreenAdaptsToSystemDarkMode() {
+        assumeTrue(android.os.Build.VERSION.SDK_INT >= 31)
+        val manager = rule.activity.getSystemService(android.app.UiModeManager::class.java)
+        try {
+            rule.runOnIdle { manager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_YES) }
+            rule.waitUntil(30_000) {
+                rule.activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+            rule.onNodeWithText("Email or username").assertExists()
+            val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+            assertTrue("The login screen should render the dark surface",
+                (0 until bitmap.height step 24).any { y ->
+                    bitmap.getPixel(bitmap.width - 10, y) == android.graphics.Color.rgb(17, 23, 20)
+                })
+            rule.runOnIdle { manager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_NO) }
+            rule.waitUntil(30_000) {
+                rule.activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_NO
+            }
+            rule.onNodeWithText("Email or username").assertExists()
+            val light = rule.onRoot().captureToImage().asAndroidBitmap()
+            assertTrue("The login screen should render the light background",
+                (0 until light.height step 24).any { y ->
+                    light.getPixel(light.width - 10, y) == android.graphics.Color.rgb(246, 247, 242)
+                })
+        } finally {
+            rule.runOnIdle { manager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_AUTO) }
+        }
+    }
+
     @Test fun gradeLessonCoachesAndUnlocksTheNextChapter() {
         lateinit var model: StudyViewModel
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
@@ -71,6 +102,7 @@ class LearningFlowTest {
             tap("Check explanation")
             phase("mastered")
             rule.onNodeWithText("Concept mastered").assertExists()
+            rule.onNodeWithText("Mastery badge earned").assertExists()
             tap("Back to chapters")
             tap("Adding decimals")
             phase("diagnostic")
@@ -100,12 +132,12 @@ class LearningFlowTest {
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
         rule.waitUntil(30_000) { !model.state.value.busy }
         check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
-        val first = "accounta" + System.currentTimeMillis()
+        val first = "accounta" + System.currentTimeMillis() + "@example.test"
         val second = "accountb" + System.currentTimeMillis()
         val password = "disposable-account-password"
 
         fun enter(username: String, value: String = password) {
-            for ((label, text) in listOf("Username" to username, "Password · 10+ characters" to value, "Study server URL" to studyServer)) {
+            for ((label, text) in listOf("Email or username" to username, "Password · 10+ characters" to value, "Study server URL" to studyServer)) {
                 val field = rule.onNodeWithText(label, substring = false).performScrollTo()
                 field.performTextReplacement(text)
             }
@@ -161,7 +193,7 @@ class LearningFlowTest {
             rule.onNodeWithText("Already have an account? Sign in").performScrollTo().performClick()
             enter(second, "incorrect-disposable-password")
             submit("Sign in", false)
-            rule.onNodeWithText("Username or password is incorrect.").assertExists()
+            rule.onNodeWithText("Email, username or password is incorrect.").assertExists()
             assertFalse(model.state.value.signedIn)
             enter(second)
             submit("Sign in", true)
@@ -170,7 +202,7 @@ class LearningFlowTest {
             createdAccounts -= second
 
             rule.onNodeWithText("Already have an account? Sign in").performScrollTo().performClick()
-            enter(first)
+            enter(first.uppercase(java.util.Locale.ROOT))
             submit("Sign in", true)
             assertEquals(owner, model.session.ownerId)
             assertEquals(listOf(document), model.state.value.documents.map { it.getString("id") })
@@ -424,7 +456,7 @@ class LearningFlowTest {
             rule.runOnIdle { model.signOut() }
             rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
         }
-        rule.onNodeWithText("Username").performScrollTo().performTextInput("fallback" + System.currentTimeMillis())
+        rule.onNodeWithText("Email or username").performScrollTo().performTextInput("fallback" + System.currentTimeMillis())
         rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-fallback-password")
         rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(fixtureUrl(18764))
         rule.onNodeWithText("Create your study account").performScrollTo().performClick()
@@ -474,7 +506,7 @@ class LearningFlowTest {
             Vacuoles store water and dissolved substances within plant cells.
         """.trimIndent()
         val username = "ocr" + System.currentTimeMillis()
-        rule.onNodeWithText("Username").performScrollTo().performTextInput(username)
+        rule.onNodeWithText("Email or username").performScrollTo().performTextInput(username)
         rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-scan-password")
         rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(studyServer)
         rule.onNodeWithText("Create your study account").performScrollTo().performClick()
@@ -549,7 +581,7 @@ class LearningFlowTest {
         }
         screenshot("01-welcome")
         val username = "qa" + System.currentTimeMillis()
-        rule.onNodeWithText("Username").performScrollTo().performTextInput(username)
+        rule.onNodeWithText("Email or username").performScrollTo().performTextInput(username)
         rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-test-password")
         rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(studyServer)
         rule.onNodeWithText("Create your study account").performScrollTo().performClick()
