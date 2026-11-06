@@ -58,6 +58,21 @@ done
 
 adb install android/app/build/outputs/apk/debug/app-debug.apk
 adb install android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+runner=com.studycompanion.qa.test/androidx.test.runner.AndroidJUnitRunner
+curriculum_test=com.studycompanion.LearningFlowTest#gradeSixSubjectPathsUnlockTheirSecondChapter
+for phase in prepare resume; do
+    timeout 120 adb shell am instrument -w -r -e studyPort 18771 -e class "$curriculum_test" \
+        -e curriculumRestartPhase "$phase" "$runner" | tee "$run_dir/curriculum-restart-$phase.log"
+    grep -Eq '^OK \(1 test\)' "$run_dir/curriculum-restart-$phase.log"
+    if [[ "$phase" == prepare ]]; then
+        adb shell am force-stop com.studycompanion.qa
+        if adb shell pidof com.studycompanion.qa; then
+            echo "The QA app process is still running after force-stop." >&2
+            exit 1
+        fi
+    fi
+done
+
 timeout 600 adb shell am instrument -w -r \
     -e studyPort 18763 -e sharingPort 18771 -e googleDisabledPort 18763 \
     com.studycompanion.qa.test/androidx.test.runner.AndroidJUnitRunner | tee "$run_dir/instrumentation.log"

@@ -128,8 +128,29 @@ class LearningFlowTest {
         lateinit var model: StudyViewModel
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
         rule.waitUntil(30_000) { !model.state.value.busy }
+        val restartPhase = InstrumentationRegistry.getArguments().getString("curriculumRestartPhase")
+        if (restartPhase == "resume") {
+            try {
+                assertTrue("The disposable session should survive the process stop", model.state.value.signedIn)
+                rule.onNodeWithText("Explore grade lessons").performScrollTo().performClick()
+                rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
+                rule.onNodeWithText("Resume lesson: The water cycle").performScrollTo().performClick()
+                rule.waitUntil(30_000) {
+                    !model.state.value.busy && model.state.value.curriculumLesson?.optString("phase") == "coach"
+                }
+                rule.onNodeWithText("Next diagnostic question").performScrollTo().performClick()
+                rule.waitUntil(30_000) {
+                    !model.state.value.busy && model.state.value.curriculumLesson?.optInt("diagnostic_index") == 1
+                }
+                rule.onNodeWithText("Diagnostic question 2 of 2").assertExists()
+            } finally {
+                deleteRegressionAccount(model)
+            }
+            return
+        }
         check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
         signInForRegression(model, "subjectpaths")
+        var keepAccount = false
 
         fun tap(label: String) = rule.onNodeWithText(label, substring = false).performScrollTo().performClick()
         fun phase(expected: String) = rule.waitUntil(30_000) {
@@ -201,6 +222,10 @@ class LearningFlowTest {
             rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
             tap("Resume lesson: The water cycle")
             phase("coach")
+            if (restartPhase == "prepare") {
+                keepAccount = true
+                return
+            }
             rule.activityRule.scenario.recreate()
             phase("coach")
             rule.onNodeWithText("Next diagnostic question").assertExists()
@@ -235,7 +260,7 @@ class LearningFlowTest {
                 "A letter says a bridge opened in 1910. Which source would independently support that date?",
             )
         } finally {
-            deleteRegressionAccount(model)
+            if (!keepAccount) deleteRegressionAccount(model)
         }
     }
 
