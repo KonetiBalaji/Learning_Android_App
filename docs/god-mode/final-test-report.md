@@ -1,6 +1,15 @@
 # Saras dev verification report
 
-## Promoted runtime checkpoint
+## Current promoted checkpoint
+
+Revision `48b67d87af35b1af578ddeccdce9a9b8563c12d3` passed 156 backend tests, 4 Android unit tests, 15 Android 15 emulator tests, debug assembly, lint, and Docker HTTPS staging before the fast-forward to `main`. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587701) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587753)
+
+- The disposable backup rehearsal checked SQLite integrity and foreign keys, original-key recovery, email sign-in, document access by its owner, denial to another account, and startup rejection with a different key. Production recovery still requires the intended host and backup procedure.
+- The staging smoke verifies that a linked parent sees weekly subject counts over trusted test HTTPS and loses access after revocation. The emulator exercises the report in Android.
+- The Android APK declares the microphone optional and offers typed input when dictation is unavailable. The physical phone rejected the QA APK, so physical narration and transcription remain unverified.
+- Google web account deletion passed a headless-browser rehearsal with a simulated Google callback. Live Google verification on the authorized public origin remains open.
+
+## Earlier runtime and release bundle checkpoint
 
 Commit `5ba44181d85dd3eea35fa52b7583daac2109393d` passed the following checks on `dev` before `main` was fast-forwarded to the same revision.
 
