@@ -95,6 +95,17 @@ try:
     assert call(decimals, "POST", token=owner)["phase"] == "diagnostic"
     call(decimals, "POST", token=outsider, expected=409)
     print("Verified curriculum coaching, mastery, diagnostic scoring and owner-only chapter unlock.")
+    invitation = call("/progress-sharing/invitations", "POST", {"role": "parent"}, owner, 201)
+    link = call("/progress-sharing/redeem", "POST", {"code": invitation["code"]}, outsider, 201)
+    shared = f'/progress-sharing/{link["id"]}'
+    call(shared + "/report", token=owner, expected=404)
+    report = call(shared + "/report", token=outsider)
+    assert report["week"] == {"chapters_active": 2, "chapters_mastered": 1}
+    math = next(row for row in report["subjects"] if row["grade"] == 6 and row["subject"] == "Mathematics")
+    assert (math["week_active"], math["week_mastered"]) == (2, 1)
+    call(shared, "DELETE", token=owner, expected=204)
+    call(shared + "/report", token=outsider, expected=404)
+    print("Verified linked parent weekly subject counts and revocation over HTTPS.")
     sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
     document = upload("sample.txt", sample, "text/plain", owner)
     root = f'/documents/{document["id"]}'
