@@ -2,10 +2,12 @@
 
 ## Current promoted checkpoint
 
-Revision `107c57d202f62198fe6720807b5bfcccde8e57b7` passed 160 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests before promotion to `main`. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint (0 errors, 15 warnings), and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42195468056) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42195468069)
+Revision `e074710750f24ed8c0a2b56f78587419faab0573` passed 160 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests before promotion to `main`. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint (0 errors, 15 warnings), and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42205125323) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42205125296)
 
 - The starter catalog contains 23 lessons across Grades 1–12, including 12 in Grade 6. New attempts have at least two diagnostic questions. All lessons offer three worked steps, at least five authored practice prompts, and a guiding question for an incomplete rewrite.
 - Backend coverage verifies the ordered steps and bank structure across the catalog, original question counts on existing attempts, and retry cycling in the slope lesson. Android coverage verifies starter diagnostic navigation across all grades, the full Grade 6 Science path, and themed examples in fractions and percentages.
+- Staging verified readiness scoring, identical answer retries, linked parent aggregates, and revocation over trusted HTTPS. The Android regression verifies that an open report is cleared when the viewer returns to the app after the student revokes access.
+- Staging replaced the API container and checked that mounted study data and existing sessions remained usable. It then restored a consistent SQLite snapshot into a fresh Docker volume using the original mounted key. Integrity and foreign-key checks passed. Existing sessions, the owner's document and quiz, and the readiness result were usable in the restore. The second account was denied access to the owner's document.
 
 ## Release checks with separate evidence
 
@@ -14,7 +16,6 @@ On `8b31a1e`, the Android release bundle rebuilt with a disposable two-day certi
 The disposable backup rehearsal was verified at `48b67d8`. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587701) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587753)
 
 - The disposable backup rehearsal checked SQLite integrity and foreign keys, original-key recovery, email sign-in, document access by its owner, denial to another account, and startup rejection with a different key. Production recovery still requires the intended host and backup procedure.
-- The staging smoke verifies that a linked parent sees weekly subject counts over trusted test HTTPS and loses access after revocation. The emulator exercises the report in Android.
 - The Android APK declares the microphone optional and offers typed input when dictation is unavailable. On `8b31a1e` the connected Android 13 phone reported recognition and speech synthesis services, but the QA APK install retry returned `INSTALL_FAILED_USER_RESTRICTED`. Physical narration and microphone transcription remain unverified.
 - Google web account deletion passed a headless-browser rehearsal with a simulated Google callback. Live Google verification on the authorized public origin remains open.
 

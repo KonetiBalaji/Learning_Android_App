@@ -14,4 +14,6 @@ The browser account deletion page is `https://YOUR_HOST/delete-account`. It requ
 
 ## Backup recovery rehearsal
 
+The disposable staging job replaces the API container to verify mounted data persistence. It also restores an online SQLite snapshot into a fresh Docker volume with the original mounted key, checks database integrity and foreign keys, and verifies existing sessions, study records, readiness results, and owner isolation. [Verified staging run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42205125296)
+
 Create a consistent snapshot of `study.sqlite3` with SQLite's backup operation. Store the database and its original Fernet key separately. Restore the snapshot into an isolated data directory and mount the original key read-only before starting the rehearsal API. Check `PRAGMA integrity_check` and `PRAGMA foreign_key_check`, then sign in with a disposable rehearsal account and confirm that it can open its own document while another account receives HTTP 404. The backend regression exercises this sequence with a synthetic database and confirms that startup rejects a different key. Repeat the rehearsal with the production backup procedure before relying on that procedure for recovery.

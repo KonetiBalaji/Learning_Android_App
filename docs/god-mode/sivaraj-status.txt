@@ -1,5 +1,5 @@
 SARAS LEARNING APP — STATUS FOR SIVARAJ
-Program Director, TCS | promoted checkpoint: 107c57d
+Program Director, TCS | promoted checkpoint: e074710
 
 VERIFIED IN REPO
 - Import PDF, DOCX and TXT. Review and correct scanned PDF text.
@@ -21,7 +21,8 @@ VERIFIED IN REPO
   steps, at least five practice prompts and guided rewrites. The app
   includes chapter unlocks and private weekly teacher/parent reports.
   Google sign-in passed on one private test account on Android 13.
-- Encrypted backup recovery passed with a disposable database.
+- Docker staging recovered study data after API container replacement.
+  An isolated restore into a fresh volume passed with the original key.
 - Android targets API 36. Demo, privacy and Play listing drafts exist.
   The named placeholder remains in use.
 
