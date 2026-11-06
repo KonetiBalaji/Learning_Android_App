@@ -76,7 +76,9 @@ try:
     }
     fractions = "/curriculum/fractions/lesson"
     decimals = "/curriculum/decimals/lesson"
+    readiness = "/curriculum/readiness/grade6-math"
     call(decimals, "POST", token=owner, expected=409)
+    call(readiness, "POST", token=owner, expected=409)
     lesson = call(fractions, "POST", token=owner)
     for action, fields, expected_phase in (
         ("diagnostic", {"choice": 0}, "coach"),
@@ -92,20 +94,42 @@ try:
             assert "You chose 1/2." in lesson["feedback"]
             assert {"Soccer", "Gaming"} <= lesson["example_variants"].keys()
     assert lesson["diagnostic_score"] == {"correct": 1, "total": 2}
-    assert call(decimals, "POST", token=owner)["phase"] == "diagnostic"
+    lesson = call(decimals, "POST", token=owner)
+    assert lesson["phase"] == "diagnostic"
     call(decimals, "POST", token=outsider, expected=409)
     print("Verified curriculum coaching, mastery, diagnostic scoring and owner-only chapter unlock.")
+    for action, fields, expected_phase in (
+        ("diagnostic", {"choice": 0}, "diagnostic"),
+        ("diagnostic", {"choice": 1}, "practice"),
+        ("practice", {"response": "0.68"}, "rewrite"),
+        ("rewrite", {"response": "Align the decimal points to add matching place values."}, "mastered"),
+    ):
+        lesson = call(decimals + "/actions", "POST",
+                      {"version": lesson["version"], "action": action, **fields}, owner)
+        assert lesson["phase"] == expected_phase
+    attempt = call(readiness, "POST", token=owner)
+    assert attempt["index"] == 0 and "correct" not in attempt
+    call(readiness + "/answers", "POST", {"index": 0, "choice": 1}, outsider, 404)
+    for index, choice in enumerate((1, 0, 3, 0, 1, 0)):
+        attempt = call(readiness + "/answers", "POST", {"index": index, "choice": choice}, owner)
+        assert attempt["index"] == index + 1
+        if index < 5:
+            assert not attempt["complete"] and "correct" not in attempt
+    assert attempt["complete"] and attempt["correct"] == 5 and attempt["total"] == 6
+    assert "answers" not in attempt
+    assert call(readiness + "/answers", "POST", {"index": 0, "choice": 1}, owner) == attempt
     invitation = call("/progress-sharing/invitations", "POST", {"role": "parent"}, owner, 201)
     link = call("/progress-sharing/redeem", "POST", {"code": invitation["code"]}, outsider, 201)
     shared = f'/progress-sharing/{link["id"]}'
     call(shared + "/report", token=owner, expected=404)
     report = call(shared + "/report", token=outsider)
-    assert report["week"] == {"chapters_active": 2, "chapters_mastered": 1}
+    assert report["week"] == {"chapters_active": 2, "chapters_mastered": 2}
     math = next(row for row in report["subjects"] if row["grade"] == 6 and row["subject"] == "Mathematics")
-    assert (math["week_active"], math["week_mastered"]) == (2, 1)
+    assert (math["week_active"], math["week_mastered"]) == (2, 2)
+    assert report["readiness"] == {"correct": 5, "total": 6, "by_chapter": attempt["by_chapter"]}
     call(shared, "DELETE", token=owner, expected=204)
     call(shared + "/report", token=outsider, expected=404)
-    print("Verified linked parent weekly subject counts and revocation over HTTPS.")
+    print("Verified readiness scoring, retry, parent report aggregates and revocation over HTTPS.")
     sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
     document = upload("sample.txt", sample, "text/plain", owner)
     root = f'/documents/{document["id"]}'
