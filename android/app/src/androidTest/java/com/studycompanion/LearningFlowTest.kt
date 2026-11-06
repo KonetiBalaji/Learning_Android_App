@@ -173,6 +173,16 @@ class LearningFlowTest {
         try {
             tap("Explore grade lessons")
             rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
+            val firstGrade = rule.onNodeWithText("Grade 1").performScrollTo().fetchSemanticsNode().boundsInRoot
+            val secondGrade = rule.onNodeWithText("Grade 2").fetchSemanticsNode().boundsInRoot
+            val config = rule.activity.resources.configuration
+            if (config.screenWidthDp in 376..480 && config.fontScale == 1f) {
+                assertEquals(firstGrade.top, secondGrade.top, 1f)
+                assertTrue(firstGrade.left < secondGrade.left)
+            } else if (config.screenWidthDp in 376..480 && config.fontScale >= 2f) {
+                assertEquals(firstGrade.left, secondGrade.left, 1f)
+                assertTrue(firstGrade.top < secondGrade.top)
+            }
             tap("Grade 6")
             verifyPath(
                 "Science", "Evaporation and condensation", "The water cycle", listOf("Evaporation", "It condenses"), "condensation",

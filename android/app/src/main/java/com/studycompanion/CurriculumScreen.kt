@@ -2,8 +2,12 @@ package com.studycompanion
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
@@ -16,6 +20,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.studycompanion.data.strings
 
 @Composable
@@ -62,9 +69,24 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
                     badges.forEach { Text(it.getString("title") + " badge earned") }
                 }
                 val grades = state.curriculumChapters.map { it.getInt("grade") }.toSet()
-                for (number in 1..12) {
-                    CurriculumButton("Grade $number" + if (number !in grades) " · no lessons yet" else "",
-                        !state.busy && number in grades) { grade = number }
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val columns = (maxWidth.value / (112 * LocalDensity.current.fontScale)).toInt().coerceIn(1, 3)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (1..12).chunked(columns).forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                row.forEach { number ->
+                                    OutlinedButton(
+                                        onClick = { grade = number },
+                                        enabled = !state.busy && number in grades,
+                                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                    ) {
+                                        Text("Grade $number" + if (number !in grades) " · no lessons yet" else "",
+                                            textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             subject == null -> {
