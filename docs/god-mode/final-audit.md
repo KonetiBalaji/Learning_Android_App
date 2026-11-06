@@ -1,6 +1,6 @@
 # Saras dev closeout audit
 
-This audit applies to the Saras application with Android ID `com.studycompanion` and the existing document API. The tested code revision is `ad03dda15c3fdc3bd426491c4416a7b75b30651f`. The base was `0181f83`. See the [test report](final-test-report.md) for execution results and the [acceptance ledger](requirements.md) for individual statuses.
+This audit applies to the Saras application with Android ID `com.studycompanion` and the existing document API. The tested code revision is `ad03dda15c3fdc3bd426491c4416a7b75b30651f`. The base was `0181f83`. For later curriculum, Google sign-in and Android coaching work, see the [curriculum verification matrix](../product/curriculum-verification.md) and the newer hosted checkpoint in the test report. See the [test report](final-test-report.md) for execution results and the [acceptance ledger](requirements.md) for individual statuses.
 
 | In-scope requirement | Evidence and boundary |
 |---|---|

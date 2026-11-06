@@ -1,5 +1,24 @@
 # Saras dev verification report
 
+## Hosted verification of the curriculum and tutor changes
+
+Runtime revision `8f6620f` passed [backend and Android verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42166542893) and [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42166542958).
+
+| Check | Observed result |
+|---|---|
+| Backend pytest | 138 passed, one Starlette/httpx deprecation warning |
+| Android unit tests | 4 passed, no failures or errors |
+| Android 15 emulator | 15 passed, including Grade 6 subject progression and document tutor |
+| APK assembly and lint | Debug and instrumentation APKs built. Lint reported zero errors and 15 warnings. |
+| Docker HTTPS staging | Trusted test TLS, readiness, OCR, semantic retrieval, owner isolation and web account deletion passed. |
+
+The emulator used disposable accounts and synthetic study material. The [curriculum verification matrix](../product/curriculum-verification.md) describes the narrower evidence for diagnostic coaching, mastery, readiness, invitation-based reports, and the tutor avatar. The [private Google sign-in device check](../api/google-sign-in.md#live-device-verification) used one approved test account. Public OAuth, Play-signed Google sign-in, Google-capable web account deletion, and physical narration or dictation remain unverified.
+
+The earlier `484fe6c` [hosted run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42166176737) timed out during Android test registration. The successful `8f6620f` run did not reproduce the failure. Revision `9d2bebe` adds registration error reporting and disposable backend request logs to aid diagnosis. These observations establish results for the named revisions.
+
+## Original God Mode closeout
+
+
 Runtime revision: `ad03dda15c3fdc3bd426491c4416a7b75b30651f` (base `0181f83`). The audit pack follows in a documentation-only commit. The app targets API 36; the connected device runs Android 15 (API 35).
 
 | Check | Actual result | Evidence |
