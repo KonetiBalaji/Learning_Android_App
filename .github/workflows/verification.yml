@@ -26,7 +26,10 @@ jobs:
           java-version: '17'
           cache: gradle
       - name: Install Android SDK packages
-        run: sdkmanager --install "platforms;android-36" "system-images;android-35;google_apis;x86_64"
+        run: |
+          sdk_tools="$ANDROID_HOME/cmdline-tools/latest/bin"
+          "$sdk_tools/sdkmanager" --install "platforms;android-36" "system-images;android-35;google_apis;x86_64"
+          printf '%s\n' "$sdk_tools" "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
       - name: Build debug APKs and run Android unit tests and lint
         working-directory: android
         run: bash gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug -PsarasQaInstall=true --console=plain
