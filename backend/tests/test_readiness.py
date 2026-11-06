@@ -101,3 +101,23 @@ def test_full_readiness_preserves_short_result_and_reports_all_five_topics(clien
     assert shared["readiness"]["total"] == 6
     assert shared["full_readiness"]["total"] == 15
     assert "answers" not in shared["full_readiness"]
+
+
+def test_readiness_items_are_disjoint_from_diagnostics_and_practice_prompts():
+    from study.mastery import CHAPTERS, diagnostic_items, new_lesson
+    from study.readiness import ASSESSMENTS
+
+    def normalized(prompt):
+        return " ".join(prompt.casefold().split()).rstrip("?.")
+
+    seen = set()
+    for required, questions in ASSESSMENTS.values():
+        assert {chapter for chapter, _, _, _ in questions} == required
+        for key, prompt, choices, correct in questions:
+            chapter = CHAPTERS[key]
+            taught = {normalized(item[0]) for item in chapter["practice"]}
+            taught.update(normalized(item[0]) for item in diagnostic_items(chapter, new_lesson(key, 0)))
+            item = normalized(prompt)
+            assert item and item not in taught and item not in seen, prompt
+            assert 0 <= correct < len(choices) and len(set(choices)) == len(choices), prompt
+            seen.add(item)

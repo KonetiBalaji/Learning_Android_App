@@ -341,3 +341,43 @@ def test_existing_water_cycle_coaching_resumes_its_original_diagnostic():
     assert not snapshot(lesson)["diagnostic_remaining"]
     advance(lesson, "continue", None, None, 2)
     assert snapshot(lesson)["phase"] == "practice"
+
+
+def test_grade_six_lesson_banks_have_valid_diagnostics_and_distinct_practice_prompts():
+    from study.mastery import CHAPTERS, diagnostic_items, new_lesson
+
+    chapters = {key: chapter for key, chapter in CHAPTERS.items() if chapter["grade"] == 6}
+    assert len(chapters) == 11
+    for key, chapter in chapters.items():
+        diagnostics = diagnostic_items(chapter, new_lesson(key, 0))
+        assert len(diagnostics) >= 2, key
+        assert len({prompt for prompt, _, _ in diagnostics}) == len(diagnostics), key
+        for prompt, choices, correct in diagnostics:
+            assert prompt.strip() and len(choices) >= 2 and 0 <= correct < len(choices), key
+            assert len({choice.strip().casefold() for choice in choices}) == len(choices), key
+            assert all(choice.strip() for choice in choices), key
+        practice = chapter["practice"]
+        assert len({prompt for prompt, _ in practice}) == len(practice), key
+        assert all(prompt.strip() and answer.strip() for prompt, answer in practice), key
+        assert len(chapter["rewrite_hints"]) == len(chapter["checks"]), key
+
+
+def test_grade_six_math_practice_answers_match_their_operands():
+    import re
+    from fractions import Fraction
+    from operator import add, mul, sub
+
+    from study.mastery import CHAPTERS
+
+    rules = {
+        "fractions": (r"(\d+/\d+) \+ (\d+/\d+)", add),
+        "decimals": (r"(\d+\.\d+) \+ (\d+\.\d+)", add),
+        "percentages": (r"(\d+)% of (\d+)", lambda percent, whole: mul(percent, whole) / 100),
+        "grade6-algebra": (r"x \+ (\d+) = (\d+)", lambda addend, total: sub(total, addend)),
+        "grade6-geometry": (r"base (\d+) cm and height (\d+) cm", lambda base, height: mul(base, height) / 2),
+    }
+    for chapter, (pattern, calculate) in rules.items():
+        for prompt, answer in CHAPTERS[chapter]["practice"]:
+            match = re.search(pattern, prompt)
+            assert match, prompt
+            assert Fraction(answer) == calculate(*map(Fraction, match.groups())), prompt
