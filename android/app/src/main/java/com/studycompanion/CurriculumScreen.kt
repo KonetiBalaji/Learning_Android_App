@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import com.studycompanion.data.strings
 
 @Composable
-fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
+fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged: (Boolean) -> Unit) {
     var grade by rememberSaveable { mutableStateOf<Int?>(null) }
     var subject by rememberSaveable { mutableStateOf<String?>(null) }
     state.readinessCheck?.let { check ->
@@ -132,7 +132,7 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
             val example = lesson.getString("example")
             var showExample by rememberSaveable(lesson.getString("chapter_id"), version) { mutableStateOf(false) }
             Text(explanation)
-            ReadAloudButton(explanation, "Read explanation aloud")
+            ReadAloudButton(explanation, "Read explanation aloud", onSpeakingChanged)
             CurriculumButton(if (showExample) "Hide example steps" else "Show example steps", !state.busy) {
                 showExample = !showExample
             }

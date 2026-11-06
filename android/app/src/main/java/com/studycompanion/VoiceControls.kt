@@ -121,7 +121,7 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
 }
 
 @Composable
-fun ReadAloudButton(text: String, label: String) {
+fun ReadAloudButton(text: String, label: String, onSpeakingChanged: (Boolean) -> Unit) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -133,6 +133,7 @@ fun ReadAloudButton(text: String, label: String) {
     fun stop() {
         generation += 1
         speaking = false
+        onSpeakingChanged(false)
         val previous = engine
         engine = null
         previous?.stop()
@@ -168,7 +169,11 @@ fun ReadAloudButton(text: String, label: String) {
                             status = "An offline English voice is unavailable. You can read the text on screen."
                         } else {
                             voiceEngine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                                override fun onStart(utteranceId: String?) = Unit
+                                override fun onStart(utteranceId: String?) {
+                                    mainHandler.post {
+                                        if (generation == request) onSpeakingChanged(true)
+                                    }
+                                }
                                 override fun onDone(utteranceId: String?) = finish(false)
                                 @Deprecated("Required by the Android speech API")
                                 override fun onError(utteranceId: String?) = finish(true)

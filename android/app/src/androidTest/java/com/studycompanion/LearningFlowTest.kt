@@ -207,6 +207,7 @@ class LearningFlowTest {
             tap("1/2")
             phase("coach")
             rule.onNodeWithText("Worked example").assertExists()
+            rule.onNodeWithText("Saras tutor").assertIsDisplayed()
             tap("Read explanation aloud")
             rule.waitUntil(30_000) {
                 rule.onAllNodesWithText("Read explanation aloud", substring = false).fetchSemanticsNodes().isNotEmpty()
@@ -855,7 +856,8 @@ class LearningFlowTest {
         assertNull(model.state.value.error)
         assertEquals("source_excerpt", model.state.value.tutorTurns.first().getString("mode"))
         rule.onNodeWithText("Dictate response").assertExists()
-        rule.onNodeWithText("Read latest tutor answer aloud").assertExists()
+        rule.onNodeWithText("Read latest tutor answer aloud").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Saras tutor").assertIsDisplayed()
         assertTrue(model.state.value.tutorTurns.first().getString("answer").contains("Mitochondria"))
         rule.onNodeWithText("Read cited source").performScrollTo().performClick()
         rule.waitUntil(30_000) { model.state.value.source != null && !model.state.value.busy }

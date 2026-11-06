@@ -82,6 +82,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun StudyApp(model: StudyViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
+    val showTutor = state.signedIn && (state.screen == "curriculum" || state.screen == "tutor")
+    var tutorSpeaking by remember(state.screen) { mutableStateOf(false) }
     val screenScroll = key(state.screen, state.quiz?.optString("id"), state.quiz?.optInt("index")) { rememberScrollState() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::upload) }
     val context = LocalContext.current
@@ -96,9 +98,10 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
             Surface(shadowElevation = 1.dp) {
                 Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(Modifier.weight(1f)) {
+                    if (showTutor) TutorAvatar(tutorSpeaking)
+                    Column(Modifier.weight(1f).padding(start = if (showTutor) 8.dp else 0.dp)) {
                         Text("SARAS", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        Text("A little practice. Real progress.", style = MaterialTheme.typography.bodySmall)
+                        Text(if (showTutor) "Saras tutor" else "A little practice. Real progress.", style = MaterialTheme.typography.bodySmall)
                     }
                     if (state.signedIn && state.screen != "home") TextButton(enabled = !state.busy, onClick = { model.navigate("home") }) { Text("Home") }
                 }
@@ -188,10 +191,10 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                 }
                 "configure" -> state.document?.let { doc -> Configure(doc, state.busy, state.aiMode, state.studyConfig, model) { confirmation = "document" } }
                 "offline" -> OfflineStudyScreen(state, model)
-                "curriculum" -> CurriculumScreen(state, model)
+                "curriculum" -> CurriculumScreen(state, model) { tutorSpeaking = it }
                 "ocr" -> OcrReview(state, model)
                 "search" -> SemanticSearch(state, model)
-                "tutor" -> DocumentTutor(state, model)
+                "tutor" -> DocumentTutor(state, model) { tutorSpeaking = it }
                 "adaptive" -> state.recommendation?.let { advice ->
                     Title("Your next learning step", advice.getString("section_title"))
                     Info("Practice focus", advice.getString("reason"))
@@ -414,7 +417,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
 }
 
-@Composable private fun DocumentTutor(state: StudyState, model: StudyViewModel) {
+@Composable private fun DocumentTutor(state: StudyState, model: StudyViewModel, onSpeakingChanged: (Boolean) -> Unit) {
     var question by rememberSaveable(state.document?.optString("id")) { mutableStateOf("") }
     var observedTurn by rememberSaveable(state.document?.optString("id")) { mutableStateOf(state.tutorTurns.lastOrNull()?.optString("id")) }
     LaunchedEffect(state.tutorTurns.lastOrNull()?.optString("id")) {
@@ -447,7 +450,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     OutlinedTextField(question, { question = it }, label = { Text("Question for the tutor") }, modifier = Modifier.fillMaxWidth(), enabled = !state.busy)
     DictateButton(!state.busy && state.tutorTurns.size < 100) { question = it.take(1000) }
     state.tutorTurns.lastOrNull()?.optString("answer")?.takeIf(String::isNotBlank)?.let {
-        ReadAloudButton(it, "Read latest tutor answer aloud")
+        ReadAloudButton(it, "Read latest tutor answer aloud", onSpeakingChanged)
     }
     Button(onClick = { model.askTutor(question) }, enabled = !state.busy && question.trim().length in 2..1000 && state.tutorTurns.size < 100, modifier = Modifier.fillMaxWidth()) { Text("Ask from selected material") }
     TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
