@@ -35,7 +35,10 @@ def test_curriculum_coaching_retries_mastery_and_owner_isolation(client):
     assert action(2, "practice", response="1/0")["phase"] == "coach"
     assert action(3, "continue")["prompt"] != practice["prompt"]
     assert action(4, "practice", response="8/14")["phase"] == "rewrite"
-    assert action(5, "rewrite", response="Just add the fractions")["phase"] == "rewrite"
+    revision = action(5, "rewrite", response="I add the numerators to combine both groups.")
+    assert revision["phase"] == "rewrite"
+    assert revision["feedback"] == "What happens to the size of each piece when you combine the two groups?"
+    assert client.post(fractions, headers=first).json() == revision
     progress = client.get("/curriculum", headers=first).json()[0]
     assert progress["needs_practice"] and progress["practice_misses"] == 1 and progress["rewrite_revisions"] == 1
     assert progress["review_events"] == 3

@@ -50,6 +50,10 @@ CHAPTERS = {
         "practice": [("What is 2/8 + 4/8?", "3/4"), ("What is 1/7 + 3/7?", "4/7")] + fraction_practice(),
         "hint": "Add the top numbers. The pieces stay the same size. You can simplify your answer.",
         "rewrite": "Explain why 3/4 + 1/4 = 1. Say what happens to the numerators and denominator.",
+        "rewrite_hints": [
+            "Which numbers tell you how many pieces you are combining?",
+            "What happens to the size of each piece when you combine the two groups?",
+        ],
         "checks": [r"\badd(?:ing)?\b.{0,25}\b(numerators?|top numbers?)\b",
                    r"\b(keep|same|unchanged|stays?)\b.{0,25}\bdenominator\b|\bdenominator\b.{0,20}\b(same|unchanged|stays? 4)\b"],
     },
@@ -75,6 +79,10 @@ CHAPTERS = {
         "practice": [("What is 0.4 + 0.28?", "0.68"), ("What is 0.06 + 0.2?", "0.26")] + decimal_practice(),
         "hint": "Write both numbers with two decimal places and add matching place values.",
         "rewrite": "Explain how aligning decimal points helps you add 0.30 and 0.45.",
+        "rewrite_hints": [
+            "How would you position the numbers if you wrote one below the other?",
+            "Which digits represent the same size of unit?",
+        ],
         "checks": [r"\b(align|line up|match)\b.{0,25}\bdecimal points?\b",
                    r"\b(place values?|hundredths|tenths)\b"],
     },
@@ -188,13 +196,21 @@ def advance(lesson, action, choice, response, now):
     elif phase == "rewrite" and action == "rewrite":
         normalized = response.lower()
         # A narrow checklist, not a general evaluation of free-form writing.
-        if (len(normalized.split()) >= 6 and not re.search(r"\b(not|never|wrong)\b", normalized)
-                and all(re.search(pattern, normalized) for pattern in chapter["checks"])):
+        missing = [index for index, pattern in enumerate(chapter["checks"]) if not re.search(pattern, normalized)]
+        too_short = len(normalized.split()) < 6
+        conflicting = re.search(r"\b(not|never|wrong)\b", normalized)
+        if not (too_short or conflicting or missing):
             lesson.update(phase="mastered", feedback="You completed the practice and explained the key rule.",
                           elapsed_seconds=max(0, int(now - lesson["started"])), mastered_at=now)
         else:
             lesson["rewrite_revisions"] = lesson.get("rewrite_revisions", 0) + 1
-            lesson.update(feedback="Use the prompt to identify the key ideas, or return to the worked example.")
+            feedback = "Use the prompt to identify the key ideas, or return to the worked example."
+            hints = chapter.get("rewrite_hints")
+            if too_short:
+                feedback = "Write a complete explanation of how you reached the answer."
+            elif hints and missing and not conflicting:
+                feedback = hints[missing[0]]
+            lesson.update(feedback=feedback)
     elif phase == "rewrite" and action == "review":
         lesson.update(phase="coach", feedback="")
     else:

@@ -70,6 +70,11 @@ STARTER_CHAPTERS = {
             "Change the percent to a decimal before multiplying.",
             "Explain how to find 25% of 60.",
             [r"\b(25|0\.25|quarter)\b", r"\b(60|sixty)\b", r"\b(multiply|quarter|divide)\b"], numeric=True),
+        "rewrite_hints": [
+            "What does this percent mean as a portion of one whole?",
+            "Which quantity in the problem represents the whole?",
+            "What calculation combines that portion with the whole?",
+        ],
         "requires": "decimals",
         "diagnostics": [
             ("Which decimal equals 50%?", ["0.05", "5", "0.5", "50"], 2),
@@ -88,6 +93,11 @@ STARTER_CHAPTERS = {
             "Undo the addition by subtracting the same amount from both sides.",
             "Explain why subtracting 5 from both sides solves x + 5 = 12.",
             [r"\b(subtract|subtracting|undo)\b", r"\bboth sides\b", r"\b(7|seven)\b"], numeric=True),
+        "rewrite_hints": [
+            "Which operation would undo adding five?",
+            "What has to happen on the other side to keep the equation balanced?",
+            "What value would make the original equation true if you substituted it?",
+        ],
         "requires": "percentages",
         "diagnostics": [
             ("What is 3x when x = 4?", ["7", "12", "34", "1"], 1),
@@ -109,6 +119,11 @@ STARTER_CHAPTERS = {
             "Multiply the base and perpendicular height, then take half.",
             "Explain why the triangle with base 8 cm and perpendicular height 5 cm has area 20 cm².",
             [r"\bbase\b", r"\bheight\b", r"\b(half|divide|dividing)\b"], numeric=True),
+        "rewrite_hints": [
+            "Which side is the triangle measured along?",
+            "Which measurement is perpendicular to that side?",
+            "How does the triangle compare with a parallelogram with the same measurements?",
+        ],
         "requires": "grade6-algebra",
         "diagnostics": [
             ("Which segment is the height relative to a chosen triangle base?",

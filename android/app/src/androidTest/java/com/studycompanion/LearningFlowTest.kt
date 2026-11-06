@@ -267,6 +267,15 @@ class LearningFlowTest {
                 rule.onNodeWithText("On-device dictation is unavailable. You can type your response.").assertExists()
             }
             rule.onNodeWithText("Explain in your own words").performScrollTo()
+                .performTextReplacement("I add the numerators to combine both groups.")
+            tap("Check explanation")
+            rule.waitUntil(30_000) {
+                !model.state.value.busy && model.state.value.curriculumLesson?.optString("feedback") ==
+                    "What happens to the size of each piece when you combine the two groups?"
+            }
+            rule.onNodeWithText("What happens to the size of each piece when you combine the two groups?")
+                .performScrollTo().assertIsDisplayed()
+            rule.onNodeWithText("Explain in your own words").performScrollTo()
                 .performTextReplacement("Add the numerators and keep the denominator unchanged.")
             tap("Check explanation")
             phase("mastered")
