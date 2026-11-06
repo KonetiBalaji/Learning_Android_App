@@ -271,3 +271,39 @@ def test_math_practice_uses_a_third_question_after_two_misses(client, chapter, c
     assert client.post(path, headers=auth).json() == practice
     assert "answer" not in practice
     assert act(practice, "practice", response=equivalent)["phase"] == "rewrite"
+
+
+@pytest.mark.parametrize("chapter, choice, third_answer", [
+    ("evaporation", 2, "Condensation."),
+    ("water-cycle", 2, "Precipitation"),
+    ("complete-sentences", 1, "flooded"),
+    ("combining-sentences", 1, "but"),
+    ("primary-sources", 1, "secondary"),
+    ("corroborating-sources", 2, "dependent"),
+])
+def test_grade_six_subject_practice_moves_through_five_distinct_prompts(chapter, choice, third_answer):
+    from study.mastery import advance, new_lesson, snapshot
+
+    def attempt():
+        lesson = new_lesson(chapter, 0)
+        advance(lesson, "diagnostic", choice, None, 1)
+        assert snapshot(lesson)["phase"] == "practice"
+        return lesson
+
+    def miss(lesson):
+        advance(lesson, "practice", None, "irrelevant", 2)
+        assert snapshot(lesson)["phase"] == "coach"
+        advance(lesson, "continue", None, None, 3)
+        return snapshot(lesson)["prompt"]
+
+    lesson = attempt()
+    prompts = [snapshot(lesson)["prompt"]]
+    prompts.extend(miss(lesson) for _ in range(4))
+    assert len(set(prompts)) == 5
+    assert miss(lesson) == prompts[0]
+
+    lesson = attempt()
+    miss(lesson)
+    assert miss(lesson) == prompts[2]
+    advance(lesson, "practice", None, third_answer, 4)
+    assert snapshot(lesson)["phase"] == "rewrite"
