@@ -57,3 +57,7 @@ The Grade 6 Mathematics path runs from fractions and decimals through percentage
 ### Full Grade 6 Mathematics readiness check
 
 The full check has three new, held-out questions per topic. It unlocks after mastering fractions, decimals, percentages, introductory algebra, and triangle area. Its attempt, score, and report are separate from the existing six-question check. A completed teacher or parent report can show both scores. It never includes a student's individual answers or an exam forecast.
+
+### Grade 6 Science, English and Social Studies progression
+
+Backend tests complete both chapters in each subject and verify that mastery does not unlock the second chapter for another account. The Android 15 emulator regression starts each subject from the Grade 6 menu, checks the locked button, masters the first chapter, and opens the second chapter's diagnostic after the catalog refreshes.

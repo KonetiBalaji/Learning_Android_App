@@ -119,6 +119,73 @@ class LearningFlowTest {
         }
     }
 
+    @Test fun gradeSixSubjectPathsUnlockTheirSecondChapter() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
+        signInForRegression(model, "subjectpaths")
+
+        fun tap(label: String) = rule.onNodeWithText(label, substring = false).performScrollTo().performClick()
+        fun phase(expected: String) = rule.waitUntil(30_000) {
+            !model.state.value.busy && model.state.value.curriculumLesson?.optString("phase") == expected
+        }
+        fun verifyPath(
+            subject: String,
+            first: String,
+            second: String,
+            diagnosticAnswer: String,
+            practiceAnswer: String,
+            explanation: String,
+            nextPrompt: String,
+        ) {
+            tap(subject)
+            rule.onNodeWithText("$second · Locked").performScrollTo().assertIsNotEnabled()
+            tap(first)
+            phase("diagnostic")
+            tap(diagnosticAnswer)
+            phase("practice")
+            rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement(practiceAnswer)
+            tap("Check answer")
+            phase("rewrite")
+            rule.onNodeWithText("Explain in your own words").performScrollTo().performTextReplacement(explanation)
+            tap("Check explanation")
+            phase("mastered")
+            tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            rule.onNodeWithText("1 of 2 chapters mastered").assertExists()
+            tap(second)
+            phase("diagnostic")
+            rule.onNodeWithText(nextPrompt).assertExists()
+            tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            tap("Back to subjects")
+        }
+
+        try {
+            tap("Explore grade lessons")
+            rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
+            tap("Grade 6")
+            verifyPath(
+                "Science", "Evaporation and condensation", "The water cycle", "Evaporation", "condensation",
+                "Evaporation turns liquid into vapor. Condensation reverses it.",
+                "What is it called when water falls from clouds as rain or snow?",
+            )
+            verifyPath(
+                "English", "Complete sentences", "Combining related sentences", "The birds sang", "glowed",
+                "Birds is the subject and sang is the verb.",
+                "Which word best joins these ideas? The trail was steep, ___ we reached the top.",
+            )
+            verifyPath(
+                "Social Studies", "Primary and secondary sources", "Corroborating historical evidence",
+                "A sailor's diary from the voyage", "secondary", "The sailor wrote the diary during the voyage.",
+                "A letter says a bridge opened in 1910. Which source would independently support that date?",
+            )
+        } finally {
+            deleteRegressionAccount(model)
+        }
+    }
+
     @Test fun gradeLessonCoachesAndUnlocksTheNextChapter() {
         lateinit var model: StudyViewModel
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
