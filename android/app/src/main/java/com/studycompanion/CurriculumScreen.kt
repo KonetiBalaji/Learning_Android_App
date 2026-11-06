@@ -213,6 +213,21 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
             }
             Text("Elapsed time: ${lesson.getInt("elapsed_seconds")} seconds")
             Text("Verified against the lesson's answer and explanation checklist.")
+            if (chapter != null) {
+                val next = state.curriculumChapters
+                    .dropWhile { it.getString("id") != chapter.getString("id") }
+                    .drop(1)
+                    .firstOrNull {
+                        it.getInt("grade") == chapter.getInt("grade") &&
+                            it.getString("subject") == chapter.getString("subject") &&
+                            !it.getBoolean("locked") && !it.getBoolean("mastered")
+                    }
+                if (next != null) {
+                    CurriculumButton("Continue to ${next.getString("title")}", !state.busy) {
+                        model.openCurriculumChapter(next.getString("id"))
+                    }
+                }
+            }
         }
     }
     CurriculumButton("Back to chapters", !state.busy, model::closeCurriculumChapter)
