@@ -2,6 +2,8 @@
 
 ## Promoted runtime checkpoint
 
+Revision `d3d6fb036666d1dda57d3060febc766734c051e9` passed Backend and Android verification and Docker HTTPS staging on dev before promotion, and both checks passed independently on main. The main run recorded 166 backend tests, four Android unit tests, 15 emulator tests, and the two single-test restart phases. [Main verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42260630918) · [Main staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42260631133)
+
 Revision `c00776ba41a301589114a5355cb627864cbdd7df` passed 166 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests on dev before promotion to main. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint, and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42229528612) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42229528565)
 
 - Docker staging verified the Google deletion page and rejected cross-origin submissions, missing confirmation, and missing credentials. The live Google browser callback and deletion on the authorized public HTTPS origin remain unverified.
@@ -44,7 +46,7 @@ Commit `5ba44181d85dd3eea35fa52b7583daac2109393d` passed the following checks on
 
 The Grade 6 checks validate answer-key indexes, independently recalculate all 89 math practice answers, and compare normalized prompt text across lesson and readiness banks. These checks cover the authored catalog and scoring. Validation against actual exam outcomes remains open.
 
-The [release blocker list](external-blockers.md) tracks live AI, approved branding, public hosting, Google OAuth and account deletion on the public origin, authorized Play signing, and publication. The [curriculum matrix](../product/curriculum-verification.md) tracks remaining product and device verification, including physical voice testing.
+The [release blocker list](external-blockers.md) tracks live AI, approved branding, public hosting, Google OAuth and account deletion on the public origin, authorized Play signing, and publication. The [curriculum matrix](../product/curriculum-verification.md) tracks product coverage and records the scope of physical voice verification.
 
 ## Hosted verification of the curriculum and tutor changes
 

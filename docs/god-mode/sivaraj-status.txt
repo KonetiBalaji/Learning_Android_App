@@ -1,5 +1,5 @@
 SARAS LEARNING APP — STATUS FOR SIVARAJ
-Program Director, TCS | promoted checkpoint: 1f0d5be
+Program Director, TCS | verified checkpoint: d3d6fb0
 
 VERIFIED IN REPO
 - Import PDF, DOCX and TXT. Review and correct scanned PDF text.
@@ -21,6 +21,8 @@ VERIFIED IN REPO
   steps, at least five practice prompts and guided rewrites. The app
   includes chapter unlocks and private weekly teacher/parent reports.
   Google sign-in passed on one private test account on Android 13.
+- An Android 13 phone passed audible read-aloud, cancellation during
+  active recording and offline transcription of one controlled phrase.
 - Docker staging recovered an unfinished readiness check and study data
   after API replacement. Backup restore passed in a fresh volume.
 - Android targets API 36. Demo, privacy and Play listing drafts exist.
@@ -34,8 +36,8 @@ REPORTED ONLY
 NOT VERIFIED / EXTERNAL INPUTS NEEDED
 - Live AI: server-only key and authorized model; then run grounding
   and accuracy checks across difficulty levels.
-- Real-device narration and dictation, broader curriculum coverage,
-  and exam predictions validated against real outcomes remain open.
+- Broader curriculum coverage, AI-generated animated explanations and
+  exam predictions validated against real outcomes remain open.
 - Public Google OAuth: production consent, public site origin, Play
   app signing fingerprint and Google-capable web deletion.
 - Branding: approved Saras Modern and Heritage source assets.
