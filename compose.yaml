@@ -3,6 +3,7 @@ services:
     build: .
     environment:
       STUDY_STORAGE_KEY_FILE: /run/secrets/storage_key
+      STUDY_GOOGLE_CLIENT_ID: "${STUDY_GOOGLE_CLIENT_ID:-}"
       STUDY_GENERATION_MODE: local_practice
       STUDY_REQUESTS_PER_MINUTE: "${STUDY_REQUESTS_PER_MINUTE:-120}"
     secrets:

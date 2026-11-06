@@ -35,6 +35,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.view.WindowCompat
+import androidx.compose.ui.platform.LocalContext
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.ClearCredentialException
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import kotlinx.coroutines.launch
 import com.studycompanion.data.objects
 import com.studycompanion.data.strings
 import com.studycompanion.domain.QuizRules
@@ -62,6 +75,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
     val screenScroll = key(state.screen, state.quiz?.optString("id"), state.quiz?.optInt("index")) { rememberScrollState() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::upload) }
+    val context = LocalContext.current
+    val credentialManager = remember(context) { CredentialManager.create(context) }
+    val scope = rememberCoroutineScope()
     var confirmation by remember { mutableStateOf<String?>(null) }
     BackHandler(state.signedIn && state.screen != "home") {
         model.back()
@@ -109,7 +125,26 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     }
                 }
             }
-            if (!state.signedIn) Login(model, state.busy)
+            if (!state.signedIn) Login(model, state.busy) { clientId, nonce ->
+                val option = GetSignInWithGoogleOption.Builder(clientId).setNonce(nonce).build()
+                try {
+                    val credential = credentialManager.getCredential(context,
+                        GetCredentialRequest.Builder().addCredentialOption(option).build()).credential
+                    if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                        GoogleIdTokenCredential.createFrom(credential.data).idToken
+                    } else {
+                        throw IllegalStateException("Google did not return a sign-in credential.")
+                    }
+                } catch (_: GetCredentialCancellationException) {
+                    null
+                } catch (_: NoCredentialException) {
+                    throw IllegalStateException("No Google account is available. Add one on this device and try again.")
+                } catch (_: GetCredentialException) {
+                    throw IllegalStateException("Could not open Google sign-in. Check Google Play services and try again.")
+                } catch (_: GoogleIdTokenParsingException) {
+                    throw IllegalStateException("Google returned an invalid sign-in credential.")
+                }
+            }
             else when (state.screen) {
                 "home" -> {
                     Title("Your learning library", "Turn your own material into a focused practice session.")
@@ -177,7 +212,13 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
                     Info("Server", model.session.server)
                     Info("Your data", "Document text and quizzes are encrypted in the local backend database. Uploaded originals are discarded after extraction. Documents and related progress expire after 30 days. Delete a document from its study screen, or delete your account below.")
                     Info("Connection", "Debug builds allow HTTP only to the emulator host and localhost. Use HTTPS for a deployed server. Your session is protected by Android Keystore.")
-                    OutlinedButton(onClick = model::signOut, enabled = !state.busy) { Text("Sign out") }
+                    OutlinedButton(onClick = {
+                        model.signOut()
+                        scope.launch {
+                            try { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
+                            catch (_: ClearCredentialException) { /* The Saras session is cleared independently. */ }
+                        }
+                    }, enabled = !state.busy) { Text("Sign out") }
                     TextButton(onClick = { confirmation = "account" }, enabled = !state.busy) { Text("Delete account and all data", color = MaterialTheme.colorScheme.error) }
                 }
             }
@@ -224,7 +265,7 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     else Info("Local practice mode", "Practice recall using exact passages from your material. AI concept questions and higher difficulty will be available after the provider is connected.")
 }
 
-@Composable private fun Login(model: StudyViewModel, busy: Boolean) {
+@Composable private fun Login(model: StudyViewModel, busy: Boolean, googleToken: suspend (String, String) -> String?) {
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var server by rememberSaveable { mutableStateOf(model.session.server) }
@@ -237,6 +278,8 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     Button(onClick = { model.authenticate(username, password, register, server); password = "" }, enabled = !busy && username.length >= 3 && password.length >= 10, modifier = Modifier.fillMaxWidth()) {
         Text(if (register) "Create your study account" else "Sign in")
     }
+    OutlinedButton(onClick = { model.signInWithGoogle(server, googleToken) }, enabled = !busy,
+        modifier = Modifier.fillMaxWidth()) { Text("Sign in with Google") }
     TextButton(onClick = { register = !register }, enabled = !busy) { Text(if (register) "Already have an account? Sign in" else "New here? Create an account") }
 }
 

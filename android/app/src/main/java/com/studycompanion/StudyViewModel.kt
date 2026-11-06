@@ -2,6 +2,7 @@ package com.studycompanion
 
 import android.app.Application
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.studycompanion.data.ApiException
@@ -135,9 +136,10 @@ class StudyViewModel internal constructor(application: Application, private val 
         }
     }
 
-    fun authenticate(username: String, password: String, register: Boolean, server: String) = run {
-        val parsed = Uri.parse(server)
-        require(parsed.scheme in listOf("http", "https") && !parsed.host.isNullOrEmpty() && parsed.userInfo == null) { "Enter a valid server URL." }
+    private suspend fun selectServer(server: String) {
+        val parsed = server.trim().toUri()
+        require(parsed.scheme in listOf("http", "https") && !parsed.host.isNullOrEmpty() &&
+            parsed.userInfo == null && parsed.query == null && parsed.fragment == null) { "Enter a valid server URL." }
         if (session.server != server.trim().trimEnd('/')) {
             offlineCache.clear()
             session.ownerId = ""
@@ -145,14 +147,29 @@ class StudyViewModel internal constructor(application: Application, private val 
             session.activeQuiz = ""
         }
         session.server = server
-        val reply = JSONObject(repository.call("/auth/${if (register) "register" else "login"}", "POST",
-            JSONObject().put("username", username.trim()).put("password", password)))
-        session.token = reply.getString("token")
+    }
+
+    private suspend fun acceptSignIn(reply: JSONObject) {
         val ownerId = reply.getString("owner_id")
         if (session.ownerId != ownerId) offlineCache.clear()
         session.ownerId = ownerId
+        session.token = reply.getString("token")
         mutable.value = StudyState(signedIn = true, busy = true)
+        retryAction = { loadHome() }
         loadHome()
+    }
+
+    fun authenticate(username: String, password: String, register: Boolean, server: String) = run {
+        selectServer(server)
+        acceptSignIn(JSONObject(repository.call("/auth/${if (register) "register" else "login"}", "POST",
+            JSONObject().put("username", username.trim()).put("password", password))))
+    }
+
+    fun signInWithGoogle(server: String, getToken: suspend (String, String) -> String?) = run {
+        selectServer(server)
+        val challenge = JSONObject(repository.call("/auth/google/challenge", "POST"))
+        val token = getToken(challenge.getString("client_id"), challenge.getString("nonce")) ?: return@run
+        acceptSignIn(JSONObject(repository.call("/auth/google", "POST", JSONObject().put("id_token", token))))
     }
 
     private suspend fun loadHome() {

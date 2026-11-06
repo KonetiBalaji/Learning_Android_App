@@ -37,6 +37,58 @@
         }
       }
     },
+    "/auth/google/challenge": {
+      "post": {
+        "summary": "Google Challenge",
+        "operationId": "google_challenge_auth_google_challenge_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "post": {
+        "summary": "Google Login",
+        "operationId": "google_login_auth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleCredential"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/{action}": {
       "post": {
         "summary": "Authenticate",
@@ -1627,6 +1679,21 @@
           "quote"
         ],
         "title": "Feedback"
+      },
+      "GoogleCredential": {
+        "properties": {
+          "id_token": {
+            "type": "string",
+            "format": "password",
+            "title": "Id Token",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_token"
+        ],
+        "title": "GoogleCredential"
       },
       "HTTPValidationError": {
         "properties": {

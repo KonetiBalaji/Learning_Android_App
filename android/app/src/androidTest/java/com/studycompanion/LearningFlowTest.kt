@@ -38,6 +38,21 @@ class LearningFlowTest {
 
     private val studyServer get() = fixtureUrl(18763)
 
+    @Test fun googleSignInReportsUnconfiguredServerWithoutChangingSession() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
+        val port = InstrumentationRegistry.getArguments().getString("googleDisabledPort", "18763").toInt()
+        rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(fixtureUrl(port))
+        rule.onNodeWithText("Sign in with Google").performScrollTo().performClick()
+        rule.waitUntil(30_000) { !model.state.value.busy && model.state.value.error != null }
+        rule.onNodeWithText("Google sign-in is not configured on this server.").assertExists()
+        assertFalse(model.state.value.signedIn)
+        assertTrue(model.session.token.isEmpty())
+        rule.onNodeWithText("Create your study account").assertExists()
+    }
+
     @Test fun separateAccountsCanSignInAndOutWithoutSharingStudyData() {
         lateinit var model: StudyViewModel
         rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }

@@ -30,6 +30,9 @@ class Store:
         self.db.executescript("""
             PRAGMA foreign_keys = ON;
             CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT UNIQUE, salt BLOB, password BLOB);
+            CREATE TABLE IF NOT EXISTS google_accounts (
+                subject TEXT PRIMARY KEY, owner TEXT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS google_challenges (digest TEXT PRIMARY KEY, expires REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, owner TEXT REFERENCES users(id) ON DELETE CASCADE, expires REAL);
             CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, owner TEXT REFERENCES users(id) ON DELETE CASCADE,
                 kind TEXT, document TEXT, created REAL, payload BLOB);
@@ -98,6 +101,7 @@ class Store:
             """, (now - DOCUMENT_RETENTION_SECONDS, owner, owner))
             if owner is None:
                 self.db.execute("DELETE FROM sessions WHERE expires<=?", (now,))
+                self.db.execute("DELETE FROM google_challenges WHERE expires<=?", (now,))
 
     def for_document(self, owner, kind, document, limit=50):
         return [self.decode(row[0]) for row in self.db.execute(

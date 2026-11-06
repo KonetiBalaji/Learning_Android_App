@@ -12,9 +12,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
+from google.auth import exceptions as google_auth_errors
+from google.auth.transport.requests import Request as GoogleRequest
+from google.oauth2.id_token import verify_oauth2_token
+
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, SecretStr, ValidationError
 from starlette.responses import HTMLResponse, JSONResponse
 
 from .documents import MAX_BYTES, MAX_TEXT, DocumentError, extract, retrieve, structure
@@ -33,6 +37,14 @@ from .offline import OfflineAttempt, reconstruct as reconstruct_offline
 class Credentials(BaseModel):
     username: str = Field(min_length=3, max_length=80, pattern=r"^[a-zA-Z0-9_.-]+$")
     password: str = Field(min_length=10, max_length=128)
+
+
+class GoogleCredential(BaseModel):
+    id_token: SecretStr
+
+
+def verify_google_credential(token: str, audience: str):
+    return verify_oauth2_token(token, GoogleRequest(), audience)
 
 
 class Selection(BaseModel):
@@ -113,6 +125,7 @@ def create_app(data_dir: Path | None = None):
     app.state.store = store
     auth = HTTPBearer(auto_error=False)
     attempts = {}
+    google_client_id = os.getenv("STUDY_GOOGLE_CLIENT_ID", "").strip()
     provider = configured_provider()
     mode = "openai" if provider else "local_practice"
     request_limit = int(os.getenv("STUDY_REQUESTS_PER_MINUTE", "0"))
@@ -239,8 +252,7 @@ def create_app(data_dir: Path | None = None):
                 raise HTTPException(503, "Storage is unavailable.") from None
         return {"status": "ready"}
 
-    @app.post("/auth/{action}")
-    def authenticate(action: Literal["register", "login"], body: Credentials, request: Request):
+    def limit_auth_attempt(request: Request):
         address = request.client.host if request.client else "unknown"
         with store.lock:
             now = time.time()
@@ -253,6 +265,58 @@ def create_app(data_dir: Path | None = None):
             if len(history) >= 10:
                 raise HTTPException(429, "Too many attempts. Try again in a minute.")
             history.append(now)
+
+    @app.post("/auth/google/challenge")
+    def google_challenge(request: Request):
+        if not google_client_id:
+            raise HTTPException(503, "Google sign-in is not configured on this server.")
+        limit_auth_attempt(request)
+        nonce = secrets.token_urlsafe(32)
+        now = time.time()
+        with store.lock, store.db:
+            store.db.execute("DELETE FROM google_challenges WHERE expires <= ?", (now,))
+            if store.db.execute("SELECT count(*) FROM google_challenges").fetchone()[0] >= 4096:
+                raise HTTPException(429, "Too many sign-in requests. Try again shortly.")
+            store.db.execute("INSERT INTO google_challenges VALUES (?, ?)",
+                             (hashlib.sha256(nonce.encode()).hexdigest(), now + 300))
+        return {"client_id": google_client_id, "nonce": nonce}
+
+    @app.post("/auth/google")
+    def google_login(body: GoogleCredential, request: Request):
+        if not google_client_id:
+            raise HTTPException(503, "Google sign-in is not configured on this server.")
+        limit_auth_attempt(request)
+        token = body.id_token.get_secret_value()
+        invalid = "Google sign-in could not be verified. Try signing in again."
+        if not 1 <= len(token) <= 8192:
+            raise HTTPException(401, invalid)
+        try:
+            claims = verify_google_credential(token, google_client_id)
+        except google_auth_errors.TransportError:
+            raise HTTPException(503, "Google sign-in verification is temporarily unavailable.") from None
+        except (ValueError, google_auth_errors.GoogleAuthError):
+            raise HTTPException(401, invalid) from None
+        subject, nonce = claims.get("sub"), claims.get("nonce")
+        if not isinstance(subject, str) or not 1 <= len(subject) <= 255 or not isinstance(nonce, str) or len(nonce) != 43:
+            raise HTTPException(401, invalid)
+        digest = hashlib.sha256(nonce.encode()).hexdigest()
+        with store.lock, store.db:
+            consumed = store.db.execute("DELETE FROM google_challenges WHERE digest=? AND expires>?", (digest, time.time()))
+            if consumed.rowcount != 1:
+                raise HTTPException(401, invalid)
+            row = store.db.execute("SELECT owner FROM google_accounts WHERE subject=?", (subject,)).fetchone()
+            if row:
+                user = row["owner"]
+            else:
+                user = str(uuid.uuid4())
+                store.db.execute("INSERT INTO users VALUES (?,?,NULL,NULL)", (user, "google:" + user))
+                store.db.execute("INSERT INTO google_accounts VALUES (?,?)", (subject, user))
+            return session(user)
+
+    @app.post("/auth/{action}")
+    def authenticate(action: Literal["register", "login"], body: Credentials, request: Request):
+        limit_auth_attempt(request)
+        with store.lock:
             username = body.username.lower()
             row = store.db.execute("SELECT * FROM users WHERE name=?", (username,)).fetchone()
             if action == "register":
