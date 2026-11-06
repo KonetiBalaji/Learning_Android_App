@@ -18,3 +18,5 @@ The attached student-learning brief describes a curriculum product in addition t
 Curriculum progress is encrypted and scoped to the signed-in account. Account deletion removes it. The flow retains the current lesson and its result, rather than retaining free-text submissions. The document retention policy continues to apply to uploaded material.
 
 Backend tests cover access control, invalid transitions, replay, worked coaching, equivalent answers, rewrite feedback, unlocking, and account deletion. The Android regression drives the Grade 6 fractions flow through the UI and opens the newly unlocked decimals chapter.
+
+Verification for runtime commit `d3e9a29`: 111 backend tests passed. The debug and instrumentation APKs built, four Android unit tests passed, and lint reported zero errors and 15 warnings. The targeted Android 15 emulator regression passed through fractions mastery and the decimals unlock. [Docker HTTPS staging passed](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42157314907). Staging exercises the existing HTTPS and document workflow. The curriculum transition is verified separately by the API and emulator tests above.
