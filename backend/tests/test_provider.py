@@ -53,6 +53,28 @@ def test_review_rejects_ambiguous_questions():
         provider.generate(PASSAGES, 1, "multiple_choice", "easy")
 
 
+@pytest.mark.parametrize(("levels", "valid"), [
+    (["hard"], True),
+    (["easy", "easy"], False),
+    (["easy", "hard"], True),
+    (["easy", "hard", "hard"], False),
+    (["easy", "medium", "hard"], True),
+])
+def test_mixed_difficulty_requires_varied_labels_before_review(levels, valid):
+    prompts = ["Which structure produces energy?", "What do cells use to produce energy?",
+               "Which structure would a cell need to keep producing energy?"]
+    questions = [{**QUESTION, "prompt": prompt, "difficulty": level} for prompt, level in zip(prompts, levels)]
+    replies = iter([completed({"questions": questions}), completed({"approved": [True] * len(levels)})])
+    provider = OpenAIProvider("unused", "model", httpx.MockTransport(lambda _: httpx.Response(200, json=next(replies))))
+    if valid:
+        assert [question["difficulty"] for question in provider.generate(
+            PASSAGES, len(levels), "multiple_choice", "mixed"
+        )] == levels
+    else:
+        with pytest.raises(GenerationError, match="too little variety"):
+            provider.generate(PASSAGES, len(levels), "multiple_choice", "mixed")
+
+
 def test_local_mode_needs_no_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("STUDY_GENERATION_MODE", "local_practice")

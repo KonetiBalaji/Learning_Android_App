@@ -98,11 +98,14 @@ class OpenAIProvider:
             "Include an exact verbatim quote from one source_id that proves the answer. Never invent a source. "
             "Explain why the correct choice follows from the source and teach the misconception without adding unsupported facts. "
             "Return fewer questions if the material cannot support the requested count; do not invent filler. "
-            "concept must be a concise topic. Mixed difficulty should vary easy, medium, hard."
+            "concept must be a concise topic. For Mixed difficulty, include easy, medium, and hard "
+            "when there are at least three questions. For two questions, use two different difficulties."
         )
         output = self.structured(instruction, {"count": count, "type": kind, "difficulty": difficulty, "passages": context}, GeneratedQuiz)
         questions = [q.model_dump() for q in output.questions]
         validate(questions, context, count)
+        if difficulty == "mixed" and len({q["difficulty"] for q in questions}) < min(count, 3):
+            raise GenerationError("The AI returned too little variety for Mixed difficulty.")
         sources = {p["id"]: p for p in context}
         for index, question in enumerate(questions):
             if question["type"] != kind:
