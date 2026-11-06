@@ -224,16 +224,22 @@ def test_grade_six_subject_paths_unlock_for_the_student_only(client, subject, pr
         return [chapter for chapter in client.get("/curriculum", headers=headers).json()
                 if chapter["grade"] == 6 and chapter["subject"] == subject]
 
-    first, second = subject_chapters(student)
+    first, second, *_ = subject_chapters(student)
     assert (first["id"], second["id"]) == (prerequisite[0], next_chapter[0])
     assert not first["locked"] and second["locked"]
     assert client.post(path, headers=student).status_code == 409
 
     finish(client, student, *prerequisite)
-    first, second = subject_chapters(student)
+    first, second, *_ = subject_chapters(student)
     assert first["mastered"] and not second["locked"]
     assert client.post(path, headers=other).status_code == 409
+    if subject == "Science":
+        assert client.post("/curriculum/runoff-and-infiltration/lesson", headers=student).status_code == 409
     finish(client, student, *next_chapter)
+    if subject == "Science":
+        finish(client, student, "runoff-and-infiltration", (2, 1), "infiltration",
+               "Runoff flows over the surface while infiltration moves water into soil.")
+        assert client.post("/curriculum/runoff-and-infiltration/lesson", headers=other).status_code == 409
     assert subject_chapters(student)[1]["mastered"]
     assert not subject_chapters(other)[1]["started"]
 
@@ -347,7 +353,7 @@ def test_grade_six_lesson_banks_have_valid_diagnostics_and_distinct_practice_pro
     from study.mastery import CHAPTERS, diagnostic_items, new_lesson
 
     chapters = {key: chapter for key, chapter in CHAPTERS.items() if chapter["grade"] == 6}
-    assert len(chapters) == 11
+    assert len(chapters) == 12
     for key, chapter in chapters.items():
         diagnostics = diagnostic_items(chapter, new_lesson(key, 0))
         assert len(diagnostics) >= 2, key

@@ -182,7 +182,8 @@ class LearningFlowTest {
             phase("mastered")
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
-            rule.onNodeWithText("1 of 2 chapters mastered").assertExists()
+            val chapterCount = if (subject == "Science") 3 else 2
+            rule.onNodeWithText("1 of $chapterCount chapters mastered").assertExists()
             tap(second)
             phase("diagnostic")
             rule.onNodeWithText(nextPrompt).assertExists()
