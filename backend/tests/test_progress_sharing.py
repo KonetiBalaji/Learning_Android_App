@@ -115,3 +115,21 @@ def test_report_prioritizes_repeated_difficulty_without_sharing_attempt_counts()
         {"grade": 6, "subject": "Mathematics", "title": "Adding fractions"},
     ]
     assert "The water cycle" in shared["recommendation"]
+
+
+def test_weekly_report_counts_new_starts_and_honors_both_time_boundaries():
+    from study.mastery import new_lesson
+    from study.progress_sharing import report
+
+    now = 1_800_000_000
+    cutoff = now - 7 * 86400
+    lessons = [
+        new_lesson("fractions", now),
+        {"chapter_id": "evaporation", "phase": "mastered", "last_activity": cutoff, "mastered_at": cutoff},
+        {"chapter_id": "complete-sentences", "phase": "mastered", "last_activity": cutoff - 1, "mastered_at": cutoff - 1},
+        {"chapter_id": "primary-sources", "phase": "mastered", "last_activity": now + 1, "mastered_at": now + 1},
+        {"chapter_id": "counting-on", "phase": "mastered"},
+    ]
+    shared = report(lessons, "teacher", now)
+    assert shared["week"] == {"chapters_active": 2, "chapters_mastered": 1}
+    assert sum(subject["mastered"] for subject in shared["subjects"]) == 4

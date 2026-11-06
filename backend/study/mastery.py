@@ -126,7 +126,7 @@ def catalog(lessons):
 def new_lesson(identifier, started):
     diagnostic_total = 1 + len(CHAPTERS[identifier].get("diagnostics", ()))
     return {"chapter_id": identifier, "started": started, "phase": "diagnostic", "version": 0,
-            "diagnostic_total": diagnostic_total,
+            "diagnostic_total": diagnostic_total, "last_activity": started,
             "practice_index": 0, "correct": None, "feedback": ""}
 
 
