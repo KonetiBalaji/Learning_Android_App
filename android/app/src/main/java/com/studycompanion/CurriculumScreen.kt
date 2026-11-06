@@ -1,6 +1,8 @@
 package com.studycompanion
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -134,7 +136,9 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
             CurriculumButton(if (showExample) "Hide example steps" else "Show example steps", !state.busy) {
                 showExample = !showExample
             }
-            AnimatedVisibility(showExample) { Text(example) }
+            AnimatedVisibility(showExample) {
+                WorkedExample(example, lesson.optJSONArray("example_steps")?.strings().orEmpty(), !state.busy)
+            }
             CurriculumButton(if (lesson.optBoolean("diagnostic_remaining")) "Next diagnostic question" else "Try a practice question",
                 !state.busy) { model.answerCurriculum("continue") }
         }
@@ -160,6 +164,22 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
         }
     }
     CurriculumButton("Back to chapters", !state.busy, model::closeCurriculumChapter)
+}
+
+@Composable
+private fun WorkedExample(example: String, steps: List<String>, enabled: Boolean) {
+    Column {
+        Text(example)
+        if (steps.isNotEmpty()) {
+            var index by rememberSaveable(example) { mutableStateOf(0) }
+            Text("Step ${index + 1} of ${steps.size}")
+            Crossfade(targetState = index, label = "Worked example step") { step ->
+                Text(steps[step])
+            }
+            if (index > 0) CurriculumButton("Previous example step", enabled) { index-- }
+            if (index < steps.lastIndex) CurriculumButton("Next example step", enabled) { index++ }
+        }
+    }
 }
 
 @Composable

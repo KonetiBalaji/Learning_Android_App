@@ -11,6 +11,11 @@ CHAPTERS = {
         "prompt": "What is 3/4 + 1/4?", "choices": ["1/2", "1", "3/8", "2"], "answer": 1,
         "explanation": "The denominator tells you the size of the pieces. Both fractions use quarters, so add the numerators and keep the denominator: (3 + 1)/4 = 4/4 = 1.",
         "example": "2/5 + 3/5 = (2 + 3)/5 = 5/5 = 1.",
+        "example_steps": [
+            "Both fractions describe fifths, so the denominator stays 5.",
+            "Combine the pieces: 2 fifths plus 3 fifths makes 5 fifths.",
+            "Five fifths make one whole: 5/5 = 1.",
+        ],
         "practice": [("What is 2/8 + 4/8?", "3/4"), ("What is 1/7 + 3/7?", "4/7")],
         "hint": "Add the top numbers. The pieces stay the same size. You can simplify your answer.",
         "rewrite": "Explain why 3/4 + 1/4 = 1. Say what happens to the numerators and denominator.",
@@ -22,6 +27,11 @@ CHAPTERS = {
         "prompt": "What is 0.30 + 0.45?", "choices": ["0.75", "0.48", "0.15", "7.5"], "answer": 0,
         "explanation": "Align the decimal points so you add digits with the same place value. Thirty hundredths plus forty-five hundredths is seventy-five hundredths.",
         "example": "0.2 + 0.35 = 0.20 + 0.35 = 0.55.",
+        "example_steps": [
+            "Rewrite 0.2 as 0.20 so both numbers show hundredths.",
+            "Add the matching place values: 20 hundredths plus 35 hundredths is 55 hundredths.",
+            "Write 55 hundredths as 0.55.",
+        ],
         "practice": [("What is 0.4 + 0.28?", "0.68"), ("What is 0.06 + 0.2?", "0.26")],
         "hint": "Write both numbers with two decimal places and add matching place values.",
         "rewrite": "Explain how aligning decimal points helps you add 0.30 and 0.45.",
@@ -72,6 +82,8 @@ def snapshot(lesson):
     elif phase == "coach":
         result.update(explanation=chapter["explanation"], example=chapter["example"],
                       diagnostic_remaining=0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter)))
+        if "example_steps" in chapter:
+            result["example_steps"] = chapter["example_steps"]
     elif phase == "practice":
         result.update(prompt=chapter["practice"][lesson["practice_index"]][0], hint=chapter["hint"])
     elif phase == "rewrite":
