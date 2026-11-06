@@ -60,8 +60,22 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
             }
             subject == null -> {
                 Text("Grade $grade · Select a subject", style = MaterialTheme.typography.headlineSmall)
-                state.curriculumChapters.filter { it.getInt("grade") == grade }
-                    .map { it.getString("subject") }.distinct().forEach { name ->
+                val chapters = state.curriculumChapters.filter { it.getInt("grade") == grade }
+                val studiedSubjects = chapters.filter { it.getBoolean("mastered") }.map { it.getString("subject") }.toSet()
+                val next = nextCurriculumChapter(chapters, studiedSubjects)
+                if (next != null && (next.optBoolean("started") || studiedSubjects.isNotEmpty())) {
+                    val name = next.getString("subject")
+                    val action = when {
+                        next.optBoolean("needs_practice") -> "Review"
+                        next.optBoolean("started") -> "Continue"
+                        else -> "Start next"
+                    }
+                    CurriculumButton("$action: ${next.getString("title")} · $name", !state.busy) {
+                        subject = name
+                        model.openCurriculumChapter(next.getString("id"))
+                    }
+                }
+                chapters.map { it.getString("subject") }.distinct().forEach { name ->
                         CurriculumButton(name, !state.busy) { subject = name }
                     }
                 CurriculumButton("Back to grades", !state.busy) { grade = null }
@@ -74,9 +88,7 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
                 if (chapters.isNotEmpty()) {
                     LinearProgressIndicator(progress = { mastered.toFloat() / chapters.size }, modifier = Modifier.fillMaxWidth())
                 }
-                val next = chapters.firstOrNull { it.optBoolean("needs_practice") }
-                    ?: chapters.firstOrNull { it.optBoolean("started") && !it.getBoolean("mastered") }
-                    ?: chapters.firstOrNull { !it.getBoolean("locked") && !it.getBoolean("mastered") }
+                val next = nextCurriculumChapter(chapters)
                 next?.let { Text("Suggested next: ${it.getString("title")}") }
                 chapters.forEach { chapter ->
                         val label = when {
@@ -193,6 +205,17 @@ fun ReadinessBreakdown(scores: org.json.JSONObject) {
             Text("$label: ${score.getInt("correct")} / ${score.getInt("total")}")
         }
     }
+}
+
+private fun nextCurriculumChapter(
+    chapters: List<org.json.JSONObject>,
+    studiedSubjects: Set<String> = emptySet(),
+): org.json.JSONObject? {
+    val available = chapters.filter { !it.getBoolean("locked") && !it.getBoolean("mastered") }
+    return available.firstOrNull { it.optBoolean("needs_practice") }
+        ?: available.firstOrNull { it.optBoolean("started") }
+        ?: available.firstOrNull { it.getString("subject") in studiedSubjects }
+        ?: available.firstOrNull()
 }
 
 @Composable

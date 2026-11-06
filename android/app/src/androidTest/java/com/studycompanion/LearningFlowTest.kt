@@ -171,6 +171,19 @@ class LearningFlowTest {
                 "Evaporation turns liquid into vapor. Condensation reverses it.",
                 "What is it called when water falls from clouds as rain or snow?",
             )
+            tap("Continue: The water cycle · Science")
+            phase("diagnostic")
+            tap("Evaporation")
+            phase("coach")
+            tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            tap("Back to subjects")
+            tap("Review: The water cycle · Science")
+            phase("coach")
+            rule.onNodeWithText("Worked example").assertExists()
+            tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            tap("Back to subjects")
             verifyPath(
                 "English", "Complete sentences", "Combining related sentences", "The birds sang", "glowed",
                 "Birds is the subject and sang is the verb.",
