@@ -31,12 +31,18 @@ CHAPTERS = {
     "fractions": {
         "grade": 6, "subject": "Mathematics", "title": "Adding fractions", "requires": None,
         "prompt": "What is 3/4 + 1/4?", "choices": ["1/2", "1", "3/8", "2"], "answer": 1,
+        "legacy_diagnostic_total": 1,
         "diagnostic_feedback": {
             0: "Adding one quarter to three quarters must give more than three quarters.",
             2: "The pieces are quarters throughout. Adding the fractions does not change them into eighths.",
             3: "Four quarters fill one whole. Two wholes would need eight quarters.",
         },
         "explanation": "The denominator tells you the size of the pieces. Both fractions use quarters, so add the numerators and keep the denominator: (3 + 1)/4 = 4/4 = 1.",
+        "diagnostics": [
+            ("What does the 7 in 2/7 tell you?",
+             ["Two wholes are divided", "Seven pieces are selected",
+              "One whole is divided into seven equal pieces", "Each piece is seven wholes"], 2),
+        ],
         "example": "2/5 + 3/5 = (2 + 3)/5 = 5/5 = 1.",
         "example_steps": [
             "Both fractions describe fifths, so the denominator stays 5.",
@@ -60,12 +66,17 @@ CHAPTERS = {
     "decimals": {
         "grade": 6, "subject": "Mathematics", "title": "Adding decimals", "requires": "fractions",
         "prompt": "What is 0.30 + 0.45?", "choices": ["0.75", "0.48", "0.15", "7.5"], "answer": 0,
+        "legacy_diagnostic_total": 1,
         "diagnostic_feedback": {
             1: "The 3 in 0.30 counts tenths. It adds 30 hundredths, rather than 3 hundredths.",
             2: "Fifteen hundredths is the difference between 0.45 and 0.30. Adding should give more than 0.45.",
             3: "Seventy-five hundredths is less than one whole. Keep the decimal point aligned.",
         },
         "explanation": "Align the decimal points so you add digits with the same place value. Thirty hundredths plus forty-five hundredths is seventy-five hundredths.",
+        "diagnostics": [
+            ("What is the value of the 4 in 0.47?",
+             ["Four hundredths", "Four tenths", "Four ones", "Four tens"], 1),
+        ],
         "example": "0.2 + 0.35 = 0.20 + 0.35 = 0.55.",
         "example_steps": [
             "Rewrite 0.2 as 0.20 so both numbers show hundredths.",

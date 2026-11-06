@@ -29,13 +29,16 @@ def test_curriculum_coaching_retries_mastery_and_owner_isolation(client):
     )
     assert client.post(fractions, headers=first).json() == coaching
     assert action(0, "diagnostic", choice=0) == coaching
-    practice = action(1, "continue")
+    second_question = action(1, "continue")
+    assert second_question["diagnostic_index"] == 1
+    assert client.post(fractions, headers=first).json() == second_question
+    practice = action(2, "diagnostic", choice=2)
     assert practice["phase"] == "practice" and "hint" in practice and "answer" not in practice
-    assert practice["feedback"] == ""
-    assert action(2, "practice", response="1/0")["phase"] == "coach"
-    assert action(3, "continue")["prompt"] != practice["prompt"]
-    assert action(4, "practice", response="8/14")["phase"] == "rewrite"
-    revision = action(5, "rewrite", response="I add the numerators to combine both groups.")
+    assert practice["feedback"] == "Correct. Try a new example."
+    assert action(3, "practice", response="1/0")["phase"] == "coach"
+    assert action(4, "continue")["prompt"] != practice["prompt"]
+    assert action(5, "practice", response="8/14")["phase"] == "rewrite"
+    revision = action(6, "rewrite", response="I add the numerators to combine both groups.")
     assert revision["phase"] == "rewrite"
     assert revision["feedback"] == "What happens to the size of each piece when you combine the two groups?"
     assert client.post(fractions, headers=first).json() == revision
@@ -43,7 +46,7 @@ def test_curriculum_coaching_retries_mastery_and_owner_isolation(client):
     assert progress["needs_practice"] and progress["practice_misses"] == 1 and progress["rewrite_revisions"] == 1
     assert progress["review_events"] == 3
     assert client.get("/curriculum", headers=second).json()[0]["started"] is False
-    assert action(6, "rewrite", response="Add the numerators and keep the denominator unchanged.")["phase"] == "mastered"
+    assert action(7, "rewrite", response="Add the numerators and keep the denominator unchanged.")["phase"] == "mastered"
     progress = client.get("/curriculum", headers=first).json()[0]
     assert progress["mastered"] and not progress["needs_practice"]
     assert client.post(fractions, headers=first).json()["phase"] == "mastered"
@@ -54,13 +57,16 @@ def test_curriculum_coaching_retries_mastery_and_owner_isolation(client):
     assert client.app.state.store.db.execute("SELECT count(*) FROM records WHERE kind='mastery'").fetchone()[0] == 0
 
 
-def test_correct_diagnostic_moves_straight_to_practice(client):
+def test_correct_diagnostic_advances_to_the_next_question(client):
     student = account(client)
     path = "/curriculum/fractions/lesson"
     assert client.post(path, headers=student).status_code == 200
     result = client.post(path + "/actions", headers=student, json={"version": 0, "action": "diagnostic", "choice": 1})
     assert result.status_code == 200
-    assert result.json()["phase"] == "practice"
+    assert result.json()["phase"] == "diagnostic"
+    assert result.json()["diagnostic_index"] == 1
+    completed = client.post(path + "/actions", headers=student, json={"version": 1, "action": "diagnostic", "choice": 2})
+    assert completed.status_code == 200 and completed.json()["phase"] == "practice"
 
 @pytest.mark.parametrize("chapter, choice, first_answer, second_answer, rewrite", [
     ("counting-on", 2, "7", "9", "Start at four and count two steps to six."),
@@ -123,8 +129,8 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
     algebra = "/curriculum/grade6-algebra/lesson"
     geometry = "/curriculum/grade6-geometry/lesson"
     assert all(client.post(path, headers=auth).status_code == 409 for path in (percentages, algebra, geometry))
-    finish(client, auth, "fractions", 1, "3/4", "Add the numerators and keep the denominator unchanged.")
-    finish(client, auth, "decimals", 0, "0.68", "Align the decimal points to add matching place values.")
+    finish(client, auth, "fractions", (1, 2), "3/4", "Add the numerators and keep the denominator unchanged.")
+    finish(client, auth, "decimals", (0, 1), "0.68", "Align the decimal points to add matching place values.")
 
     def open_lesson(path):
         reply = client.post(path, headers=auth)
@@ -247,15 +253,15 @@ def test_legacy_partial_diagnostic_completes_without_inventing_a_score():
 
 
 @pytest.mark.parametrize("chapter, choice, third_prompt, equivalent", [
-    ("fractions", 1, "What is 2/5 + 2/5?", "8/10"),
-    ("decimals", 0, "What is 0.12 + 0.14?", "26/100"),
+    ("fractions", (1, 2), "What is 2/5 + 2/5?", "8/10"),
+    ("decimals", (0, 1), "What is 0.12 + 0.14?", "26/100"),
 ])
 def test_math_practice_uses_a_third_question_after_two_misses(client, chapter, choice, third_prompt, equivalent):
     from test_readiness import finish
 
     auth = account(client)
     if chapter == "decimals":
-        finish(client, auth, "fractions", 1, "3/4", "Add the numerators and keep the denominator unchanged.")
+        finish(client, auth, "fractions", (1, 2), "3/4", "Add the numerators and keep the denominator unchanged.")
     path = f"/curriculum/{chapter}/lesson"
     lesson = client.post(path, headers=auth).json()
 
@@ -265,7 +271,9 @@ def test_math_practice_uses_a_third_question_after_two_misses(client, chapter, c
         assert result.status_code == 200, result.text
         return result.json()
 
-    practice = act(lesson, "diagnostic", choice=choice)
+    practice = lesson
+    for answer in choice:
+        practice = act(practice, "diagnostic", choice=answer)
     prompts = [practice["prompt"]]
     for _ in range(2):
         coach = act(practice, "practice", response="0")

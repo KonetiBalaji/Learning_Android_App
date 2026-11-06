@@ -80,7 +80,8 @@ try:
     lesson = call(fractions, "POST", token=owner)
     for action, fields, expected_phase in (
         ("diagnostic", {"choice": 0}, "coach"),
-        ("continue", {}, "practice"),
+        ("continue", {}, "diagnostic"),
+        ("diagnostic", {"choice": 2}, "practice"),
         ("practice", {"response": "3/4"}, "rewrite"),
         ("rewrite", {"response": "Add the numerators and keep the denominator unchanged."}, "mastered"),
     ):
@@ -90,7 +91,7 @@ try:
         if expected_phase == "coach":
             assert "You chose 1/2." in lesson["feedback"]
             assert {"Soccer", "Gaming"} <= lesson["example_variants"].keys()
-    assert lesson["diagnostic_score"] == {"correct": 0, "total": 1}
+    assert lesson["diagnostic_score"] == {"correct": 1, "total": 2}
     assert call(decimals, "POST", token=owner)["phase"] == "diagnostic"
     call(decimals, "POST", token=outsider, expected=409)
     print("Verified curriculum coaching, mastery, diagnostic scoring and owner-only chapter unlock.")

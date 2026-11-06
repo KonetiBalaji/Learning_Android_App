@@ -262,7 +262,9 @@ class LearningFlowTest {
             rule.onNodeWithText("A quest meter fills by 2/5", substring = true).assertDoesNotExist()
             tap("Hide example steps")
             rule.onNodeWithText("2/5 + 3/5 = (2 + 3)/5 = 5/5 = 1.").assertDoesNotExist()
-            tap("Try a practice question")
+            tap("Next diagnostic question")
+            phase("diagnostic")
+            tap("One whole is divided into seven equal pieces")
             phase("practice")
             tap("Show hint")
             rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("6/8")
@@ -289,7 +291,7 @@ class LearningFlowTest {
             phase("mastered")
             rule.onNodeWithText("Concept mastered").assertExists()
             rule.onNodeWithText("Mastery badge earned").assertExists()
-            rule.onNodeWithText("Diagnostic score: 0 / 1 correct").assertExists()
+            rule.onNodeWithText("Diagnostic score: 1 / 2 correct").assertExists()
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
             rule.onNodeWithText("1 of 5 chapters mastered").assertExists()
@@ -298,6 +300,10 @@ class LearningFlowTest {
             phase("diagnostic")
             assertEquals("decimals", model.state.value.curriculumLesson!!.getString("chapter_id"))
             tap("0.75")
+            rule.waitUntil(30_000) {
+                !model.state.value.busy && model.state.value.curriculumLesson?.optInt("diagnostic_index") == 1
+            }
+            tap("Four tenths")
             phase("practice")
             rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("0.68")
             tap("Check answer")

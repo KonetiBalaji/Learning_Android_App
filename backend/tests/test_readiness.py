@@ -19,9 +19,9 @@ def test_readiness_is_held_out_owned_resumable_and_scored_without_leaking_answer
     other = account(client, "viewer")
     path = "/curriculum/readiness/grade6-math"
     assert client.post(path, headers=student).status_code == 409
-    finish(client, student, "fractions", 1, "3/4", "Add the numerators and keep the denominator unchanged.")
+    finish(client, student, "fractions", (1, 2), "3/4", "Add the numerators and keep the denominator unchanged.")
     assert client.post(path, headers=student).status_code == 409
-    finish(client, student, "decimals", 0, "0.68", "Align the decimal points to add matching place values.")
+    finish(client, student, "decimals", (0, 1), "0.68", "Align the decimal points to add matching place values.")
     first = client.post(path, headers=student).json()
     assert first["index"] == 0 and "correct" not in first and "by_chapter" not in first
     assert client.post(path, headers=other).status_code == 409
@@ -55,8 +55,8 @@ def test_full_readiness_preserves_short_result_and_reports_all_five_topics(clien
     short = "/curriculum/readiness/grade6-math"
     full = "/curriculum/readiness/grade6-math-full"
     assert client.post("/curriculum/readiness/unknown", headers=student).status_code == 404
-    finish(client, student, "fractions", 1, "3/4", "Add the numerators and keep the denominator unchanged.")
-    finish(client, student, "decimals", 0, "0.68", "Align the decimal points to add matching place values.")
+    finish(client, student, "fractions", (1, 2), "3/4", "Add the numerators and keep the denominator unchanged.")
+    finish(client, student, "decimals", (0, 1), "0.68", "Align the decimal points to add matching place values.")
     assert client.post(full, headers=student).status_code == 409
 
     def answer_check(path, choices):
