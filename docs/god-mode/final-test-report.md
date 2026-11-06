@@ -24,3 +24,13 @@ Android command: `scripts/build-android.ps1 -ConnectedTests`. The build finished
 | Live AI | NOT VERIFIED | No live evaluation run. Easy, Medium, Hard and Mixed each have zero evaluated items. Accuracy is unavailable. |
 | Public production | NOT VERIFIED | Production URL, trusted public certificate and completed smoke results from the supplied host |
 | Authorized Play bundle | NOT VERIFIED | Bundle signed with the authorized upload key, matching certificate fingerprint and final privacy and Data safety declarations |
+
+## Physical phone and account isolation
+
+On November 5, 2026, nine instrumentation tests passed on a physical Android 13 (API 33) phone using the debug build and disposable local backend over ADB reverse forwarding. The two-account scenario verified registration, sign-in for each account, wrong-password rejection, sign-out, server-side token revocation, deletion of saved copies on sign-out, rejection of cross-owner document access, and restoration of the original account's library on sign-in. Disposable accounts were removed.
+
+The phone also passed the document-to-results flow with retrieval, tutor, citations, adaptive practice, flashcards and progress, plus OCR correction, provider fallback, upload retry, offline expiry and cache tests. The airplane-mode scenario is reserved for the emulator because the phone's wireless debugging transport depends on Wi-Fi.
+
+To repeat the phone run, install the debug and instrumentation APKs on a disposable test installation, forward ports 18763 and 18764 with ADB reverse, and run AndroidJUnitRunner with `-e studyHost 127.0.0.1`. The normal fixture uses local practice, and the second fixture simulates a provider outage. Public production and live AI were outside this device run.
+
+This audit reran 102 backend tests and four Android unit tests successfully. Debug assembly and lint passed with zero errors and 14 warnings. The separate airplane-mode rerun stalled on the emulator and was stopped. The earlier passing emulator run for the same application code remains recorded above.

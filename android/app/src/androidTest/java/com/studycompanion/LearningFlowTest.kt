@@ -14,8 +14,11 @@ import com.studycompanion.data.SessionStore
 import com.studycompanion.data.StudyRepository
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -27,6 +30,109 @@ import java.util.concurrent.atomic.AtomicInteger
 /** Disposable local backend at 18763 plus simulated-outage fixture at 18764; see provider-fallback.md. */
 class LearningFlowTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+
+    private fun fixtureUrl(port: Int): String {
+        val host = InstrumentationRegistry.getArguments().getString("studyHost", if (android.os.Build.MODEL.contains("sdk")) "10.0.2.2" else "127.0.0.1")
+        return "http://$host:$port"
+    }
+
+    private val studyServer get() = fixtureUrl(18763)
+
+    @Test fun separateAccountsCanSignInAndOutWithoutSharingStudyData() {
+        lateinit var model: StudyViewModel
+        rule.runOnIdle { model = ViewModelProvider(rule.activity)[StudyViewModel::class.java] }
+        rule.waitUntil(30_000) { !model.state.value.busy }
+        check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
+        val first = "accounta" + System.currentTimeMillis()
+        val second = "accountb" + System.currentTimeMillis()
+        val password = "disposable-account-password"
+
+        fun enter(username: String, value: String = password) {
+            for ((label, text) in listOf("Username" to username, "Password · 10+ characters" to value, "Study server URL" to studyServer)) {
+                val field = rule.onNodeWithText(label, substring = false).performScrollTo()
+                field.performTextReplacement(text)
+            }
+        }
+
+        fun submit(label: String, signedIn: Boolean) {
+            rule.onNodeWithText(label, substring = false).performScrollTo().performClick()
+            rule.waitUntil(30_000) {
+                val state = model.state.value
+                !state.busy && if (signedIn) state.signedIn else state.error != null
+            }
+        }
+
+        fun signOut() {
+            rule.onNodeWithText("Settings", substring = false).performClick()
+            rule.onNodeWithText("Sign out", substring = false).performScrollTo().performClick()
+            rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
+            assertNull(model.state.value.error)
+            assertTrue(model.session.token.isEmpty())
+            assertTrue(model.state.value.documents.isEmpty())
+        }
+
+        val createdAccounts = mutableSetOf<String>()
+        try {
+            enter(first)
+            submit("Create your study account", true)
+            createdAccounts += first
+            val owner = model.session.ownerId
+            val previousToken = model.session.token
+            uploadRegressionSample(model, "account-private.txt")
+            rule.waitUntil(30_000) { model.state.value.document != null && !model.state.value.busy }
+            val document = model.state.value.document!!.getString("id")
+            rule.runOnIdle { model.saveOffline() }
+            rule.waitUntil(30_000) { model.state.value.offlineDocuments.isNotEmpty() && !model.state.value.busy }
+            signOut()
+            assertNull(runBlocking { OfflineCache(rule.activity).load(studyServer, owner, document) })
+            OkHttpClient().newCall(okhttp3.Request.Builder().url("$studyServer/account")
+                .header("Authorization", "Bearer $previousToken").build()).execute().use {
+                assertEquals(401, it.code)
+            }
+
+            enter(second)
+            submit("Create your study account", true)
+            createdAccounts += second
+            assertNotEquals(owner, model.session.ownerId)
+            assertTrue(model.state.value.documents.isEmpty())
+            val foreign = runBlocking {
+                runCatching { StudyRepository(rule.activity, model.session).call("/documents/$document") }.exceptionOrNull()
+            }
+            assertEquals(404, (foreign as? com.studycompanion.data.ApiException)?.status)
+            signOut()
+            rule.activityRule.scenario.recreate()
+            rule.onNodeWithText("Already have an account? Sign in").performScrollTo().performClick()
+            enter(second, "incorrect-disposable-password")
+            submit("Sign in", false)
+            rule.onNodeWithText("Username or password is incorrect.").assertExists()
+            assertFalse(model.state.value.signedIn)
+            enter(second)
+            submit("Sign in", true)
+            assertTrue(model.state.value.documents.isEmpty())
+            deleteRegressionAccount(model)
+            createdAccounts -= second
+
+            rule.onNodeWithText("Already have an account? Sign in").performScrollTo().performClick()
+            enter(first)
+            submit("Sign in", true)
+            assertEquals(owner, model.session.ownerId)
+            assertEquals(listOf(document), model.state.value.documents.map { it.getString("id") })
+            deleteRegressionAccount(model)
+            createdAccounts -= first
+        } finally {
+            // Delete only accounts created by this test, even if an assertion fails mid-flow.
+            val client = OkHttpClient()
+            for (username in createdAccounts) {
+                val body = JSONObject().put("username", username).put("password", password)
+                val type = "application/json".toMediaType()
+                val payload = body.toString().toRequestBody(type)
+                val token = client.newCall(okhttp3.Request.Builder().url("$studyServer/auth/login").post(payload).build())
+                    .execute().use { if (it.isSuccessful) JSONObject(it.body!!.string()).getString("token") else null }
+                if (token != null) client.newCall(okhttp3.Request.Builder().url("$studyServer/account")
+                    .header("Authorization", "Bearer $token").delete().build()).execute().close()
+            }
+        }
+    }
 
     @Test fun uploadRetryAfterRefreshFailureDoesNotPostAgain() {
         val app = rule.activity.application
@@ -111,7 +217,7 @@ class LearningFlowTest {
 
     private fun signInForRegression(model: StudyViewModel, prefix: String) {
         rule.waitUntil(30_000) { !model.state.value.busy }
-        rule.runOnIdle { model.authenticate(prefix + System.currentTimeMillis(), "disposable-regression-password", true, "http://10.0.2.2:18763") }
+        rule.runOnIdle { model.authenticate(prefix + System.currentTimeMillis(), "disposable-regression-password", true, studyServer) }
         rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
         assertNull(model.state.value.error)
     }
@@ -129,7 +235,7 @@ class LearningFlowTest {
     }
 
     @Test fun savedMaterialSupportsAirplaneModeQuizFeedbackAndDeletion() {
-        assertTrue("This network-toggle test is for the disposable emulator", android.os.Build.MODEL.contains("sdk"))
+        assumeTrue("This network-toggle test is for the disposable emulator", android.os.Build.MODEL.contains("sdk"))
         val restartPhase = InstrumentationRegistry.getArguments().getString("offlineRestartPhase")
         if (restartPhase == "resume") { resumeOfflineAfterRestart(); return }
         lateinit var model: StudyViewModel
@@ -139,7 +245,7 @@ class LearningFlowTest {
             rule.runOnIdle { model.signOut() }
             rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
         }
-        rule.runOnIdle { model.authenticate("offline" + System.currentTimeMillis(), "disposable-offline-password", true, "http://10.0.2.2:18763") }
+        rule.runOnIdle { model.authenticate("offline" + System.currentTimeMillis(), "disposable-offline-password", true, studyServer) }
         rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
         assertNull(model.state.value.error)
         val file = File(rule.activity.cacheDir, "offline-biology.txt").apply { writeText("""
@@ -263,8 +369,7 @@ class LearningFlowTest {
         }
         rule.onNodeWithText("Username").performScrollTo().performTextInput("fallback" + System.currentTimeMillis())
         rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-fallback-password")
-        rule.onNodeWithText("Study server URL").performScrollTo().performTextClearance()
-        rule.onNodeWithText("Study server URL").performTextInput("http://10.0.2.2:18764")
+        rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(fixtureUrl(18764))
         rule.onNodeWithText("Create your study account").performScrollTo().performClick()
         rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
         val file = File(rule.activity.cacheDir, "fallback.txt").apply { writeText("""
@@ -314,8 +419,7 @@ class LearningFlowTest {
         val username = "ocr" + System.currentTimeMillis()
         rule.onNodeWithText("Username").performScrollTo().performTextInput(username)
         rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-scan-password")
-        rule.onNodeWithText("Study server URL").performScrollTo().performTextClearance()
-        rule.onNodeWithText("Study server URL").performTextInput("http://10.0.2.2:18763")
+        rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(studyServer)
         rule.onNodeWithText("Create your study account").performScrollTo().performClick()
         rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
         val file = File(rule.activity.cacheDir, "OCR-biology.pdf")
@@ -390,20 +494,19 @@ class LearningFlowTest {
         val username = "qa" + System.currentTimeMillis()
         rule.onNodeWithText("Username").performScrollTo().performTextInput(username)
         rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-test-password")
-        rule.onNodeWithText("Study server URL").performScrollTo().performTextClearance()
-        rule.onNodeWithText("Study server URL").performTextInput("http://10.0.2.2:18763")
+        rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(studyServer)
         rule.onNodeWithText("Create your study account").performScrollTo().performClick()
         rule.waitUntil(120_000) { model.state.value.signedIn && !model.state.value.busy }
         assertNull(model.state.value.error)
         rule.onNodeWithText("Your learning library").assertExists()
         // A refused connection must leave a readable failure and a working retry action.
         rule.runOnIdle {
-            model.session.server = "http://10.0.2.2:1"
+            model.session.server = fixtureUrl(1)
             model.refresh()
         }
         rule.waitUntil(30_000) { model.state.value.error != null && !model.state.value.busy }
         rule.onNodeWithText("Retry").assertExists()
-        rule.runOnIdle { model.session.server = "http://10.0.2.2:18763" }
+        rule.runOnIdle { model.session.server = studyServer }
         rule.onNodeWithText("Retry").performScrollTo().performClick()
         rule.waitUntil(30_000) { !model.state.value.busy && model.state.value.error == null }
         val text = """
