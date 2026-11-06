@@ -220,3 +220,36 @@ def test_legacy_partial_diagnostic_completes_without_inventing_a_score():
     result = snapshot(lesson)
     assert result["phase"] == "mastered"
     assert "diagnostic_score" not in result
+
+
+@pytest.mark.parametrize("chapter, choice, third_prompt, equivalent", [
+    ("fractions", 1, "What is 2/5 + 2/5?", "8/10"),
+    ("decimals", 0, "What is 0.12 + 0.14?", "26/100"),
+])
+def test_math_practice_uses_a_third_question_after_two_misses(client, chapter, choice, third_prompt, equivalent):
+    from test_readiness import finish
+
+    auth = account(client)
+    if chapter == "decimals":
+        finish(client, auth, "fractions", 1, "3/4", "Add the numerators and keep the denominator unchanged.")
+    path = f"/curriculum/{chapter}/lesson"
+    lesson = client.post(path, headers=auth).json()
+
+    def act(current, action, **fields):
+        result = client.post(path + "/actions", headers=auth,
+                             json={"version": current["version"], "action": action, **fields})
+        assert result.status_code == 200, result.text
+        return result.json()
+
+    practice = act(lesson, "diagnostic", choice=choice)
+    prompts = [practice["prompt"]]
+    for _ in range(2):
+        coach = act(practice, "practice", response="0")
+        assert coach["phase"] == "coach"
+        assert act(practice, "practice", response="0") == coach
+        practice = act(coach, "continue")
+        prompts.append(practice["prompt"])
+    assert len(set(prompts)) == 3 and prompts[-1] == third_prompt
+    assert client.post(path, headers=auth).json() == practice
+    assert "answer" not in practice
+    assert act(practice, "practice", response=equivalent)["phase"] == "rewrite"

@@ -4,6 +4,28 @@ from fractions import Fraction
 from .starter_curriculum import STARTER_CHAPTERS
 
 
+def fraction_practice():
+    # Reserve the coached example and the operand pairs used by readiness checks.
+    reserved = {(2, 3, 5), (1, 2, 5), (3, 4, 10)}
+    return [
+        (f"What is {left}/{denominator} + {right}/{denominator}?", str(Fraction(left + right, denominator)))
+        for denominator in (5, 6, 8, 9, 10, 12)
+        for left, right in ((1, 2), (2, 2), (2, 3), (3, 4))
+        if left + right <= denominator and (left, right, denominator) not in reserved
+    ]
+
+
+def decimal_practice():
+    def hundredths(value):
+        return f"{value // 100}.{value % 100:02d}"
+
+    return [
+        (f"What is {hundredths(left)} + {hundredths(right)}?", hundredths(left + right))
+        for left in (12, 25, 37, 58)
+        for right in (14, 29, 43, 65)
+    ]
+
+
 # Reviewed starter curriculum. The catalog advertises only chapters with authored material.
 CHAPTERS = {
     "fractions": {
@@ -25,7 +47,7 @@ CHAPTERS = {
             "Soccer": "A soccer player completed 2/5 of a drill, then completed another 3/5. In total, the player completed 5/5 of the drill.",
             "Gaming": "A quest meter fills by 2/5 for the first challenge and 3/5 for the second. Together they fill 5/5 of the meter.",
         },
-        "practice": [("What is 2/8 + 4/8?", "3/4"), ("What is 1/7 + 3/7?", "4/7")],
+        "practice": [("What is 2/8 + 4/8?", "3/4"), ("What is 1/7 + 3/7?", "4/7")] + fraction_practice(),
         "hint": "Add the top numbers. The pieces stay the same size. You can simplify your answer.",
         "rewrite": "Explain why 3/4 + 1/4 = 1. Say what happens to the numerators and denominator.",
         "checks": [r"\badd(?:ing)?\b.{0,25}\b(numerators?|top numbers?)\b",
@@ -50,7 +72,7 @@ CHAPTERS = {
             "Soccer": "A player runs 0.20 km to warm up, then runs 0.35 km in a drill. The player runs 0.55 km in total.",
             "Gaming": "A game timer adds 0.20 seconds for one bonus and 0.35 seconds for another. The total bonus is 0.55 seconds.",
         },
-        "practice": [("What is 0.4 + 0.28?", "0.68"), ("What is 0.06 + 0.2?", "0.26")],
+        "practice": [("What is 0.4 + 0.28?", "0.68"), ("What is 0.06 + 0.2?", "0.26")] + decimal_practice(),
         "hint": "Write both numbers with two decimal places and add matching place values.",
         "rewrite": "Explain how aligning decimal points helps you add 0.30 and 0.45.",
         "checks": [r"\b(align|line up|match)\b.{0,25}\bdecimal points?\b",
