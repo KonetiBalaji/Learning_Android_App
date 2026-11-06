@@ -68,9 +68,9 @@ def test_correct_diagnostic_moves_straight_to_practice(client):
     ("equal-groups", 2, "12", "20", "Add four for each of the three groups to get twelve."),
     ("rectangle-perimeter", 2, "20", "18", "Add all four sides, using each measurement twice."),
     ("volume", 2, "30", "32", "There are twelve cubes per layer, so two layers contain twenty-four cubes."),
-    ("evaporation", 2, "Condensation.", "evaporation", "Evaporation changes liquid to vapor. Condensation changes vapor to liquid."),
-    ("complete-sentences", 1, "glowed", "rang", "Birds is the subject and sang is the verb."),
-    ("primary-sources", 1, "secondary", "Primary", "The sailor wrote the diary during the voyage as a direct witness."),
+    ("evaporation", (2, 0), "Condensation.", "evaporation", "Evaporation changes liquid to vapor. Condensation changes vapor to liquid."),
+    ("complete-sentences", (1, 1), "glowed", "rang", "Birds is the subject and sang is the verb."),
+    ("primary-sources", (1, 3), "secondary", "Primary", "The sailor wrote the diary during the voyage as a direct witness."),
     ("unit-rates", 1, "7", "6", "Divide twelve dollars by three notebooks to find the cost per notebook."),
     ("linear-equations", 2, "6", "5", "Subtract two on both sides, then divide both sides by three."),
     ("linear-slope", 1, "3", "0.5", "Divide the vertical change in y by the horizontal change in x."),
@@ -88,7 +88,10 @@ def test_authored_starter_chapter_diagnostic_practice_and_rewrite(client, chapte
         return reply.json()
 
     initial = client.post(path, headers=auth).json()
-    practice = act(initial, "diagnostic", choice=choice)
+    choices = (choice,) if isinstance(choice, int) else choice
+    practice = initial
+    for answer in choices:
+        practice = act(practice, "diagnostic", choice=answer)
     assert practice["phase"] == "practice"
     writing = act(practice, "practice", response=first_answer)
     assert writing["phase"] == "rewrite"
@@ -190,17 +193,17 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
 @pytest.mark.parametrize("subject, prerequisite, next_chapter", [
     (
         "Science",
-        ("evaporation", 2, "condensation", "Evaporation turns liquid into vapor. Condensation reverses it."),
+        ("evaporation", (2, 0), "condensation", "Evaporation turns liquid into vapor. Condensation reverses it."),
         ("water-cycle", (2, 2), "condensation", "Water evaporates, condenses into clouds, and falls as rain."),
     ),
     (
         "English",
-        ("complete-sentences", 1, "glowed", "Birds is the subject and sang is the verb."),
+        ("complete-sentences", (1, 1), "glowed", "Birds is the subject and sang is the verb."),
         ("combining-sentences", (1, 3), "but", "But signals contrast because they reached the top despite the steep trail."),
     ),
     (
         "Social Studies",
-        ("primary-sources", 1, "secondary", "The sailor wrote the diary during the voyage."),
+        ("primary-sources", (1, 3), "secondary", "The sailor wrote the diary during the voyage."),
         ("corroborating-sources", (2, 1), "dependent", "The city record is an independent source for the opening date."),
     ),
 ])
@@ -277,11 +280,11 @@ def test_math_practice_uses_a_third_question_after_two_misses(client, chapter, c
 
 
 @pytest.mark.parametrize("chapter, choice, third_answer, expected_hint", [
-    ("evaporation", 2, "Condensation.", "Which process explains why the puddle got smaller?"),
+    ("evaporation", (2, 0), "Condensation.", "Which process explains why the puddle got smaller?"),
     ("water-cycle", (2, 2), "Precipitation", "Which process moves water from the lake into the air?"),
-    ("complete-sentences", 1, "flooded", "What do we call the part of the sentence that tells who or what it is about?"),
+    ("complete-sentences", (1, 1), "flooded", "What do we call the part of the sentence that tells who or what it is about?"),
     ("combining-sentences", (1, 3), "but", "Which joining word are you explaining?"),
-    ("primary-sources", 1, "secondary", "Which source are you describing, and who wrote it?"),
+    ("primary-sources", (1, 3), "secondary", "Which source are you describing, and who wrote it?"),
     ("corroborating-sources", (2, 1), "dependent", "Which source provides a second account?"),
 ])
 def test_grade_six_subject_practice_rotation_and_revision_hint(chapter, choice, third_answer, expected_hint):

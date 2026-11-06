@@ -3,11 +3,14 @@
 from fractions import Fraction
 
 def lesson(grade, subject, title, diagnostic, choices, answer, explanation, example,
-           practice, hint, rewrite, checks, *, numeric=False, rewrite_hints=()):
-    return dict(grade=grade, subject=subject, title=title, requires=None, prompt=diagnostic,
+           practice, hint, rewrite, checks, *, numeric=False, rewrite_hints=(), diagnostics=()):
+    result = dict(grade=grade, subject=subject, title=title, requires=None, prompt=diagnostic,
                 choices=choices, answer=answer, explanation=explanation, example=example,
                 practice=practice, hint=hint, rewrite=rewrite, checks=checks, numeric=numeric,
                 rewrite_hints=rewrite_hints)
+    if diagnostics:
+        result.update(diagnostics=diagnostics, legacy_diagnostic_total=1)
+    return result
 
 
 STARTER_CHAPTERS = {
@@ -151,6 +154,10 @@ STARTER_CHAPTERS = {
             "Which process explains the drops on the cold glass?",
             "What state is the water in when it forms drops?",
             "What state is the water in while it is mixed into the air?",
+        ],
+        diagnostics=[
+            ("What happens when water vapor cools enough to form droplets on a window?",
+             ["It condenses", "It melts", "It evaporates", "It boils"], 0),
         ]),
     "complete-sentences": lesson(
         6, "English", "Complete sentences", "Which option is a complete sentence?",
@@ -170,6 +177,11 @@ STARTER_CHAPTERS = {
             "What do we call the word that tells what the subject did?",
             "Who or what is the sentence about? Point to the word in the sentence.",
             "Which word tells what the birds did?",
+        ],
+        diagnostics=[
+            ("What makes 'The children laughed' a complete sentence?",
+             ["It names only a place", "It has a subject and verb and expresses a complete thought",
+              "It begins with an adjective", "It has a conjunction"], 1),
         ]),
     "primary-sources": lesson(
         6, "Social Studies", "Primary and secondary sources", "Which is a primary source for studying a historical voyage?",
@@ -188,6 +200,11 @@ STARTER_CHAPTERS = {
             "Which source are you describing, and who wrote it?",
             "Which event are you using the source to study?",
             "How was the writer connected to the event being studied?",
+        ],
+        diagnostics=[
+            ("Which is a secondary source for studying a 1910 election?",
+             ["A 1910 ballot", "A 1910 tally sheet", "A voter's letter from 1910",
+              "A recent book that interprets the election records"], 3),
         ]),
     "water-cycle": {
         **lesson(6, "Science", "The water cycle",

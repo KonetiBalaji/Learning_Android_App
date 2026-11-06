@@ -134,7 +134,7 @@ class LearningFlowTest {
             subject: String,
             first: String,
             second: String,
-            diagnosticAnswer: String,
+            diagnosticAnswers: List<String>,
             practiceAnswer: String,
             explanation: String,
             nextPrompt: String,
@@ -143,7 +143,10 @@ class LearningFlowTest {
             rule.onNodeWithText("$second · Locked").performScrollTo().assertIsNotEnabled()
             tap(first)
             phase("diagnostic")
-            tap(diagnosticAnswer)
+            for (answer in diagnosticAnswers) {
+                tap(answer)
+                rule.waitUntil(30_000) { !model.state.value.busy }
+            }
             phase("practice")
             rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement(practiceAnswer)
             tap("Check answer")
@@ -167,7 +170,7 @@ class LearningFlowTest {
             rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
             tap("Grade 6")
             verifyPath(
-                "Science", "Evaporation and condensation", "The water cycle", "Evaporation", "condensation",
+                "Science", "Evaporation and condensation", "The water cycle", listOf("Evaporation", "It condenses"), "condensation",
                 "Evaporation turns liquid into vapor. Condensation reverses it.",
                 "What is it called when water falls from clouds as rain or snow?",
             )
@@ -194,13 +197,15 @@ class LearningFlowTest {
             rule.onNodeWithText("The water cycle · Repeated difficulty").assertExists()
             tap("Back to subjects")
             verifyPath(
-                "English", "Complete sentences", "Combining related sentences", "The birds sang", "glowed",
+                "English", "Complete sentences", "Combining related sentences",
+                listOf("The birds sang", "It has a subject and verb and expresses a complete thought"), "glowed",
                 "Birds is the subject and sang is the verb.",
                 "Which word best joins these ideas? The trail was steep, ___ we reached the top.",
             )
             verifyPath(
                 "Social Studies", "Primary and secondary sources", "Corroborating historical evidence",
-                "A sailor's diary from the voyage", "secondary", "The sailor wrote the diary during the voyage.",
+                listOf("A sailor's diary from the voyage", "A recent book that interprets the election records"),
+                "secondary", "The sailor wrote the diary during the voyage.",
                 "A letter says a bridge opened in 1910. Which source would independently support that date?",
             )
         } finally {
