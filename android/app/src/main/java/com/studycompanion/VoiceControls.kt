@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,6 +102,12 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
         if (granted && available && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) begin()
         else if (!granted) status = "Microphone access was declined. You can type your response."
     }
+    LaunchedEffect(enabled) {
+        if (!enabled && recognizer != null) {
+            stop()
+            status = null
+        }
+    }
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP && recognizer != null) {
@@ -111,7 +118,7 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer); stop() }
     }
-    OutlinedButton(enabled = enabled || recognizer != null, onClick = {
+    OutlinedButton(enabled = enabled, onClick = {
         when {
             recognizer != null -> { stop(); status = null }
             !hasMicrophone || Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(context) -> begin()
