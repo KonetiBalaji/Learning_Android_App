@@ -186,6 +186,14 @@ class LearningFlowTest {
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
             tap("Back to subjects")
+            rule.onNodeWithText("Home", substring = false).performClick()
+            tap("Explore grade lessons")
+            rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
+            tap("Resume lesson: The water cycle")
+            phase("coach")
+            tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            tap("Back to subjects")
             tap("Review: The water cycle · Science")
             phase("coach")
             rule.onNodeWithText("Worked example").assertExists()

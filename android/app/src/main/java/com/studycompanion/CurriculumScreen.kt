@@ -47,6 +47,15 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
         when {
             grade == null -> {
                 Text("Select your grade", style = MaterialTheme.typography.headlineSmall)
+                val resumable = nextCurriculumChapter(state.curriculumChapters.filter { it.optBoolean("started") })
+                if (resumable != null) {
+                    val name = resumable.getString("title")
+                    CurriculumButton("Resume lesson: $name", !state.busy) {
+                        grade = resumable.getInt("grade")
+                        subject = resumable.getString("subject")
+                        model.openCurriculumChapter(resumable.getString("id"))
+                    }
+                }
                 val badges = state.curriculumChapters.filter { it.getBoolean("mastered") }
                 if (badges.isNotEmpty()) {
                     Text("Mastery badges", style = MaterialTheme.typography.titleMedium)
