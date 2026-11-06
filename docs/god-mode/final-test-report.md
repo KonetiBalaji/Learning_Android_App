@@ -14,7 +14,7 @@ Runtime revision `8f6620f` passed [backend and Android verification](https://git
 
 The emulator used disposable accounts and synthetic study material. The [curriculum verification matrix](../product/curriculum-verification.md) describes the narrower evidence for diagnostic coaching, mastery, readiness, invitation-based reports, and the tutor avatar. The [private Google sign-in device check](../api/google-sign-in.md#live-device-verification) used one approved test account. Public OAuth, Play-signed Google sign-in, Google-capable web account deletion, and physical narration or dictation remain unverified.
 
-The earlier `484fe6c` [hosted run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42166176737) timed out during Android test registration. The successful `8f6620f` run did not reproduce the failure. Revision `9d2bebe` adds registration error reporting and disposable backend request logs to aid diagnosis. These observations establish results for the named revisions.
+The earlier `484fe6c` [hosted run](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42166176737) timed out during Android test registration. The successful `8f6620f` run did not reproduce the failure. Revision `9d2bebe` adds registration error reporting and disposable backend request logs to aid diagnosis. The updated [hosted suite on `9d2bebe`](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42167310988) passed 139 backend tests and 15 emulator tests. [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42167310948) also passed on that revision. The earlier timeout was not reproduced, and its cause remains unconfirmed.
 
 ## Original God Mode closeout
 
