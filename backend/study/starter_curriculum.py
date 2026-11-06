@@ -82,6 +82,11 @@ STARTER_CHAPTERS = {
             "What calculation combines that portion with the whole?",
         ],
         "requires": "decimals",
+        "example_steps": [
+            "Thirty percent means 30 out of 100, or 0.30.",
+            "The whole amount is 50. Multiply it by 0.30.",
+            "0.30 × 50 = 15, so thirty percent of 50 is 15.",
+        ],
         "diagnostics": [
             ("Which decimal equals 50%?", ["0.05", "5", "0.5", "50"], 2),
             ("A $20 item is discounted by 10%. How much is the discount?", ["$1", "$2", "$10", "$18"], 1),
@@ -105,6 +110,11 @@ STARTER_CHAPTERS = {
             "What value would make the original equation true if you substituted it?",
         ],
         "requires": "percentages",
+        "example_steps": [
+            "In x + 4 = 10, subtract 4 from both sides to keep them equal.",
+            "On the left, adding and subtracting 4 cancel. On the right, 10 − 4 = 6.",
+            "So x = 6. Substituting gives 6 + 4 = 10, which checks the answer.",
+        ],
         "diagnostics": [
             ("What is 3x when x = 4?", ["7", "12", "34", "1"], 1),
             ("Which equation describes a number plus 3 equals 9?", ["x - 3 = 9", "3x = 9", "x + 9 = 3", "x + 3 = 9"], 3),
@@ -131,6 +141,11 @@ STARTER_CHAPTERS = {
             "How does the triangle compare with a parallelogram with the same measurements?",
         ],
         "requires": "grade6-algebra",
+        "example_steps": [
+            "Use a base of 6 cm and a perpendicular height of 4 cm.",
+            "A parallelogram with that base and height has area 6 × 4 = 24 cm².",
+            "The triangle covers half that area, so 24 ÷ 2 = 12 cm².",
+        ],
         "diagnostics": [
             ("Which segment is the height relative to a chosen triangle base?",
              ["Any side", "A perpendicular segment to the base line", "The longest side", "The base itself"], 1),
@@ -189,6 +204,11 @@ STARTER_CHAPTERS = {
             ("What makes 'The children laughed' a complete sentence?",
              ["It names only a place", "It has a subject and verb and expresses a complete thought",
               "It begins with an adjective", "It has a conjunction"], 1),
+        ],
+        example_steps=[
+            "In 'The dog ran,' ask who the sentence is about. The subject is 'the dog.'",
+            "Ask what the dog did. The verb is 'ran.'",
+            "Together they express a complete thought: the dog ran.",
         ]),
     "primary-sources": lesson(
         6, "Social Studies", "Primary and secondary sources", "Which is a primary source for studying a historical voyage?",
@@ -212,6 +232,11 @@ STARTER_CHAPTERS = {
             ("Which is a secondary source for studying a 1910 election?",
              ["A 1910 ballot", "A 1910 tally sheet", "A voter's letter from 1910",
               "A recent book that interprets the election records"], 3),
+        ],
+        example_steps=[
+            "Start with the event you are studying: the event described in a witness's letter.",
+            "The witness wrote during the event and describes it firsthand. The letter is a primary source.",
+            "A textbook written later interprets earlier evidence. For this event, it is a secondary source.",
         ]),
     "water-cycle": {
         **lesson(6, "Science", "The water cycle",
@@ -296,6 +321,11 @@ STARTER_CHAPTERS = {
                 "Which details in the trail sentence show that relationship?",
             ]),
         "requires": "complete-sentences",
+        "example_steps": [
+            "Find the two complete ideas: 'It was raining' and 'We stayed inside.'",
+            "Staying inside was a result of the rain, so choose the conjunction 'so.'",
+            "Put a comma before the conjunction: 'It was raining, so we stayed inside.'",
+        ],
         "legacy_diagnostic_total": 1,
         "diagnostics": [
             ("Which word shows a result? The battery was empty, ___ the toy stopped.",
@@ -324,6 +354,11 @@ STARTER_CHAPTERS = {
                 "Which claim are the two sources being used to check?",
             ]),
         "requires": "primary-sources",
+        "example_steps": [
+            "Identify the claim: the ship arrived on a particular date.",
+            "Compare the date in the harbor register with the date in the newspaper report.",
+            "If the report was created independently and gives the same date, it corroborates the register.",
+        ],
         "legacy_diagnostic_total": 1,
         "diagnostics": [
             ("One student describes an event. A second student repeats that story without seeing the event. How many independent accounts are there?",
