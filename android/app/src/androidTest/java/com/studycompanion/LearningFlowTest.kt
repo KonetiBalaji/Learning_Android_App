@@ -442,7 +442,18 @@ class LearningFlowTest {
             tap("Check answer")
             phase("rewrite")
             rule.onNodeWithText("Dictate response").assertExists()
-            if (android.os.Build.VERSION.SDK_INT < 31 ||
+            if (InstrumentationRegistry.getArguments().getString("verifyMicrophoneDenial") == "true") {
+                assertTrue(android.os.Build.VERSION.SDK_INT >= 31 &&
+                    android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(rule.activity))
+                assertEquals(android.content.pm.PackageManager.PERMISSION_DENIED,
+                    rule.activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO))
+                tap("Dictate response")
+                val message = "Microphone access was declined. You can type your response."
+                rule.waitUntil(60_000) {
+                    rule.onAllNodesWithText(message).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+                }
+                phase("rewrite")
+            } else if (android.os.Build.VERSION.SDK_INT < 31 ||
                 !android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(rule.activity)) {
                 tap("Dictate response")
                 rule.onNodeWithText("On-device dictation is unavailable. You can type your response.").assertExists()
