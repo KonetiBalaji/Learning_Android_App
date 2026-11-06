@@ -54,6 +54,29 @@ def test_readiness_is_held_out_owned_resumable_and_scored_without_leaking_answer
     assert client.delete("/account", headers=student).status_code == 204
     assert client.app.state.store.db.execute("SELECT COUNT(*) FROM records WHERE kind='readiness'").fetchone()[0] == 0
 
+def test_account_deletion_removes_unfinished_readiness_without_touching_other_accounts(client):
+    student = account(client, "student")
+    other = account(client, "other")
+    path = "/curriculum/readiness/grade6-math"
+    unfinished = "/curriculum/readiness"
+    for headers in (student, other):
+        finish(client, headers, "fractions", (1, 2), "3/4", "Add the numerators and keep the denominator unchanged.")
+        finish(client, headers, "decimals", (0, 1), "0.68", "Align the decimal points to add matching place values.")
+        assert client.post(path, headers=headers).status_code == 200
+        answer = client.post(path + "/answers", headers=headers, json={"index": 0, "choice": 1})
+        assert answer.status_code == 200 and answer.json()["index"] == 1
+    other_attempt = client.post(path, headers=other).json()
+
+    assert client.delete("/account", headers=student).status_code == 204
+    assert client.get(unfinished, headers=student).status_code == 401
+    replacement = account(client, "student")
+    assert client.get(unfinished, headers=replacement).json() == []
+    assert client.post(path, headers=replacement).status_code == 409
+    assert client.get(unfinished, headers=other).json() == ["grade6-math"]
+    assert client.post(path, headers=other).json() == other_attempt
+    assert client.app.state.store.db.execute("SELECT COUNT(*) FROM records WHERE kind='readiness'").fetchone()[0] == 1
+
+
 def test_full_readiness_preserves_short_result_and_reports_all_five_topics(client):
     student = account(client, "student")
     viewer = account(client, "teacher")
