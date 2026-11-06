@@ -22,7 +22,7 @@ trap cleanup EXIT
 
 for port in 18763 18771; do
     STUDY_DATA_DIR="$run_dir/data-$port" python -m uvicorn study.api:create_app \
-        --factory --host 127.0.0.1 --port "$port" --no-access-log > "$run_dir/backend-$port.log" 2>&1 &
+        --factory --host 127.0.0.1 --port "$port" > "$run_dir/backend-$port.log" 2>&1 &
     pids+=("$!")
 done
 

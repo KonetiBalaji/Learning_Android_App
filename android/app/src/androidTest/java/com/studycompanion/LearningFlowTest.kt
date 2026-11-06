@@ -806,11 +806,15 @@ class LearningFlowTest {
         }
         screenshot("01-welcome")
         val username = "qa" + System.currentTimeMillis()
-        rule.onNodeWithText("Email or username").performScrollTo().performTextInput(username)
-        rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextInput("disposable-test-password")
+        rule.onNodeWithText("Email or username").performScrollTo().performTextReplacement(username)
+        rule.onNodeWithText("Password · 10+ characters").performScrollTo().performTextReplacement("disposable-test-password")
         rule.onNodeWithText("Study server URL").performScrollTo().performTextReplacement(studyServer)
         rule.onNodeWithText("Create your study account").performScrollTo().performClick()
-        rule.waitUntil(120_000) { model.state.value.signedIn && !model.state.value.busy }
+        rule.waitUntil(30_000) {
+            val state = model.state.value
+            !state.busy && (state.signedIn || state.error != null)
+        }
+        assertTrue("Fixture registration failed: ${model.state.value.error}", model.state.value.signedIn)
         assertNull(model.state.value.error)
         rule.onNodeWithText("Your learning library").assertExists()
         // A refused connection must leave a readable failure and a working retry action.
