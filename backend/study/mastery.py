@@ -9,6 +9,11 @@ CHAPTERS = {
     "fractions": {
         "grade": 6, "subject": "Mathematics", "title": "Adding fractions", "requires": None,
         "prompt": "What is 3/4 + 1/4?", "choices": ["1/2", "1", "3/8", "2"], "answer": 1,
+        "diagnostic_feedback": {
+            0: "Adding one quarter to three quarters must give more than three quarters.",
+            2: "The pieces are quarters throughout. Adding the fractions does not change them into eighths.",
+            3: "Four quarters fill one whole. Two wholes would need eight quarters.",
+        },
         "explanation": "The denominator tells you the size of the pieces. Both fractions use quarters, so add the numerators and keep the denominator: (3 + 1)/4 = 4/4 = 1.",
         "example": "2/5 + 3/5 = (2 + 3)/5 = 5/5 = 1.",
         "example_steps": [
@@ -25,6 +30,11 @@ CHAPTERS = {
     "decimals": {
         "grade": 6, "subject": "Mathematics", "title": "Adding decimals", "requires": "fractions",
         "prompt": "What is 0.30 + 0.45?", "choices": ["0.75", "0.48", "0.15", "7.5"], "answer": 0,
+        "diagnostic_feedback": {
+            1: "The 3 in 0.30 counts tenths. It adds 30 hundredths, rather than 3 hundredths.",
+            2: "Fifteen hundredths is the difference between 0.45 and 0.30. Adding should give more than 0.45.",
+            3: "Seventy-five hundredths is less than one whole. Keep the decimal point aligned.",
+        },
         "explanation": "Align the decimal points so you add digits with the same place value. Thirty hundredths plus forty-five hundredths is seventy-five hundredths.",
         "example": "0.2 + 0.35 = 0.20 + 0.35 = 0.55.",
         "example_steps": [
@@ -96,17 +106,22 @@ def snapshot(lesson):
 def advance(lesson, action, choice, response, now):
     chapter = CHAPTERS[lesson["chapter_id"]]
     phase = lesson["phase"]
-    if phase == "diagnostic" and action == "diagnostic" and choice is not None and 0 <= choice < len(chapter["choices"]):
+    if phase == "diagnostic" and action == "diagnostic" and choice is not None and choice >= 0:
         items = diagnostic_items(chapter)
         index = lesson.get("diagnostic_index", 0)
-        correct = choice == items[index][2]
+        _, choices, answer = items[index]
+        if choice >= len(choices):
+            raise ValueError("This choice is not available for the diagnostic question.")
+        correct = choice == answer
         lesson["correct"] = lesson["correct"] is not False and correct
         lesson["diagnostic_index"] = index + 1
         if correct:
             lesson["phase"] = "diagnostic" if index + 1 < len(items) else "practice"
             lesson["feedback"] = "Correct. Continue to the next question." if lesson["phase"] == "diagnostic" else "Correct. Try a new example."
         else:
-            lesson.update(phase="coach", feedback="Review the worked example, then continue.")
+            guidance = chapter.get("diagnostic_feedback", {}).get(choice) if index == 0 else None
+            guidance = guidance or "Review the worked example, then continue."
+            lesson.update(phase="coach", feedback=f"You chose {choices[choice]}. {guidance}")
     elif phase == "coach" and action == "continue":
         next_phase = "diagnostic" if 0 < lesson.get("diagnostic_index", 0) < len(diagnostic_items(chapter)) else "practice"
         lesson.update(phase=next_phase, feedback="")

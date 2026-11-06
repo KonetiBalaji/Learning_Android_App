@@ -207,6 +207,9 @@ class LearningFlowTest {
             tap("1/2")
             phase("coach")
             rule.onNodeWithText("Worked example").assertExists()
+            rule.onNodeWithText(
+                "You chose 1/2. Adding one quarter to three quarters must give more than three quarters."
+            ).assertExists()
             rule.onNodeWithText("Saras tutor").assertIsDisplayed()
             tap("Read explanation aloud")
             rule.waitUntil(30_000) {

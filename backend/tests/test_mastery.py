@@ -24,9 +24,14 @@ def test_curriculum_coaching_retries_mastery_and_owner_isolation(client):
     assert client.post(fractions + "/actions", headers=first, json={"version": 0, "action": "rewrite"}).status_code == 422
     coaching = action(0, "diagnostic", choice=0)
     assert coaching["phase"] == "coach" and "5/5" in coaching["example"]
+    assert coaching["feedback"] == (
+        "You chose 1/2. Adding one quarter to three quarters must give more than three quarters."
+    )
+    assert client.post(fractions, headers=first).json() == coaching
     assert action(0, "diagnostic", choice=0) == coaching
     practice = action(1, "continue")
     assert practice["phase"] == "practice" and "hint" in practice and "answer" not in practice
+    assert practice["feedback"] == ""
     assert action(2, "practice", response="1/0")["phase"] == "coach"
     assert action(3, "continue")["prompt"] != practice["prompt"]
     assert action(4, "practice", response="8/14")["phase"] == "rewrite"
@@ -133,6 +138,7 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
     assert open_lesson(percentages) == second
     coach = advance(percentages, second, "diagnostic", choice=0)
     assert coach["phase"] == "coach" and coach["diagnostic_remaining"]
+    assert coach["feedback"] == "You chose 0.05. Review the worked example, then continue."
     third = advance(percentages, coach, "continue")
     assert third["phase"] == "diagnostic" and third["diagnostic_index"] == 2
     practice = advance(percentages, third, "diagnostic", choice=1)
