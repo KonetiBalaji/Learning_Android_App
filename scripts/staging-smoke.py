@@ -4,6 +4,7 @@ import http.client
 import json
 import secrets
 import ssl
+import subprocess
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -14,6 +15,8 @@ parser.add_argument("--ca-file")
 parser.add_argument("--host", default="localhost")
 parser.add_argument("--scan", type=Path)
 parser.add_argument("--check-google-deletion", action="store_true")
+parser.add_argument("--recreate-disposable-api", action="store_true",
+                    help="Replace the API container in the local disposable Compose stack during the test.")
 args = parser.parse_args()
 context = ssl.create_default_context(cafile=args.ca_file)
 host = args.host
@@ -139,6 +142,17 @@ try:
     assert call("/documents", token=owner)[0]["id"] == document["id"]
     hits = call(root + "/search", "POST", {"query": "cell power factory"}, owner)["hits"]
     assert hits and "mitochondria" in hits[0]["quote"].lower()
+    if args.recreate_disposable_api:
+        subprocess.run(
+            ["docker", "compose", "up", "--force-recreate", "--no-deps", "--wait", "--wait-timeout", "120", "api"],
+            cwd=Path(__file__).resolve().parents[1], check=True,
+        )
+        assert call("/ready")["status"] == "ready"
+        assert call("/documents", token=owner)[0]["id"] == document["id"]
+        assert call(f'/quizzes/{quiz["id"]}', token=owner)["id"] == quiz["id"]
+        assert call(readiness, "POST", token=owner) == attempt
+        call(root + "/offline-bundle", token=outsider, expected=404)
+        print("Verified existing sessions, encrypted study data and readiness results after replacing the API container.")
     if args.scan:
         scan = upload("sample-scan.pdf", args.scan.read_bytes(), "application/pdf", owner)
         scan_root = f'/documents/{scan["id"]}'

@@ -39,7 +39,8 @@ jobs:
           image.save(pdf, format="PDF")
           sys.stdout.buffer.write(pdf.getvalue())
           PY
-          python3 scripts/staging-smoke.py --ca-file "$RUNNER_TEMP/saras-ca.crt" --scan "$RUNNER_TEMP/saras-scan.pdf" --check-google-deletion
+          python3 scripts/staging-smoke.py --ca-file "$RUNNER_TEMP/saras-ca.crt" --scan "$RUNNER_TEMP/saras-scan.pdf" \
+            --check-google-deletion --recreate-disposable-api
       - name: Stop disposable stack
         if: always()
         run: docker compose down --volumes
