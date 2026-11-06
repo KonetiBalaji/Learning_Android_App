@@ -3,13 +3,15 @@
 from fractions import Fraction
 
 def lesson(grade, subject, title, diagnostic, choices, answer, explanation, example,
-           practice, hint, rewrite, checks, *, numeric=False, rewrite_hints=(), diagnostics=()):
+           practice, hint, rewrite, checks, *, numeric=False, rewrite_hints=(), diagnostics=(), example_steps=()):
     result = dict(grade=grade, subject=subject, title=title, requires=None, prompt=diagnostic,
                 choices=choices, answer=answer, explanation=explanation, example=example,
                 practice=practice, hint=hint, rewrite=rewrite, checks=checks, numeric=numeric,
                 rewrite_hints=rewrite_hints)
     if diagnostics:
         result.update(diagnostics=diagnostics, legacy_diagnostic_total=1)
+    if example_steps:
+        result["example_steps"] = example_steps
     return result
 
 
@@ -158,6 +160,11 @@ STARTER_CHAPTERS = {
         diagnostics=[
             ("What happens when water vapor cools enough to form droplets on a window?",
              ["It condenses", "It melts", "It evaporates", "It boils"], 0),
+        ],
+        example_steps=[
+            "Liquid water in a puddle can evaporate and mix with the air as water vapor.",
+            "Water vapor in the air near a cold surface cools.",
+            "Some of that vapor condenses into liquid droplets on the surface.",
         ]),
     "complete-sentences": lesson(
         6, "English", "Complete sentences", "Which option is a complete sentence?",
@@ -226,6 +233,11 @@ STARTER_CHAPTERS = {
                 "How does water fall back to the ground?",
             ]),
         "requires": "evaporation",
+        "example_steps": [
+            "Water evaporates from the lake and enters the air as water vapor.",
+            "As moist air cools, some vapor condenses into tiny liquid droplets that can form a cloud.",
+            "When droplets grow large enough to fall, rain can return water to the lake.",
+        ],
         "legacy_diagnostic_total": 1,
         "diagnostics": [
             ("Which change forms the tiny liquid droplets in a cloud?",
@@ -257,6 +269,11 @@ STARTER_CHAPTERS = {
                  ["A sealed concrete slab", "Loose garden soil", "A metal roof", "An asphalt road"], 1),
             ]),
         "requires": "water-cycle",
+        "example_steps": [
+            "Picture the same rain falling on a garden bed and a paved path.",
+            "Water that soaks into the garden soil is infiltration.",
+            "Water that flows across the paved path into a gutter is runoff.",
+        ],
     },
     "combining-sentences": {
         **lesson(6, "English", "Combining related sentences",
