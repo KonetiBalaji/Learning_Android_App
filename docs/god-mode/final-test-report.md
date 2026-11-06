@@ -9,11 +9,13 @@ Revision `107c57d202f62198fe6720807b5bfcccde8e57b7` passed 160 backend tests, 4 
 
 ## Release checks with separate evidence
 
+On `8b31a1e`, the Android release bundle rebuilt with a disposable two-day certificate. `bundletool validate` passed, `jarsigner -verify` reported a verified signature, and the manifest identified package `com.studycompanion` with target API 36 and no debug flag. The verifier warned about the self-signed certificate, missing timestamp, and differences between JAR file and stream verification. The disposable keystore was removed after the check. Authorized Play signing remains unverified.
+
 The disposable backup rehearsal was verified at `48b67d8`. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587701) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587753)
 
 - The disposable backup rehearsal checked SQLite integrity and foreign keys, original-key recovery, email sign-in, document access by its owner, denial to another account, and startup rejection with a different key. Production recovery still requires the intended host and backup procedure.
 - The staging smoke verifies that a linked parent sees weekly subject counts over trusted test HTTPS and loses access after revocation. The emulator exercises the report in Android.
-- The Android APK declares the microphone optional and offers typed input when dictation is unavailable. The physical phone rejected the QA APK, so physical narration and transcription remain unverified.
+- The Android APK declares the microphone optional and offers typed input when dictation is unavailable. On `8b31a1e` the connected Android 13 phone reported recognition and speech synthesis services, but the QA APK install retry returned `INSTALL_FAILED_USER_RESTRICTED`. Physical narration and microphone transcription remain unverified.
 - Google web account deletion passed a headless-browser rehearsal with a simulated Google callback. Live Google verification on the authorized public origin remains open.
 
 ## Earlier runtime and release bundle checkpoint
