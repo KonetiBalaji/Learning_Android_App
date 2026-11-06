@@ -32,6 +32,8 @@ The teacher and parent checkpoint passed 131 backend tests and the targeted Andr
 
 For a full Android device run, point the test runner at a second disposable instance of the same backend with `-e sharingPort <port>`. The sharing scenario creates and signs into multiple accounts. A separate fixture keeps its authentication requests from contending with other scenarios for the production login rate limit.
 
+The Android 15 parent report regression now checks the seven-day counts, the six-question readiness score and topic breakdown, and the worked-example recommendation for an unfinished percentages chapter. It also verifies that removing the link returns the viewer to an empty sharing list.
+
 
 ### Voice controls
 

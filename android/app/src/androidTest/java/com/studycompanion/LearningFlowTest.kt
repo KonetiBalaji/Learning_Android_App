@@ -56,6 +56,19 @@ class LearningFlowTest {
             tap("Teacher and parent reports")
             rule.waitUntil(30_000) { model.state.value.screen == "progress-sharing" && !model.state.value.busy }
         }
+        fun masterChapter(id: String, choices: List<Int>, answer: String, explanation: String) {
+            rule.runOnIdle { model.openCurriculumChapter(id) }
+            waitUntilIdle()
+            for (choice in choices) {
+                rule.runOnIdle { model.answerCurriculum("diagnostic", choice = choice) }
+                waitUntilIdle()
+            }
+            rule.runOnIdle { model.answerCurriculum("practice", response = answer) }
+            waitUntilIdle()
+            rule.runOnIdle { model.answerCurriculum("rewrite", response = explanation) }
+            waitUntilIdle()
+            assertEquals("mastered", model.state.value.curriculumLesson?.optString("phase"))
+        }
 
         try {
             rule.runOnIdle { model.authenticate(student, password, true, server) }
@@ -63,8 +76,20 @@ class LearningFlowTest {
             assertTrue(model.state.value.signedIn)
             rule.runOnIdle { model.showCurriculum() }
             waitUntilIdle()
-            rule.runOnIdle { model.openCurriculumChapter("fractions") }
-            rule.waitUntil(30_000) { model.state.value.curriculumLesson != null && !model.state.value.busy }
+            masterChapter("fractions", listOf(1, 2), "3/4", "Add the numerators and keep the denominator unchanged.")
+            masterChapter("decimals", listOf(0, 1), "0.68", "Align the decimal points to add matching place values.")
+            rule.runOnIdle { model.openReadiness() }
+            waitUntilIdle()
+            for (choice in listOf(1, 0, 3, 0, 1, 0)) {
+                rule.runOnIdle { model.answerReadiness(choice) }
+                waitUntilIdle()
+            }
+            assertTrue(model.state.value.readinessCheck?.optBoolean("complete") == true)
+            rule.runOnIdle { model.closeReadiness() }
+            rule.runOnIdle { model.openCurriculumChapter("percentages") }
+            waitUntilIdle()
+            rule.runOnIdle { model.answerCurriculum("diagnostic", choice = 0) }
+            waitUntilIdle()
             openReports()
             tap("Invite a parent")
             rule.waitUntil(30_000) { model.state.value.progressInvite != null && !model.state.value.busy }
@@ -80,8 +105,14 @@ class LearningFlowTest {
             tap("Open parent report 1")
             rule.waitUntil(30_000) { model.state.value.progressReport != null && !model.state.value.busy }
             rule.onNodeWithText("Student progress").assertExists()
-            rule.onNodeWithText("Last 7 days: 1 active chapters · 0 mastered").assertExists()
-            rule.onNodeWithText("This week: 1 active · 0 mastered").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithText("Last 7 days: 3 active chapters · 2 mastered").assertExists()
+            rule.onNodeWithText("This week: 3 active · 2 mastered").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithText("5 / 6 correct").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithText("Fractions: 3 / 3").assertExists()
+            rule.onNodeWithText("Decimals: 2 / 3").assertExists()
+            rule.onNodeWithText("Grade 6 · Finding percentages").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithText("Revisit a worked example and try the practice for Finding percentages.")
+                .performScrollTo().assertIsDisplayed()
             tap("Back to shared reports")
             waitUntilIdle()
             tap("Remove link 1")
