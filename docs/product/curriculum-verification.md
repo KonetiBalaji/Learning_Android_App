@@ -32,7 +32,7 @@ The teacher and parent checkpoint passed 131 backend tests and the targeted Andr
 
 For a full Android device run, point the test runner at a second disposable instance of the same backend with `-e sharingPort <port>`. The sharing scenario creates and signs into multiple accounts. A separate fixture keeps its authentication requests from contending with other scenarios for the production login rate limit.
 
-The Android 15 parent report regression checks the seven-day counts, the six-question readiness score and topic breakdown, and the worked-example recommendation for an unfinished percentages chapter. With the report open, it revokes access from the student's account. When the viewer taps Refresh report, Android clears the open report and stale link after the server denies access. An already displayed report can remain visible until the viewer refreshes or leaves it.
+The Android 15 parent report regression checks the seven-day counts, the six-question readiness score and topic breakdown, and the worked-example recommendation for an unfinished percentages chapter. It backgrounds the viewer's app with the report open and revokes access from the student's account. When the app returns to the foreground, Android rechecks access and clears the open report and stale link after the server denies access. A viewer who stays on the report can use Refresh report to check access immediately.
 
 
 ### Voice controls

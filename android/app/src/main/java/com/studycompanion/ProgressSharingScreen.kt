@@ -11,17 +11,35 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.studycompanion.data.objects
 
 @Composable
 fun ProgressSharingScreen(state: StudyState, model: StudyViewModel) {
     val report = state.progressReport
     if (report != null) {
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        val reportId = state.progressReportId
+        DisposableEffect(lifecycle, reportId) {
+            var wasStopped = lifecycle.currentState < Lifecycle.State.STARTED
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) wasStopped = true
+                if (event == Lifecycle.Event.ON_RESUME && wasStopped) {
+                    wasStopped = false
+                    reportId?.let(model::readSharedProgress)
+                }
+            }
+            lifecycle.addObserver(observer)
+            onDispose { lifecycle.removeObserver(observer) }
+        }
         Text("Student progress", style = MaterialTheme.typography.headlineSmall)
         val week = report.getJSONObject("week")
         Text("Last 7 days: ${week.getInt("chapters_active")} active chapters · ${week.getInt("chapters_mastered")} mastered")
@@ -50,7 +68,7 @@ fun ProgressSharingScreen(state: StudyState, model: StudyViewModel) {
         if (weak.isEmpty()) Text("No areas flagged in the available lesson evidence.")
         weak.forEach { Text("Grade ${it.getInt("grade")} · ${it.getString("title")}") }
         Text(report.getString("recommendation"))
-        state.progressReportId?.let { id ->
+        reportId?.let { id ->
             TextButton(onClick = { model.readSharedProgress(id) }, enabled = !state.busy) { Text("Refresh report") }
         }
         TextButton(onClick = model::showProgressSharing, enabled = !state.busy) { Text("Back to shared reports") }

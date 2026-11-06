@@ -114,6 +114,7 @@ class LearningFlowTest {
             rule.onNodeWithText("Revisit a worked example and try the practice for Finding percentages.")
                 .performScrollTo().assertIsDisplayed()
             val linkId = model.state.value.progressLinks.single().getString("id")
+            rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
             val client = OkHttpClient()
             val login = JSONObject().put("username", student).put("password", password)
                 .toString().toRequestBody("application/json".toMediaType())
@@ -126,8 +127,8 @@ class LearningFlowTest {
                 .header("Authorization", "Bearer $ownerToken").delete().build()).execute().use {
                 assertEquals(204, it.code)
             }
-            tap("Refresh report")
-            waitUntilIdle()
+            rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            rule.waitUntil(30_000) { model.state.value.progressReport == null && !model.state.value.busy }
             rule.onNodeWithText("This shared report is no longer available.").assertExists()
             rule.onNodeWithText("No active sharing links.").assertExists()
             rule.onNodeWithText("Student progress").assertDoesNotExist()
