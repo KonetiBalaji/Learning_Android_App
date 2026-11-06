@@ -40,7 +40,10 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
             Text(if (full) "This score covers the five Grade 6 Mathematics starter chapters."
                 else "This score covers this short fractions and decimals assessment.")
         } else {
-            Text("Question ${check.getInt("index") + 1} of $total")
+            val answered = check.getInt("index")
+            Text("Question ${answered + 1} of $total")
+            LinearProgressIndicator(progress = { answered.toFloat() / total }, modifier = Modifier.fillMaxWidth())
+            Text("$answered of $total answered", style = MaterialTheme.typography.labelMedium)
             Text(check.getString("prompt"))
             check.getJSONArray("choices").strings().forEachIndexed { index, choice ->
                 CurriculumButton(choice, !state.busy) { model.answerReadiness(index) }

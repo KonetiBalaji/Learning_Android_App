@@ -468,7 +468,9 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
     question.optString("difficulty").takeIf(String::isNotBlank)?.let { difficulty ->
         Text("Difficulty: ${difficulty.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.labelMedium)
     }
-    LinearProgressIndicator(progress = { (index.toFloat() / count) }, modifier = Modifier.fillMaxWidth())
+    val answered = index + if (feedback == null) 0 else 1
+    LinearProgressIndicator(progress = { answered.toFloat() / count }, modifier = Modifier.fillMaxWidth())
+    Text("$answered of $count answered", style = MaterialTheme.typography.labelMedium)
     Text(question.getString("prompt"), style = MaterialTheme.typography.titleLarge)
     question.getJSONArray("choices").strings().forEachIndexed { choice, label ->
         val checked = (feedback?.optInt("selected") ?: selected) == choice

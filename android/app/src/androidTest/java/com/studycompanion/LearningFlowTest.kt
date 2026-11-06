@@ -487,6 +487,7 @@ class LearningFlowTest {
                 rule.waitUntil(30_000) {
                     !model.state.value.busy && model.state.value.readinessCheck?.optInt("index") == index
                 }
+                rule.onNodeWithText("$index of 6 answered").assertExists()
                 tap(answer)
             }
             rule.waitUntil(30_000) { model.state.value.readinessCheck?.optBoolean("complete") == true }
@@ -925,6 +926,12 @@ class LearningFlowTest {
         rule.onNodeWithText("Difficulty: Easy").assertExists()
         rule.onNodeWithText("Local fallback practice").assertExists()
         rule.onNodeWithText("AI is unavailable. This quiz uses local passage recall at Easy difficulty, rather than the requested AI difficulty.").assertExists()
+        rule.onNodeWithText("0 of 1 answered").assertExists()
+        val firstChoice = model.state.value.quiz!!.getJSONObject("question").getJSONArray("choices").getString(0)
+        rule.onNodeWithText(firstChoice).performScrollTo().performClick()
+        rule.onNodeWithText("Check answer").performScrollTo().performClick()
+        rule.waitUntil(30_000) { model.state.value.quiz?.optJSONObject("feedback") != null && !model.state.value.busy }
+        rule.onNodeWithText("1 of 1 answered").assertExists()
         rule.runOnIdle { model.deleteAccount() }
         rule.waitUntil(30_000) { !model.state.value.signedIn && !model.state.value.busy }
     }
