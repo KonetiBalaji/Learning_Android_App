@@ -47,6 +47,9 @@ def test_shared_report_is_opt_in_scoped_and_revocable(client, role):
     summary = report.json()
     assert summary["role"] == role
     assert summary["week"] == {"chapters_active": 1, "chapters_mastered": 0}
+    math = next(row for row in summary["subjects"] if row["grade"] == 6 and row["subject"] == "Mathematics")
+    assert math == {"grade": 6, "subject": "Mathematics", "available": 5, "mastered": 0,
+                    "week_active": 1, "week_mastered": 0}
     assert summary["weak_areas"] == [{"grade": 6, "subject": "Mathematics", "title": "Adding fractions"}]
     assert "Adding fractions" in summary["recommendation"]
     assert set(summary) == {"role", "subjects", "weak_areas", "week", "recommendation"}
@@ -133,3 +136,6 @@ def test_weekly_report_counts_new_starts_and_honors_both_time_boundaries():
     shared = report(lessons, "teacher", now)
     assert shared["week"] == {"chapters_active": 2, "chapters_mastered": 1}
     assert sum(subject["mastered"] for subject in shared["subjects"]) == 4
+    active = {(row["grade"], row["subject"]): (row["week_active"], row["week_mastered"])
+              for row in shared["subjects"] if row["week_active"] or row["week_mastered"]}
+    assert active == {(6, "Mathematics"): (1, 0), (6, "Science"): (1, 1)}

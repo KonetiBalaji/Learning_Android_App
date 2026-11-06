@@ -61,6 +61,10 @@ class LearningFlowTest {
             rule.runOnIdle { model.authenticate(student, password, true, server) }
             waitUntilIdle()
             assertTrue(model.state.value.signedIn)
+            rule.runOnIdle { model.showCurriculum() }
+            waitUntilIdle()
+            rule.runOnIdle { model.openCurriculumChapter("fractions") }
+            rule.waitUntil(30_000) { model.state.value.curriculumLesson != null && !model.state.value.busy }
             openReports()
             tap("Invite a parent")
             rule.waitUntil(30_000) { model.state.value.progressInvite != null && !model.state.value.busy }
@@ -76,7 +80,8 @@ class LearningFlowTest {
             tap("Open parent report 1")
             rule.waitUntil(30_000) { model.state.value.progressReport != null && !model.state.value.busy }
             rule.onNodeWithText("Student progress").assertExists()
-            rule.onNodeWithText("Last 7 days: 0 active chapters · 0 mastered").assertExists()
+            rule.onNodeWithText("Last 7 days: 1 active chapters · 0 mastered").assertExists()
+            rule.onNodeWithText("This week: 1 active · 0 mastered").performScrollTo().assertIsDisplayed()
             tap("Back to shared reports")
             waitUntilIdle()
             tap("Remove link 1")

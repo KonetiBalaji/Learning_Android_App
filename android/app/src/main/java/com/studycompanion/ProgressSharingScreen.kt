@@ -30,6 +30,12 @@ fun ProgressSharingScreen(state: StudyState, model: StudyViewModel) {
             val available = subject.getInt("available")
             Text("Grade ${subject.getInt("grade")} · ${subject.getString("subject")} · $mastered/$available mastered")
             LinearProgressIndicator(progress = { mastered.toFloat() / available }, modifier = Modifier.fillMaxWidth())
+            val weekActive = subject.optInt("week_active")
+            val weekMastered = subject.optInt("week_mastered")
+            if (weekActive > 0 || weekMastered > 0) {
+                Text("This week: $weekActive active · $weekMastered mastered",
+                    style = MaterialTheme.typography.bodySmall)
+            }
         }
         listOf("readiness" to "Fractions and decimals readiness check",
             "full_readiness" to "Full Grade 6 Mathematics readiness check").forEach { (key, title) ->
