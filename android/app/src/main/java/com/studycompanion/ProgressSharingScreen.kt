@@ -31,10 +31,13 @@ fun ProgressSharingScreen(state: StudyState, model: StudyViewModel) {
             Text("Grade ${subject.getInt("grade")} · ${subject.getString("subject")} · $mastered/$available mastered")
             LinearProgressIndicator(progress = { mastered.toFloat() / available }, modifier = Modifier.fillMaxWidth())
         }
-        report.optJSONObject("readiness")?.let { result ->
-            Text("Grade 6 Mathematics readiness check", style = MaterialTheme.typography.titleMedium)
-            Text("${result.getInt("correct")} / ${result.getInt("total")} correct")
-            ReadinessBreakdown(result.getJSONObject("by_chapter"))
+        listOf("readiness" to "Fractions and decimals readiness check",
+            "full_readiness" to "Full Grade 6 Mathematics readiness check").forEach { (key, title) ->
+            report.optJSONObject(key)?.let { result ->
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text("${result.getInt("correct")} / ${result.getInt("total")} correct")
+                ReadinessBreakdown(result.getJSONObject("by_chapter"))
+            }
         }
         Text("Areas to practice", style = MaterialTheme.typography.titleMedium)
         val weak = report.getJSONArray("weak_areas").objects()

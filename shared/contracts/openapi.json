@@ -120,10 +120,26 @@
         }
       }
     },
-    "/curriculum/readiness/grade6-math": {
+    "/curriculum/readiness/{assessment}": {
       "post": {
         "summary": "Open Readiness",
-        "operationId": "open_readiness_curriculum_readiness_grade6_math_post",
+        "operationId": "open_readiness_curriculum_readiness__assessment__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assessment",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assessment"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -132,28 +148,49 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
+        }
+      }
+    },
+    "/curriculum/readiness/{assessment}/answers": {
+      "post": {
+        "summary": "Answer Readiness",
+        "operationId": "answer_readiness_curriculum_readiness__assessment__answers_post",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
-      }
-    },
-    "/curriculum/readiness/grade6-math/answers": {
-      "post": {
-        "summary": "Answer Readiness",
-        "operationId": "answer_readiness_curriculum_readiness_grade6_math_answers_post",
+        ],
+        "parameters": [
+          {
+            "name": "assessment",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assessment"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ReadinessAnswer"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -174,12 +211,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/progress-sharing": {

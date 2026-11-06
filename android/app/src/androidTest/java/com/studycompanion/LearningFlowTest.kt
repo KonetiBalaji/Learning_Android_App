@@ -239,6 +239,18 @@ class LearningFlowTest {
             completeDiagnostic("Area of triangles", listOf("20 cm²", "A perpendicular segment to the base line", "18 m²"))
             completePractice("30", "Multiply the base by the perpendicular height and take half.")
             rule.onNodeWithText("5 of 5 chapters mastered").assertExists()
+            tap("Open full readiness check")
+            val fullAnswers = listOf("7/10", "5/6", "3/5 L", "0.81", "2.98", "0.77", "18", "3/4",
+                "9", "12", "15", "n + 7 = 20", "18 cm²", "6 m", "15 cm²")
+            fullAnswers.forEachIndexed { index, answer ->
+                rule.waitUntil(30_000) {
+                    !model.state.value.busy && model.state.value.readinessCheck?.optInt("index") == index
+                }
+                tap(answer)
+            }
+            rule.waitUntil(30_000) { model.state.value.readinessCheck?.optBoolean("complete") == true }
+            rule.onNodeWithText("15 / 15 correct").assertExists()
+            rule.onNodeWithText("Geometry: 3 / 3").assertExists()
         } finally {
             deleteRegressionAccount(model)
         }

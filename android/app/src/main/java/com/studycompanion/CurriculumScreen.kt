@@ -21,12 +21,15 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
     var grade by rememberSaveable { mutableStateOf<Int?>(null) }
     var subject by rememberSaveable { mutableStateOf<String?>(null) }
     state.readinessCheck?.let { check ->
-        Text("Grade 6 Mathematics readiness check", style = MaterialTheme.typography.headlineSmall)
+        val full = check.getString("id") == "grade6-math-full"
+        Text(if (full) "Full Grade 6 Mathematics readiness check" else "Grade 6 Mathematics readiness check",
+            style = MaterialTheme.typography.headlineSmall)
         val total = check.getInt("total")
         if (check.getBoolean("complete")) {
             Text("${check.getInt("correct")} / $total correct", style = MaterialTheme.typography.titleLarge)
             ReadinessBreakdown(check.getJSONObject("by_chapter"))
-            Text("This score covers this short fractions and decimals assessment.")
+            Text(if (full) "This score covers the five Grade 6 Mathematics starter chapters."
+                else "This score covers this short fractions and decimals assessment.")
         } else {
             Text("Question ${check.getInt("index") + 1} of $total")
             Text(check.getString("prompt"))
@@ -90,7 +93,13 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
                         chapters.any { it.getString("id") == id && it.getBoolean("mastered") }
                     }
                     if (!ready) Text("Master fractions and decimals to unlock the readiness check.")
-                    CurriculumButton("Open readiness check", !state.busy && ready, model::openReadiness)
+                    CurriculumButton("Open readiness check", !state.busy && ready) { model.openReadiness() }
+                    val fullReady = setOf("fractions", "decimals", "percentages", "grade6-algebra", "grade6-geometry")
+                        .all { id -> chapters.any { it.getString("id") == id && it.getBoolean("mastered") } }
+                    if (!fullReady) Text("Master all five chapters to unlock the full readiness check.")
+                    CurriculumButton("Open full readiness check", !state.busy && fullReady) {
+                        model.openReadiness("grade6-math-full")
+                    }
                 }
                 CurriculumButton("Back to subjects", !state.busy) { subject = null }
             }
@@ -155,9 +164,11 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
 
 @Composable
 fun ReadinessBreakdown(scores: org.json.JSONObject) {
-    listOf("fractions" to "Fractions", "decimals" to "Decimals").forEach { (key, label) ->
-        val score = scores.getJSONObject(key)
-        Text("$label: ${score.getInt("correct")} / ${score.getInt("total")}")
+    listOf("fractions" to "Fractions", "decimals" to "Decimals", "percentages" to "Percentages",
+        "grade6-algebra" to "Algebra", "grade6-geometry" to "Geometry").forEach { (key, label) ->
+        scores.optJSONObject(key)?.let { score ->
+            Text("$label: ${score.getInt("correct")} / ${score.getInt("total")}")
+        }
     }
 }
 

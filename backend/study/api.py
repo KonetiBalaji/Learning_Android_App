@@ -319,36 +319,44 @@ def create_app(data_dir: Path | None = None):
             store.save(identifier, user, "mastery", identifier, lesson["started"], lesson)
             return mastery.snapshot(lesson)
 
-    def readiness_id(user):
-        return f"readiness:{user}:{readiness_assessment.ASSESSMENT_ID}"
+    def readiness_id(user, assessment):
+        return f"readiness:{user}:{assessment}"
 
-    @app.post("/curriculum/readiness/grade6-math")
-    def open_readiness(user=Depends(owner)):
-        identifier = readiness_id(user)
+    def readiness_bank(assessment):
+        bank = readiness_assessment.ASSESSMENTS.get(assessment)
+        if bank is None:
+            raise HTTPException(404, "Readiness check not found.")
+        return bank
+
+    @app.post("/curriculum/readiness/{assessment}")
+    def open_readiness(assessment: str, user=Depends(owner)):
+        required, _ = readiness_bank(assessment)
+        identifier = readiness_id(user, assessment)
         with store.lock, store.db:
             store.db.execute("BEGIN IMMEDIATE")
             attempt = store.get(identifier, user, "readiness")
             if attempt is None:
-                if not readiness_assessment.REQUIRED <= mastery_progress(user):
-                    raise HTTPException(409, "Master fractions and decimals before taking the readiness check.")
+                if not required <= mastery_progress(user):
+                    raise HTTPException(409, "Master the required chapters before taking this readiness check.")
                 attempt = {"answers": [], "started": time.time()}
                 store.save(identifier, user, "readiness", identifier, attempt["started"], attempt)
-            return readiness_assessment.snapshot(attempt)
+            return readiness_assessment.snapshot(attempt, assessment)
 
-    @app.post("/curriculum/readiness/grade6-math/answers")
-    def answer_readiness(body: ReadinessAnswer, user=Depends(owner)):
-        identifier = readiness_id(user)
+    @app.post("/curriculum/readiness/{assessment}/answers")
+    def answer_readiness(assessment: str, body: ReadinessAnswer, user=Depends(owner)):
+        _, questions = readiness_bank(assessment)
+        identifier = readiness_id(user, assessment)
         with store.lock, store.db:
             store.db.execute("BEGIN IMMEDIATE")
             attempt = record(identifier, user, "readiness")
             answers = attempt["answers"]
             if body.index < len(answers) and answers[body.index] == body.choice:
-                return readiness_assessment.snapshot(attempt)
-            if body.index != len(answers) or len(answers) >= len(readiness_assessment.QUESTIONS):
+                return readiness_assessment.snapshot(attempt, assessment)
+            if body.index != len(answers) or len(answers) >= len(questions):
                 raise HTTPException(409, "This answer cannot change a previous readiness response.")
             answers.append(body.choice)
             store.save(identifier, user, "readiness", identifier, attempt["started"], attempt)
-            return readiness_assessment.snapshot(attempt)
+            return readiness_assessment.snapshot(attempt, assessment)
 
     @app.get("/progress-sharing")
     def progress_links(user=Depends(owner)):
@@ -418,11 +426,13 @@ def create_app(data_dir: Path | None = None):
             if not link:
                 raise HTTPException(404, "Shared progress is unavailable.")
             summary = progress_sharing.report(store.all(link["student"], "mastery"), link["role"], time.time())
-            attempt = store.get(readiness_id(link["student"]), link["student"], "readiness")
-            if attempt:
-                result = readiness_assessment.snapshot(attempt)
-                if result["complete"]:
-                    summary["readiness"] = {key: result[key] for key in ("correct", "total", "by_chapter")}
+            for field, assessment in (("readiness", readiness_assessment.ASSESSMENT_ID),
+                                      ("full_readiness", readiness_assessment.FULL_ID)):
+                attempt = store.get(readiness_id(link["student"], assessment), link["student"], "readiness")
+                if attempt:
+                    result = readiness_assessment.snapshot(attempt, assessment)
+                    if result["complete"]:
+                        summary[field] = {key: result[key] for key in ("correct", "total", "by_chapter")}
             return summary
 
     @app.delete("/progress-sharing/{identifier}", status_code=204)

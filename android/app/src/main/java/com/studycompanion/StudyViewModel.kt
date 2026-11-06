@@ -269,16 +269,17 @@ class StudyViewModel internal constructor(application: Application, private val 
         mutable.update { it.copy(screen = "curriculum", curriculumChapters = chapters, curriculumLesson = null, readinessCheck = null) }
     }
 
-    fun openReadiness() = run {
-        val check = JSONObject(repository.call("/curriculum/readiness/grade6-math", "POST"))
+    fun openReadiness(assessment: String = "grade6-math") = run {
+        val check = JSONObject(repository.call("/curriculum/readiness/$assessment", "POST"))
         mutable.update { it.copy(readinessCheck = check) }
     }
 
     fun answerReadiness(choice: Int) {
         val check = state.value.readinessCheck ?: return
+        val assessment = check.getString("id")
         val response = JSONObject().put("index", check.getInt("index")).put("choice", choice)
         run {
-            val next = JSONObject(repository.call("/curriculum/readiness/grade6-math/answers", "POST", response))
+            val next = JSONObject(repository.call("/curriculum/readiness/$assessment/answers", "POST", response))
             mutable.update { it.copy(readinessCheck = next) }
         }
     }
