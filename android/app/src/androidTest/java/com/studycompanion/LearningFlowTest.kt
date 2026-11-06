@@ -763,8 +763,9 @@ class LearningFlowTest {
     private fun signInForRegression(model: StudyViewModel, prefix: String, server: String = studyServer) {
         rule.waitUntil(30_000) { !model.state.value.busy }
         rule.runOnIdle { model.authenticate(prefix + System.currentTimeMillis(), "disposable-regression-password", true, server) }
-        rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
+        rule.waitUntil(30_000) { !model.state.value.busy }
         assertNull(model.state.value.error)
+        assertTrue(model.state.value.signedIn)
     }
 
     private fun uploadRegressionSample(model: StudyViewModel, filename: String) {

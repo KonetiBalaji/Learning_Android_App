@@ -58,10 +58,11 @@ done
 
 adb install android/app/build/outputs/apk/debug/app-debug.apk
 adb install android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb reverse tcp:18771 tcp:18771
 runner=com.studycompanion.qa.test/androidx.test.runner.AndroidJUnitRunner
 curriculum_test=com.studycompanion.LearningFlowTest#gradeSixSubjectPathsUnlockTheirSecondChapter
 for phase in prepare resume; do
-    timeout 120 adb shell am instrument -w -r -e studyPort 18771 -e class "$curriculum_test" \
+    timeout 120 adb shell am instrument -w -r -e studyHost 127.0.0.1 -e studyPort 18771 -e class "$curriculum_test" \
         -e curriculumRestartPhase "$phase" "$runner" | tee "$run_dir/curriculum-restart-$phase.log"
     grep -Eq '^OK \(1 test\)' "$run_dir/curriculum-restart-$phase.log"
     if [[ "$phase" == prepare ]]; then
