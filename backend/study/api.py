@@ -32,6 +32,7 @@ from .processing import analyze_upload, update_review_state
 from .semantic import SemanticUnavailable, build_index, fingerprint, search as semantic_search
 from .adaptive import recommend
 from . import mastery, progress_sharing
+from . import readiness as readiness_assessment
 from .document_tutor import reply as tutor_reply
 from .offline import OfflineAttempt, reconstruct as reconstruct_offline
 
@@ -64,6 +65,11 @@ class ProgressInvitation(BaseModel):
 
 class ProgressInviteCode(BaseModel):
     code: SecretStr
+
+
+class ReadinessAnswer(BaseModel):
+    index: int = Field(ge=0)
+    choice: int = Field(ge=0, le=3)
 
 
 class MasteryAction(BaseModel):
@@ -313,6 +319,37 @@ def create_app(data_dir: Path | None = None):
             store.save(identifier, user, "mastery", identifier, lesson["started"], lesson)
             return mastery.snapshot(lesson)
 
+    def readiness_id(user):
+        return f"readiness:{user}:{readiness_assessment.ASSESSMENT_ID}"
+
+    @app.post("/curriculum/readiness/grade6-math")
+    def open_readiness(user=Depends(owner)):
+        identifier = readiness_id(user)
+        with store.lock, store.db:
+            store.db.execute("BEGIN IMMEDIATE")
+            attempt = store.get(identifier, user, "readiness")
+            if attempt is None:
+                if not readiness_assessment.REQUIRED <= mastery_progress(user):
+                    raise HTTPException(409, "Master fractions and decimals before taking the readiness check.")
+                attempt = {"answers": [], "started": time.time()}
+                store.save(identifier, user, "readiness", identifier, attempt["started"], attempt)
+            return readiness_assessment.snapshot(attempt)
+
+    @app.post("/curriculum/readiness/grade6-math/answers")
+    def answer_readiness(body: ReadinessAnswer, user=Depends(owner)):
+        identifier = readiness_id(user)
+        with store.lock, store.db:
+            store.db.execute("BEGIN IMMEDIATE")
+            attempt = record(identifier, user, "readiness")
+            answers = attempt["answers"]
+            if body.index < len(answers) and answers[body.index] == body.choice:
+                return readiness_assessment.snapshot(attempt)
+            if body.index != len(answers) or len(answers) >= len(readiness_assessment.QUESTIONS):
+                raise HTTPException(409, "This answer cannot change a previous readiness response.")
+            answers.append(body.choice)
+            store.save(identifier, user, "readiness", identifier, attempt["started"], attempt)
+            return readiness_assessment.snapshot(attempt)
+
     @app.get("/progress-sharing")
     def progress_links(user=Depends(owner)):
         with store.lock:
@@ -380,7 +417,13 @@ def create_app(data_dir: Path | None = None):
             ).fetchone()
             if not link:
                 raise HTTPException(404, "Shared progress is unavailable.")
-            return progress_sharing.report(store.all(link["student"], "mastery"), link["role"], time.time())
+            summary = progress_sharing.report(store.all(link["student"], "mastery"), link["role"], time.time())
+            attempt = store.get(readiness_id(link["student"]), link["student"], "readiness")
+            if attempt:
+                result = readiness_assessment.snapshot(attempt)
+                if result["complete"]:
+                    summary["readiness"] = {key: result[key] for key in ("correct", "total", "by_chapter")}
+            return summary
 
     @app.delete("/progress-sharing/{identifier}", status_code=204)
     def revoke_progress_link(identifier: str, user=Depends(owner)):

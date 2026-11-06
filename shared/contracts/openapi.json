@@ -120,6 +120,68 @@
         }
       }
     },
+    "/curriculum/readiness/grade6-math": {
+      "post": {
+        "summary": "Open Readiness",
+        "operationId": "open_readiness_curriculum_readiness_grade6_math_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/curriculum/readiness/grade6-math/answers": {
+      "post": {
+        "summary": "Answer Readiness",
+        "operationId": "answer_readiness_curriculum_readiness_grade6_math_answers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadinessAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/progress-sharing": {
       "get": {
         "summary": "Progress Links",
@@ -2565,6 +2627,27 @@
           "feedback"
         ],
         "title": "QuizSnapshot"
+      },
+      "ReadinessAnswer": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Index"
+          },
+          "choice": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Choice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "choice"
+        ],
+        "title": "ReadinessAnswer"
       },
       "Results": {
         "properties": {

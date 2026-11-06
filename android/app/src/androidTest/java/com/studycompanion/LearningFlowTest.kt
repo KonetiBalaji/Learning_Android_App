@@ -173,6 +173,27 @@ class LearningFlowTest {
             tap("Adding decimals")
             phase("diagnostic")
             assertEquals("decimals", model.state.value.curriculumLesson!!.getString("chapter_id"))
+            tap("0.75")
+            phase("practice")
+            rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("0.68")
+            tap("Check answer")
+            phase("rewrite")
+            rule.onNodeWithText("Explain in your own words").performScrollTo()
+                .performTextReplacement("Align the decimal points to add matching place values.")
+            tap("Check explanation")
+            phase("mastered")
+            tap("Back to chapters")
+            rule.waitUntil(30_000) { !model.state.value.busy }
+            tap("Open readiness check")
+            val answers = listOf("2/3", "1/2 km", "(2 + 3)/7", "0.95", "2.07 m", "48 hundredths")
+            answers.forEachIndexed { index, answer ->
+                rule.waitUntil(30_000) {
+                    !model.state.value.busy && model.state.value.readinessCheck?.optInt("index") == index
+                }
+                tap(answer)
+            }
+            rule.waitUntil(30_000) { model.state.value.readinessCheck?.optBoolean("complete") == true }
+            rule.onNodeWithText("6 / 6 correct").assertExists()
         } finally {
             deleteRegressionAccount(model)
         }

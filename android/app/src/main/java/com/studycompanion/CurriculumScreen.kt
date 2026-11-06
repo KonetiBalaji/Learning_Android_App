@@ -20,6 +20,23 @@ import com.studycompanion.data.strings
 fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
     var grade by rememberSaveable { mutableStateOf<Int?>(null) }
     var subject by rememberSaveable { mutableStateOf<String?>(null) }
+    state.readinessCheck?.let { check ->
+        Text("Grade 6 Mathematics readiness check", style = MaterialTheme.typography.headlineSmall)
+        val total = check.getInt("total")
+        if (check.getBoolean("complete")) {
+            Text("${check.getInt("correct")} / $total correct", style = MaterialTheme.typography.titleLarge)
+            ReadinessBreakdown(check.getJSONObject("by_chapter"))
+            Text("This score covers this short fractions and decimals assessment.")
+        } else {
+            Text("Question ${check.getInt("index") + 1} of $total")
+            Text(check.getString("prompt"))
+            check.getJSONArray("choices").strings().forEachIndexed { index, choice ->
+                CurriculumButton(choice, !state.busy) { model.answerReadiness(index) }
+            }
+        }
+        CurriculumButton("Back to chapters", !state.busy, model::closeReadiness)
+        return
+    }
     val lesson = state.curriculumLesson
     if (lesson == null) {
         when {
@@ -68,6 +85,13 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
                             model.openCurriculumChapter(chapter.getString("id"))
                         }
                     }
+                if (grade == 6 && subject == "Mathematics") {
+                    val ready = setOf("fractions", "decimals").all { id ->
+                        chapters.any { it.getString("id") == id && it.getBoolean("mastered") }
+                    }
+                    if (!ready) Text("Master fractions and decimals to unlock the readiness check.")
+                    CurriculumButton("Open readiness check", !state.busy && ready, model::openReadiness)
+                }
                 CurriculumButton("Back to subjects", !state.busy) { subject = null }
             }
         }
@@ -124,6 +148,14 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
         }
     }
     CurriculumButton("Back to chapters", !state.busy, model::closeCurriculumChapter)
+}
+
+@Composable
+fun ReadinessBreakdown(scores: org.json.JSONObject) {
+    listOf("fractions" to "Fractions", "decimals" to "Decimals").forEach { (key, label) ->
+        val score = scores.getJSONObject(key)
+        Text("$label: ${score.getInt("correct")} / ${score.getInt("total")}")
+    }
 }
 
 @Composable

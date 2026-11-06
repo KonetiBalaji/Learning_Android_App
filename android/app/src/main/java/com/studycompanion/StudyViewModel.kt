@@ -56,6 +56,7 @@ data class StudyState(
     val offlineQuizId: String? = null,
     val curriculumChapters: List<JSONObject> = emptyList(),
     val curriculumLesson: JSONObject? = null,
+    val readinessCheck: JSONObject? = null,
     val progressLinks: List<JSONObject> = emptyList(),
     val progressInvite: JSONObject? = null,
     val progressReport: JSONObject? = null,
@@ -132,7 +133,11 @@ class StudyViewModel internal constructor(application: Application, private val 
         when (current.screen) {
             "ocr" -> navigate(current.ocrReturn)
             "progress-sharing" -> if (current.progressReport != null) showProgressSharing() else navigate("progress")
-            "curriculum" -> if (current.curriculumLesson != null) closeCurriculumChapter() else navigate("home")
+            "curriculum" -> when {
+                current.readinessCheck != null -> closeReadiness()
+                current.curriculumLesson != null -> closeCurriculumChapter()
+                else -> navigate("home")
+            }
             "search", "tutor", "quiz" -> navigate(if (current.document != null) "configure" else "home")
             "mistakes", "adaptive", "flashcards" -> navigate(if (current.results != null) "results" else "home")
             "offline" -> when {
@@ -261,7 +266,25 @@ class StudyViewModel internal constructor(application: Application, private val 
 
     fun showCurriculum() = run {
         val chapters = JSONArray(repository.call("/curriculum")).objects()
-        mutable.update { it.copy(screen = "curriculum", curriculumChapters = chapters, curriculumLesson = null) }
+        mutable.update { it.copy(screen = "curriculum", curriculumChapters = chapters, curriculumLesson = null, readinessCheck = null) }
+    }
+
+    fun openReadiness() = run {
+        val check = JSONObject(repository.call("/curriculum/readiness/grade6-math", "POST"))
+        mutable.update { it.copy(readinessCheck = check) }
+    }
+
+    fun answerReadiness(choice: Int) {
+        val check = state.value.readinessCheck ?: return
+        val response = JSONObject().put("index", check.getInt("index")).put("choice", choice)
+        run {
+            val next = JSONObject(repository.call("/curriculum/readiness/grade6-math/answers", "POST", response))
+            mutable.update { it.copy(readinessCheck = next) }
+        }
+    }
+
+    fun closeReadiness() {
+        mutable.update { it.copy(readinessCheck = null) }
     }
 
     fun openCurriculumChapter(id: String) = run {
