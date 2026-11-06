@@ -2,12 +2,13 @@
 
 ## Current promoted checkpoint
 
-Revision `e074710750f24ed8c0a2b56f78587419faab0573` passed 160 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests before promotion to `main`. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint (0 errors, 15 warnings), and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42205125323) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42205125296)
+Revision `24fe56f7f4bef5a837cd57c1d187a26d2d5e26f6` passed 165 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests before promotion to `main`. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint, and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42209782712) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42209782698)
 
 - The starter catalog contains 23 lessons across Grades 1–12, including 12 in Grade 6. New attempts have at least two diagnostic questions. All lessons offer three worked steps, at least five authored practice prompts, and a guiding question for an incomplete rewrite.
 - Backend coverage verifies the ordered steps and bank structure across the catalog, original question counts on existing attempts, and retry cycling in the slope lesson. Android coverage verifies starter diagnostic navigation across all grades, the full Grade 6 Science path, and themed examples in fractions and percentages.
 - Staging verified readiness scoring, identical answer retries, linked parent aggregates, and revocation over trusted HTTPS. The Android regression verifies that an open report is cleared when the viewer returns to the app after the student revokes access.
 - Staging replaced the API container and checked that mounted study data and existing sessions remained usable. It then restored a consistent SQLite snapshot into a fresh Docker volume using the original mounted key. Integrity and foreign-key checks passed. Existing sessions, the owner's document and quiz, and the readiness result were usable in the restore. The second account was denied access to the owner's document.
+- The restored database rejected a wrong key and permitted a fresh sign-in with the original key mounted. Backend tests using simulated provider responses verified the Mixed difficulty label rule. The Android outage regression confirmed that a Hard request displayed the returned Easy label alongside the fallback notice. Live question difficulty and accuracy remain unverified.
 
 ## Release checks with separate evidence
 
