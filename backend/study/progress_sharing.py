@@ -12,14 +12,14 @@ def digest(code):
 def report(lessons, role, now):
     chapters = mastery.catalog(lessons)
     subjects = {}
-    weak_areas = []
     for chapter in chapters:
         key = (chapter["grade"], chapter["subject"])
         summary = subjects.setdefault(key, {"grade": key[0], "subject": key[1], "available": 0, "mastered": 0})
         summary["available"] += 1
         summary["mastered"] += int(chapter["mastered"])
-        if chapter["needs_practice"]:
-            weak_areas.append({"grade": key[0], "subject": key[1], "title": chapter["title"]})
+    priorities = sorted((chapter for chapter in chapters if chapter["needs_practice"]),
+                        key=lambda chapter: -chapter["review_events"])
+    weak_areas = [{key: chapter[key] for key in ("grade", "subject", "title")} for chapter in priorities]
     cutoff = now - 7 * 86400
     recent = sum(cutoff <= lesson.get("last_activity", 0) <= now for lesson in lessons)
     mastered_recently = sum(cutoff <= lesson.get("mastered_at", 0) <= now for lesson in lessons)

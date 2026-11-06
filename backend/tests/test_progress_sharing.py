@@ -98,3 +98,20 @@ def test_concurrent_redeem_consumes_code_across_backend_instances(tmp_path, monk
             results = [pool.submit(accept, first, parent_a), pool.submit(accept, second, parent_b)]
             assert sorted(task.result(timeout=15) for task in results) == [201, 404]
         assert len(first.get("/progress-sharing", headers=student).json()) == 1
+
+
+def test_report_prioritizes_repeated_difficulty_without_sharing_attempt_counts():
+    from study.progress_sharing import report
+
+    lessons = [
+        {"chapter_id": "fractions", "phase": "coach", "correct": False},
+        {"chapter_id": "water-cycle", "phase": "coach", "correct": False,
+         "diagnostic_index": 1, "diagnostic_hits": 0, "practice_misses": 1},
+        {"chapter_id": "decimals", "phase": "mastered", "correct": False, "practice_misses": 5},
+    ]
+    shared = report(lessons, "parent", 1_800_000_000)
+    assert shared["weak_areas"] == [
+        {"grade": 6, "subject": "Science", "title": "The water cycle"},
+        {"grade": 6, "subject": "Mathematics", "title": "Adding fractions"},
+    ]
+    assert "The water cycle" in shared["recommendation"]

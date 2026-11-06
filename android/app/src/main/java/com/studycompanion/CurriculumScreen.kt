@@ -94,6 +94,8 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
                         val label = when {
                             chapter.getBoolean("mastered") -> " · Mastered"
                             chapter.getBoolean("locked") -> " · Locked"
+                            chapter.optBoolean("needs_practice") && chapter.optInt("review_events") >= 2 ->
+                                " · Repeated difficulty"
                             chapter.optBoolean("needs_practice") -> " · Needs practice"
                             chapter.optBoolean("started") -> " · In progress"
                             else -> ""
@@ -212,7 +214,7 @@ private fun nextCurriculumChapter(
     studiedSubjects: Set<String> = emptySet(),
 ): org.json.JSONObject? {
     val available = chapters.filter { !it.getBoolean("locked") && !it.getBoolean("mastered") }
-    return available.firstOrNull { it.optBoolean("needs_practice") }
+    return available.filter { it.optBoolean("needs_practice") }.maxByOrNull { it.optInt("review_events") }
         ?: available.firstOrNull { it.optBoolean("started") }
         ?: available.firstOrNull { it.getString("subject") in studiedSubjects }
         ?: available.firstOrNull()

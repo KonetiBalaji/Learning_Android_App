@@ -181,8 +181,14 @@ class LearningFlowTest {
             tap("Review: The water cycle · Science")
             phase("coach")
             rule.onNodeWithText("Worked example").assertExists()
+            tap("Try a practice question")
+            phase("practice")
+            rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("evaporation")
+            tap("Check answer")
+            phase("coach")
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
+            rule.onNodeWithText("The water cycle · Repeated difficulty").assertExists()
             tap("Back to subjects")
             verifyPath(
                 "English", "Complete sentences", "Combining related sentences", "The birds sang", "glowed",

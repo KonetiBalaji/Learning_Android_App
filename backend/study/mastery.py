@@ -60,13 +60,16 @@ def catalog(lessons):
         lesson = progress.get(identifier, {})
         misses = lesson.get("practice_misses", 0)
         revisions = lesson.get("rewrite_revisions", 0)
-        diagnostic_miss = lesson.get("correct") is False
+        # Older lessons retain only whether any diagnostic answer was missed.
+        diagnostic_misses = (lesson["diagnostic_index"] - lesson["diagnostic_hits"]
+                             if "diagnostic_hits" in lesson else int(lesson.get("correct") is False))
+        review_events = diagnostic_misses + misses + revisions
         locked = chapter["requires"] is not None and chapter["requires"] not in mastered
         result.append({
             "id": identifier, "grade": chapter["grade"], "subject": chapter["subject"], "title": chapter["title"],
             "mastered": identifier in mastered, "locked": locked, "started": bool(lesson),
             "practice_misses": misses, "rewrite_revisions": revisions,
-            "needs_practice": bool(lesson) and identifier not in mastered and (diagnostic_miss or misses > 0 or revisions > 0),
+            "review_events": review_events, "needs_practice": identifier not in mastered and review_events > 0,
         })
     return result
 
