@@ -18,11 +18,15 @@ def test_readiness_is_held_out_owned_resumable_and_scored_without_leaking_answer
     student = account(client, "student")
     other = account(client, "viewer")
     path = "/curriculum/readiness/grade6-math"
+    unfinished = "/curriculum/readiness"
+    assert client.get(unfinished, headers=student).json() == []
     assert client.post(path, headers=student).status_code == 409
     finish(client, student, "fractions", (1, 2), "3/4", "Add the numerators and keep the denominator unchanged.")
     assert client.post(path, headers=student).status_code == 409
     finish(client, student, "decimals", (0, 1), "0.68", "Align the decimal points to add matching place values.")
     first = client.post(path, headers=student).json()
+    assert client.get(unfinished, headers=student).json() == ["grade6-math"]
+    assert client.get(unfinished, headers=other).json() == []
     assert first["index"] == 0 and "correct" not in first and "by_chapter" not in first
     assert client.post(path, headers=other).status_code == 409
     assert client.post(path + "/answers", headers=other, json={"index": 0, "choice": 1}).status_code == 404
@@ -37,6 +41,7 @@ def test_readiness_is_held_out_owned_resumable_and_scored_without_leaking_answer
             assert "correct" not in step and not step["complete"]
         assert client.post(path, headers=student).json() == step
     assert step["complete"] and step["correct"] == 5
+    assert client.get(unfinished, headers=student).json() == []
     assert step["by_chapter"] == {"fractions": {"correct": 3, "total": 3}, "decimals": {"correct": 2, "total": 3}}
     assert "choices" not in step and "answers" not in step
     assert client.post(path + "/answers", headers=student, json={"index": 0, "choice": 1}).json() == step

@@ -57,6 +57,16 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
         when {
             grade == null -> {
                 Text("Select your grade", style = MaterialTheme.typography.headlineSmall)
+                listOf("grade6-math" to "Resume fractions and decimals readiness check",
+                    "grade6-math-full" to "Resume full Grade 6 Mathematics readiness check").forEach { (id, title) ->
+                    if (id in state.unfinishedReadiness) {
+                        CurriculumButton(title, !state.busy) {
+                            grade = 6
+                            subject = "Mathematics"
+                            model.openReadiness(id)
+                        }
+                    }
+                }
                 val resumable = nextCurriculumChapter(state.curriculumChapters.filter { it.optBoolean("started") })
                 if (resumable != null) {
                     val name = resumable.getString("title")

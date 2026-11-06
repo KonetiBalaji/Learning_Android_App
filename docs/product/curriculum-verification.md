@@ -46,6 +46,8 @@ The voice checkpoint passed the Android 15 curriculum and document tutor instrum
 
 ### Readiness evidence
 
+The grade selector lists unfinished readiness checks for the signed-in student. The Android 15 regression answers the first question, returns to the Library, and resumes from question two through the grade selector. The API exposes only the identifiers of that student's unfinished checks.
+
 After mastering fractions and decimals, a student can start or resume a six-question held-out assessment. The server returns one question at a time, accepts an identical answer retry without advancing twice, rejects changed answers, and only returns the score and topic breakdown when complete. The result measures performance on these questions. It does not estimate exam outcomes. Predictions would require a broader assessment and validation against real exam outcomes. The completed aggregate is included in explicitly shared teacher and parent reports. The individual answers remain private, and account deletion removes the attempt.
 
 The readiness checkpoint passed 133 backend tests, four Android unit tests, and an Android 15 flow that completed both lessons and scored six out of six on the readiness check. Lint reported zero errors and 15 warnings. The backend test also verifies a mixed result, topic totals, linked viewer access, and account deletion.

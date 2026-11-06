@@ -329,6 +329,16 @@ def create_app(data_dir: Path | None = None):
             raise HTTPException(404, "Readiness check not found.")
         return bank
 
+    @app.get("/curriculum/readiness", response_model=list[str])
+    def unfinished_readiness(user=Depends(owner)):
+        unfinished = []
+        with store.lock:
+            for assessment, (_, questions) in readiness_assessment.ASSESSMENTS.items():
+                attempt = store.get(readiness_id(user, assessment), user, "readiness")
+                if attempt is not None and len(attempt["answers"]) < len(questions):
+                    unfinished.append(assessment)
+        return unfinished
+
     @app.post("/curriculum/readiness/{assessment}")
     def open_readiness(assessment: str, user=Depends(owner)):
         required, _ = readiness_bank(assessment)

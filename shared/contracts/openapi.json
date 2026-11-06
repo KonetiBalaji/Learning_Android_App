@@ -120,6 +120,33 @@
         }
       }
     },
+    "/curriculum/readiness": {
+      "get": {
+        "summary": "Unfinished Readiness",
+        "operationId": "unfinished_readiness_curriculum_readiness_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Unfinished Readiness Curriculum Readiness Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/curriculum/readiness/{assessment}": {
       "post": {
         "summary": "Open Readiness",

@@ -484,6 +484,14 @@ class LearningFlowTest {
             tap("Open readiness check")
             val answers = listOf("2/3", "1/2 km", "(2 + 3)/7", "0.95", "2.07 m", "48 hundredths")
             answers.forEachIndexed { index, answer ->
+                if (index == 1) {
+                    rule.waitUntil(30_000) { !model.state.value.busy && model.state.value.readinessCheck?.optInt("index") == 1 }
+                    tap("Back to chapters")
+                    rule.onNodeWithText("Library", substring = false).performClick()
+                    tap("Explore grade lessons")
+                    rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
+                    tap("Resume fractions and decimals readiness check")
+                }
                 rule.waitUntil(30_000) {
                     !model.state.value.busy && model.state.value.readinessCheck?.optInt("index") == index
                 }

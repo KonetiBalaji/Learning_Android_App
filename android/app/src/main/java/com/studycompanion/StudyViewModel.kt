@@ -57,6 +57,7 @@ data class StudyState(
     val curriculumChapters: List<JSONObject> = emptyList(),
     val curriculumLesson: JSONObject? = null,
     val readinessCheck: JSONObject? = null,
+    val unfinishedReadiness: Set<String> = emptySet(),
     val progressLinks: List<JSONObject> = emptyList(),
     val progressInvite: JSONObject? = null,
     val progressReport: JSONObject? = null,
@@ -278,12 +279,21 @@ class StudyViewModel internal constructor(application: Application, private val 
 
     fun showCurriculum() = run {
         val chapters = JSONArray(repository.call("/curriculum")).objects()
-        mutable.update { it.copy(screen = "curriculum", curriculumChapters = chapters, curriculumLesson = null, readinessCheck = null) }
+        val unfinished = try {
+            JSONArray(repository.call("/curriculum/readiness")).strings().toSet()
+        } catch (error: ApiException) {
+            if (error.status != 404) throw error
+            emptySet()
+        }
+        mutable.update { it.copy(screen = "curriculum", curriculumChapters = chapters, curriculumLesson = null,
+            readinessCheck = null, unfinishedReadiness = unfinished) }
     }
 
     fun openReadiness(assessment: String = "grade6-math") = run {
         val check = JSONObject(repository.call("/curriculum/readiness/$assessment", "POST"))
-        mutable.update { it.copy(readinessCheck = check) }
+        mutable.update { it.copy(readinessCheck = check,
+            unfinishedReadiness = if (check.getBoolean("complete")) it.unfinishedReadiness - assessment
+                else it.unfinishedReadiness + assessment) }
     }
 
     fun answerReadiness(choice: Int) {
@@ -292,7 +302,9 @@ class StudyViewModel internal constructor(application: Application, private val 
         val response = JSONObject().put("index", check.getInt("index")).put("choice", choice)
         run {
             val next = JSONObject(repository.call("/curriculum/readiness/$assessment/answers", "POST", response))
-            mutable.update { it.copy(readinessCheck = next) }
+            mutable.update { it.copy(readinessCheck = next,
+                unfinishedReadiness = if (next.getBoolean("complete")) it.unfinishedReadiness - assessment
+                    else it.unfinishedReadiness) }
         }
     }
 
