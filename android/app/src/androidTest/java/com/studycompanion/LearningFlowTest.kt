@@ -298,6 +298,31 @@ class LearningFlowTest {
                 "secondary", "The sailor wrote the diary during the voyage.",
                 "A letter says a bridge opened in 1910. Which source would independently support that date?",
             )
+            tap("Back to grades")
+            val otherGrades = mapOf(
+                1 to "Counting on",
+                2 to "Tens and ones",
+                3 to "Multiplication as equal groups",
+                4 to "Perimeter of rectangles",
+                5 to "Volume of rectangular boxes",
+                7 to "Unit rates",
+                8 to "Solving one-variable equations",
+                9 to "Slope between two points",
+                10 to "The Pythagorean theorem",
+                11 to "Exponential growth",
+                12 to "Expected value",
+            )
+            for ((grade, chapter) in otherGrades) {
+                tap("Grade $grade")
+                tap("Mathematics")
+                tap(chapter)
+                phase("diagnostic")
+                rule.onNodeWithText("Diagnostic question 1 of 1").assertExists()
+                tap("Back to chapters")
+                rule.waitUntil(30_000) { !model.state.value.busy }
+                tap("Back to subjects")
+                tap("Back to grades")
+            }
         } finally {
             if (!keepAccount) deleteRegressionAccount(model)
         }
