@@ -2,7 +2,7 @@
 
 ## Current promoted checkpoint
 
-Revision `1f0d5be868fca4608b044981c56063268b13f70a` passed 166 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests before promotion to `main`. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint, and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42216690356) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42216695370)
+Revision `fa5110aaf7c9ddb01dfee9bd7acbc9b724d5084c` passed 166 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests before promotion to `main`. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint, and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42225180316) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42225180312)
 
 - The starter catalog contains 23 lessons across Grades 1–12, including 12 in Grade 6. New attempts have at least two diagnostic questions. All lessons offer three worked steps, at least five authored practice prompts, and a guiding question for an incomplete rewrite.
 - Backend coverage verifies the ordered steps and bank structure across the catalog, original question counts on existing attempts, and retry cycling in the slope lesson. Android coverage verifies starter diagnostic navigation across all grades, the full Grade 6 Science path, and themed examples in fractions and percentages.
@@ -17,7 +17,7 @@ On `8b31a1e`, the Android release bundle rebuilt with a disposable two-day certi
 The disposable backup rehearsal was verified at `48b67d8`. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587701) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42175587753)
 
 - The disposable backup rehearsal checked SQLite integrity and foreign keys, original-key recovery, email sign-in, document access by its owner, denial to another account, and startup rejection with a different key. Production recovery still requires the intended host and backup procedure.
-- The Android APK declares the microphone optional and offers typed input when dictation is unavailable. On `8b31a1e` the connected Android 13 phone reported recognition and speech synthesis services, but the QA APK install retry returned `INSTALL_FAILED_USER_RESTRICTED`. Physical narration and microphone transcription remain unverified.
+- The Android APK declares the microphone optional and offers typed input when dictation is unavailable. Separate Android 15 emulator tests verified the typing fallback after denying microphone access and clearing pending dictation controls on background. The recognizer did not reach the listening state in the cancellation rehearsal. The physical Android 13 phone accepted the QA app but canceled the instrumentation APK installation with `INSTALL_FAILED_USER_RESTRICTED`. Audible narration, active recording cancellation, and microphone transcription on a physical phone remain unverified.
 - Google web account deletion passed a headless-browser rehearsal with a simulated Google callback. Live Google verification on the authorized public origin remains open.
 
 ## Earlier runtime and release bundle checkpoint

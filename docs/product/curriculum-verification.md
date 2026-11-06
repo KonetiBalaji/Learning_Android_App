@@ -45,7 +45,7 @@ Dictation uses Android's on-device recognizer on devices with a microphone and a
 
 [Android on-device recognition](https://developer.android.com/reference/android/speech/SpeechRecognizer) · [Android text-to-speech voice capabilities](https://developer.android.com/reference/android/speech/tts/Voice)
 
-The voice checkpoint passed the Android 15 curriculum and document tutor instrumentation tests. The tests exercise the explanation reveal, the read-aloud button's completion or fallback path, and the presence of the dictation controls. They do not verify real microphone transcription or independently check the audio output. The physical Android 13 phone exposed speech and text-to-speech services but rejected installation of the side-by-side QA APK with INSTALL_FAILED_USER_RESTRICTED. Physical voice verification remains open. The updated Android 15 fractions regression also verifies forward and backward step navigation, hiding the example, and continuing through mastery.
+The voice checkpoint passed the Android 15 curriculum and document tutor instrumentation tests. The tests exercise the explanation reveal, the read-aloud button's completion or fallback path, and the presence of the dictation controls. The physical Android 13 phone reports speech recognition and text-to-speech services and now has the separate QA app installed. It canceled installation of the matching instrumentation APK with `INSTALL_FAILED_USER_RESTRICTED`. Audible narration, microphone transcription, and cancellation during active recording remain unverified. The Android 15 fractions regression also verifies forward and backward step navigation, hiding the example, and continuing through mastery.
 
 
 ### Readiness evidence
