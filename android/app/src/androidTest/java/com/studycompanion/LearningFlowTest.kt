@@ -140,12 +140,26 @@ class LearningFlowTest {
             tap("1/2")
             phase("coach")
             rule.onNodeWithText("Worked example").assertExists()
+            tap("Read explanation aloud")
+            rule.waitUntil(30_000) {
+                rule.onAllNodesWithText("Read explanation aloud", substring = false).fetchSemanticsNodes().isNotEmpty()
+            }
+            tap("Show example steps")
+            rule.onNodeWithText("2/5 + 3/5 = (2 + 3)/5 = 5/5 = 1.").assertExists()
+            tap("Hide example steps")
+            rule.onNodeWithText("2/5 + 3/5 = (2 + 3)/5 = 5/5 = 1.").assertDoesNotExist()
             tap("Try a practice question")
             phase("practice")
             tap("Show hint")
             rule.onNodeWithText("Your answer").performScrollTo().performTextReplacement("6/8")
             tap("Check answer")
             phase("rewrite")
+            rule.onNodeWithText("Dictate response").assertExists()
+            if (android.os.Build.VERSION.SDK_INT < 31 ||
+                !android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(rule.activity)) {
+                tap("Dictate response")
+                rule.onNodeWithText("On-device dictation is unavailable. You can type your response.").assertExists()
+            }
             rule.onNodeWithText("Explain in your own words").performScrollTo()
                 .performTextReplacement("Add the numerators and keep the denominator unchanged.")
             tap("Check explanation")
@@ -686,6 +700,8 @@ class LearningFlowTest {
         rule.waitUntil(120_000) { model.state.value.tutorTurns.size == 1 && !model.state.value.busy }
         assertNull(model.state.value.error)
         assertEquals("source_excerpt", model.state.value.tutorTurns.first().getString("mode"))
+        rule.onNodeWithText("Dictate response").assertExists()
+        rule.onNodeWithText("Read latest tutor answer aloud").assertExists()
         assertTrue(model.state.value.tutorTurns.first().getString("answer").contains("Mitochondria"))
         rule.onNodeWithText("Read cited source").performScrollTo().performClick()
         rule.waitUntil(30_000) { model.state.value.source != null && !model.state.value.busy }

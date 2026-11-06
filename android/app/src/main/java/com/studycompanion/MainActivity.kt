@@ -445,6 +445,10 @@ fun StudyApp(model: StudyViewModel = viewModel()) {
         }
     }
     OutlinedTextField(question, { question = it }, label = { Text("Question for the tutor") }, modifier = Modifier.fillMaxWidth(), enabled = !state.busy)
+    DictateButton(!state.busy && state.tutorTurns.size < 100) { question = it.take(1000) }
+    state.tutorTurns.lastOrNull()?.optString("answer")?.takeIf(String::isNotBlank)?.let {
+        ReadAloudButton(it, "Read latest tutor answer aloud")
+    }
     Button(onClick = { model.askTutor(question) }, enabled = !state.busy && question.trim().length in 2..1000 && state.tutorTurns.size < 100, modifier = Modifier.fillMaxWidth()) { Text("Ask from selected material") }
     TextButton(onClick = { model.navigate("configure") }, enabled = !state.busy) { Text("Back to document") }
 }

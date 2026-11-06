@@ -12,7 +12,7 @@ The attached student-learning brief describes a curriculum product in addition t
 | Mastery and chapter unlocking | Completing practice and the explanation checklist marks the lesson mastered and unlocks the next chapter. The app shows elapsed time and chapter status. This is chapter-level completion for the authored activity. Broader mastery scoring and calibrated confidence remain open. |
 | Knowledge gaps and personalized path | Document practice already has adaptive recommendations. Curriculum records diagnostic misses, practice misses, and explanation revisions. The chapter list shows mastery progress and prioritizes chapters needing practice or already started. Cross-subject and AI recommendations remain open. |
 | Teacher and parent view | Students can issue a one-use teacher or parent invitation, and either account can revoke the link. The viewer sees chapter mastery by subject, a rolling seven-day summary, areas to practice, and an evidence-based recommendation. Invited roles describe the relationship chosen by the student. School/guardian identity verification, scheduled delivery, and a validated exam readiness prediction remain open. |
-| Voice, animation, badges and dark mode | Mastered chapters award persistent account-scoped badges. The app follows Android dark mode, including login and the native launch theme. Voice and animation remain open. |
+| Voice, animation, badges and dark mode | Mastered chapters award persistent account-scoped badges. The app follows Android dark mode, including login and the native launch theme. The curriculum coach can read its explanation aloud and reveal the worked example with a transition. Students can dictate rewrites or tutor questions and edit the transcript before submitting. The document tutor can read its latest answer aloud. A talking avatar and animated AI explanations remain open. |
 | Provider and operations | Production AI credentials and evaluation, production hosting, public OAuth and authorized Play signing remain release gates. |
 
 Curriculum progress is encrypted and scoped to the signed-in account. Account deletion removes it. The flow retains the current lesson and its result, rather than retaining free-text submissions. The document retention policy continues to apply to uploaded material.
@@ -31,3 +31,12 @@ The weekly report summarizes the last seven days of recorded curriculum activity
 The teacher and parent checkpoint passed 131 backend tests and the targeted Android 15 run for invitation redemption and report access, dark mode, and mastery progression. The Android build and lint passed. The dashboard's access-control tests also verify cross-account denial, cancellation, expiry, replay protection, revocation and account deletion.
 
 For a full Android device run, point the test runner at a second disposable instance of the same backend with `-e sharingPort <port>`. The sharing scenario creates and signs into multiple accounts. A separate fixture keeps its authentication requests from contending with other scenarios for the production login rate limit.
+
+
+### Voice controls
+
+Dictation uses Android's on-device recognizer on devices that support it. It requests microphone access only when the student taps Dictate. The transcript fills the editable field and is submitted only through the existing lesson or tutor action. If recognition or an offline voice is unavailable, typing and on-screen text remain available. Read-aloud selects an installed English voice that reports no network requirement. Leaving the screen or backgrounding the app ends the audio session.
+
+[Android on-device recognition](https://developer.android.com/reference/android/speech/SpeechRecognizer) · [Android text-to-speech voice capabilities](https://developer.android.com/reference/android/speech/tts/Voice)
+
+The voice checkpoint passed the Android 15 curriculum and document tutor instrumentation tests. The tests exercise the explanation reveal, the read-aloud button's completion or fallback path, and the presence of the dictation controls. They do not verify real microphone transcription or independently check the audio output.

@@ -1,5 +1,6 @@
 package com.studycompanion
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -90,8 +91,15 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
         }
         "coach" -> {
             Text("Worked example", style = MaterialTheme.typography.titleMedium)
-            Text(lesson.getString("explanation"))
-            Text(lesson.getString("example"))
+            val explanation = lesson.getString("explanation")
+            val example = lesson.getString("example")
+            var showExample by rememberSaveable(lesson.getString("chapter_id"), version) { mutableStateOf(false) }
+            Text(explanation)
+            ReadAloudButton(explanation, "Read explanation aloud")
+            CurriculumButton(if (showExample) "Hide example steps" else "Show example steps", !state.busy) {
+                showExample = !showExample
+            }
+            AnimatedVisibility(showExample) { Text(example) }
             CurriculumButton("Try a practice question", !state.busy) { model.answerCurriculum("continue") }
         }
         "practice", "rewrite" -> {
@@ -102,6 +110,7 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel) {
             }
             OutlinedTextField(response, { if (it.length <= 1000) response = it }, modifier = Modifier.fillMaxWidth(),
                 enabled = !state.busy, label = { Text(if (phase == "practice") "Your answer" else "Explain in your own words") })
+            if (phase == "rewrite") DictateButton(!state.busy) { response = it.take(1000) }
             Button(onClick = { model.answerCurriculum(phase, response = response) }, enabled = !state.busy && response.isNotBlank()) {
                 Text(if (phase == "practice") "Check answer" else "Check explanation")
             }
