@@ -23,10 +23,10 @@ context = ssl.create_default_context(cafile=args.ca_file)
 host = args.host
 
 
-def call(path, method="GET", body=None, token=None, expected=200, content_type="application/json"):
+def call(path, method="GET", body=None, token=None, expected=200, content_type="application/json", *, origin=None):
     headers = {"Content-Type": content_type}
     if path in ("/delete-account", "/delete-account/google") and method == "POST":
-        headers["Origin"] = f"https://{host}"
+        headers["Origin"] = origin if origin is not None else f"https://{host}"
     if token:
         headers["Authorization"] = f"Bearer {token}"
     payload = json.dumps(body).encode() if isinstance(body, dict) else body
@@ -256,9 +256,18 @@ try:
         google_page = call("/delete-account/google")
         assert 'https://accounts.google.com/gsi/client' in google_page
         assert 'data-nonce="' in google_page
-        call("/delete-account/google", "POST", b"", expected=400,
-             content_type="application/x-www-form-urlencoded")
-        print("Verified Google deletion page wiring and rejection without confirmation. No Google session was requested.")
+        form_type = "application/x-www-form-urlencoded"
+        unconfirmed = call("/delete-account/google", "POST", b"", expected=400, content_type=form_type)
+        assert "Confirm permanent deletion" in unconfirmed
+        confirmed = b"confirm=yes"
+        wrong_origin = call("/delete-account/google", "POST", confirmed, expected=403,
+                            content_type=form_type, origin="https://untrusted.example")
+        assert "Open this page directly" in wrong_origin
+        missing_credential = call("/delete-account/google", "POST", confirmed, expected=400, content_type=form_type)
+        assert "Choose your Google account" in missing_credential
+        for token in tokens:
+            assert call("/account", token=token)["owner_id"]
+        print("Verified Google deletion page, origin and form guards over HTTPS without a Google session.")
     form = urlencode({**credentials[0], "confirm": "yes"}).encode()
     assert "were deleted" in call("/delete-account", "POST", form, content_type="application/x-www-form-urlencoded")
     tokens.remove(owner)
