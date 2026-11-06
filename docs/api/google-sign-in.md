@@ -22,3 +22,5 @@ Automated backend tests verify signed test tokens using a local test certificate
 ## Live device verification
 
 On the Android 13 test phone, the debug APK used the dedicated Saras Learning Google Cloud project in Testing mode and a local backend reached through ADB forwarding. The first Google sign-in opened the Library and created one Google account and one Saras session. Signing out returned the phone to the login screen and removed the server session. Signing in again with the same Google account reopened the Library, kept the Google account count at one, and created a new session. The test used one approved Google account. Public access and the Play signing certificate remain separate release checks.
+
+A later retry on the connected Android 13 phone independently confirmed that the private Google account chooser opened after Saras sign-out. Selecting the existing test account returned to the Library through the local ADB-forwarded backend. The retry covered one account on the installed debug APK.
