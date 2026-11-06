@@ -381,3 +381,32 @@ def test_grade_six_math_practice_answers_match_their_operands():
             match = re.search(pattern, prompt)
             assert match, prompt
             assert Fraction(answer) == calculate(*map(Fraction, match.groups())), prompt
+
+
+def test_curriculum_coaching_and_action_retry_survive_server_restart(tmp_path):
+    from fastapi.testclient import TestClient
+    from study.api import create_app
+
+    path = "/curriculum/fractions/lesson"
+    wrong_answer = {"version": 0, "action": "diagnostic", "choice": 0}
+    with TestClient(create_app(tmp_path)) as first:
+        student = account(first, "restart-student")
+        other = account(first, "restart-other")
+        opened = first.post(path, headers=student)
+        assert opened.status_code == 200 and opened.json()["diagnostic_total"] == 2
+        response = first.post(path + "/actions", headers=student, json=wrong_answer)
+        assert response.status_code == 200
+        coached = response.json()
+        assert coached["phase"] == "coach" and coached["diagnostic_remaining"]
+
+    with TestClient(create_app(tmp_path)) as restarted:
+        reopened = restarted.post(path, headers=student)
+        assert reopened.status_code == 200 and reopened.json() == coached
+        other_lesson = restarted.post(path, headers=other).json()
+        assert (other_lesson["phase"], other_lesson["diagnostic_index"]) == ("diagnostic", 0)
+        replay = restarted.post(path + "/actions", headers=student, json=wrong_answer)
+        assert replay.status_code == 200 and replay.json() == coached
+        advanced = restarted.post(path + "/actions", headers=student,
+                                  json={"version": coached["version"], "action": "continue"})
+        assert advanced.status_code == 200
+        assert (advanced.json()["phase"], advanced.json()["diagnostic_index"]) == ("diagnostic", 1)

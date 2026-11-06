@@ -201,6 +201,9 @@ class LearningFlowTest {
             rule.waitUntil(30_000) { model.state.value.screen == "curriculum" && !model.state.value.busy }
             tap("Resume lesson: The water cycle")
             phase("coach")
+            rule.activityRule.scenario.recreate()
+            phase("coach")
+            rule.onNodeWithText("Next diagnostic question").assertExists()
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
             tap("Back to subjects")
