@@ -442,7 +442,20 @@ class LearningFlowTest {
             tap("Check answer")
             phase("rewrite")
             rule.onNodeWithText("Dictate response").assertExists()
-            if (InstrumentationRegistry.getArguments().getString("verifyMicrophoneDenial") == "true") {
+            val arguments = InstrumentationRegistry.getArguments()
+            if (arguments.getString("verifyDictationBackground") == "true") {
+                assertTrue(android.os.Build.VERSION.SDK_INT >= 31 &&
+                    android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(rule.activity))
+                assertEquals(android.content.pm.PackageManager.PERMISSION_GRANTED,
+                    rule.activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO))
+                tap("Dictate response")
+                rule.onNodeWithText("Cancel dictation").assertExists()
+                rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+                rule.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+                rule.onNodeWithText("Dictate response").assertExists()
+                rule.onNodeWithText("Cancel dictation").assertDoesNotExist()
+                phase("rewrite")
+            } else if (arguments.getString("verifyMicrophoneDenial") == "true") {
                 assertTrue(android.os.Build.VERSION.SDK_INT >= 31 &&
                     android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(rule.activity))
                 assertEquals(android.content.pm.PackageManager.PERMISSION_DENIED,
