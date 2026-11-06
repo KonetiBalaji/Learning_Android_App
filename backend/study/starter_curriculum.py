@@ -25,7 +25,12 @@ STARTER_CHAPTERS = {
          ("Start at 6 and add 3. What number do you reach?", "9")],
         "Say the starting number, then count two or three more steps.",
         "Explain how to count on when adding 2 to 4.",
-        [r"\b(start|begin)\b", r"\b(count|steps?)\b", r"\b(6|six)\b"], numeric=True),
+        [r"\b(start|begin)\b", r"\b(count|steps?)\b", r"\b(6|six)\b"], numeric=True,
+        example_steps=[
+            "Start at 3.",
+            "Count one more: 4.",
+            "Count one more: 5. You counted two steps.",
+        ]),
     "place-value": lesson(
         2, "Mathematics", "Tens and ones", "What does the 4 in 47 represent?",
         ["4 ones", "4 tens", "7 tens", "4 hundreds"], 1,
@@ -34,7 +39,12 @@ STARTER_CHAPTERS = {
         [("What number has 5 tens and 3 ones?", "53"), ("What number has 7 tens and 2 ones?", "72")],
         "Each ten is a group of ten. Add the remaining ones.",
         "Explain how 4 tens and 7 ones make 47.",
-        [r"\b(40|forty)\b", r"\b(7|seven)\b", r"\b(47|forty.seven)\b"], numeric=True),
+        [r"\b(40|forty)\b", r"\b(7|seven)\b", r"\b(47|forty.seven)\b"], numeric=True,
+        example_steps=[
+            "Look at 32. The 3 is in the tens place.",
+            "Three tens make 30.",
+            "Two ones add 2 more. 30 + 2 = 32.",
+        ]),
     "equal-groups": lesson(
         3, "Mathematics", "Multiplication as equal groups", "What is the total in 3 groups of 4?",
         ["7", "8", "12", "16"], 2,
@@ -43,7 +53,12 @@ STARTER_CHAPTERS = {
         [("How many in 4 groups of 3?", "12"), ("How many in 5 groups of 4?", "20")],
         "Write the size of one group as many times as there are groups.",
         "Explain why 3 groups of 4 make 12.",
-        [r"\b(three|3)\b", r"\b(four|4)\b", r"\b(add|groups?)\b", r"\b(12|twelve)\b"], numeric=True),
+        [r"\b(three|3)\b", r"\b(four|4)\b", r"\b(add|groups?)\b", r"\b(12|twelve)\b"], numeric=True,
+        example_steps=[
+            "Put 5 objects in the first group.",
+            "Put 5 more objects in the second group.",
+            "Add once for each group. 5 + 5 = 10.",
+        ]),
     "rectangle-perimeter": lesson(
         4, "Mathematics", "Perimeter of rectangles", "A rectangle is 5 cm long and 3 cm wide. What is its perimeter?",
         ["8 cm", "15 cm", "16 cm", "30 cm"], 2,
@@ -53,7 +68,12 @@ STARTER_CHAPTERS = {
          ("A rectangle measures 7 cm by 2 cm. Enter its perimeter in cm.", "18")],
         "Add all four sides, using the length and width twice each.",
         "Explain why the perimeter of the 5 cm by 3 cm rectangle is 16 cm.",
-        [r"\b(add|sum)\b", r"\b(sides?|edges?)\b", r"\b(two|twice|four|4)\b"], numeric=True),
+        [r"\b(add|sum)\b", r"\b(sides?|edges?)\b", r"\b(two|twice|four|4)\b"], numeric=True,
+        example_steps=[
+            "Start along a 4 cm side, then turn along a 2 cm side.",
+            "The opposite sides also measure 4 cm and 2 cm.",
+            "Add all four sides: 4 + 2 + 4 + 2 = 12 cm.",
+        ]),
     "volume": lesson(
         5, "Mathematics", "Volume of rectangular boxes", "A box is 4 units long, 3 wide and 2 high. How many unit cubes fit?",
         ["9", "12", "24", "36"], 2,
@@ -63,7 +83,12 @@ STARTER_CHAPTERS = {
          ("Enter the volume of a 4 by 4 by 2 box in cubic units.", "32")],
         "Find the size of one layer, then account for the height.",
         "Explain how layers help you find the volume of a 4 by 3 by 2 box.",
-        [r"\blayers?\b", r"\b(12|twelve)\b", r"\b(24|twenty.four)\b"], numeric=True),
+        [r"\blayers?\b", r"\b(12|twelve)\b", r"\b(24|twenty.four)\b"], numeric=True,
+        example_steps=[
+            "One layer has 3 rows with 2 cubes in each row.",
+            "Multiply 3 × 2 to get 6 cubes in one layer.",
+            "Multiply by the 4 layers: 6 × 4 = 24 cubes.",
+        ]),
     "percentages": {
         **lesson(6, "Mathematics", "Finding percentages",
             "What is 25% of 60?", ["10", "15", "25", "35"], 1,
@@ -374,7 +399,12 @@ STARTER_CHAPTERS = {
          ("Five pens cost $30. Enter the cost per pen in dollars.", "6")],
         "Find the amount for one item by dividing the total by the number of items.",
         "Explain how to find the cost of one notebook if three cost $12.",
-        [r"\b(divide|division|share)\b", r"\b(12|twelve)\b", r"\b(3|three)\b"], numeric=True),
+        [r"\b(divide|division|share)\b", r"\b(12|twelve)\b", r"\b(3|three)\b"], numeric=True,
+        example_steps=[
+            "Start with the total cost, $18.",
+            "Share that cost equally among 6 pencils: 18 ÷ 6 = 3.",
+            "The unit rate is $3 per pencil.",
+        ]),
     "linear-equations": lesson(
         8, "Mathematics", "Solving one-variable equations", "What value of x solves 3x + 2 = 14?",
         ["2", "3", "4", "6"], 2,
@@ -383,7 +413,12 @@ STARTER_CHAPTERS = {
         [("Enter x for 2x + 5 = 17.", "6"), ("Enter x for 4x + 3 = 23.", "5")],
         "Undo addition first, then undo multiplication.",
         "Explain the operations on both sides when solving 3x + 2 = 14.",
-        [r"\bsubtract\b", r"\bdivide\b", r"\bboth sides\b"], numeric=True),
+        [r"\bsubtract\b", r"\bdivide\b", r"\bboth sides\b"], numeric=True,
+        example_steps=[
+            "Subtract 1 from both sides of 2x + 1 = 9.",
+            "This leaves 2x = 8. Divide both sides by 2.",
+            "The result is x = 4. Check that 2 × 4 + 1 = 9.",
+        ]),
     "linear-slope": lesson(
         9, "Mathematics", "Slope between two points", "What is the slope from (0, 2) to (3, 8)?",
         ["1/2", "2", "3", "6"], 1,
@@ -393,7 +428,12 @@ STARTER_CHAPTERS = {
          ("Enter the slope from (0, 1) to (4, 3).", "1/2")],
         "Find the vertical change first, then the horizontal change.",
         "Explain how the coordinate changes give a slope of 2 from (0, 2) to (3, 8).",
-        [r"\b(y|vertical)\b", r"\b(x|horizontal)\b", r"\b(divide|over|ratio)\b"], numeric=True),
+        [r"\b(y|vertical)\b", r"\b(x|horizontal)\b", r"\b(divide|over|ratio)\b"], numeric=True,
+        example_steps=[
+            "From (1, 1) to (3, 7), the vertical change is 7 − 1 = 6.",
+            "In the same direction, the horizontal change is 3 − 1 = 2.",
+            "Divide the vertical change by the horizontal change: 6 ÷ 2 = 3.",
+        ]),
     "right-triangles": lesson(
         10, "Mathematics", "The Pythagorean theorem", "A right triangle has legs of length 3 and 4. What is the hypotenuse?",
         ["5", "7", "12", "25"], 0,
@@ -403,7 +443,12 @@ STARTER_CHAPTERS = {
          ("Enter the hypotenuse for legs of length 8 and 15.", "17")],
         "Square the two legs, add the squares, then take the square root.",
         "Explain why legs of length 3 and 4 give a hypotenuse of length 5.",
-        [r"\bsquare[ds]?\b", r"\b(add|sum)\b", r"\bsquare root\b"], numeric=True),
+        [r"\bsquare[ds]?\b", r"\b(add|sum)\b", r"\bsquare root\b"], numeric=True,
+        example_steps=[
+            "Square the two legs: 6² = 36 and 8² = 64.",
+            "Add those squares: 36 + 64 = 100.",
+            "Take the positive square root: √100 = 10.",
+        ]),
     "exponential-growth": lesson(
         11, "Mathematics", "Exponential growth", "A population starts at 20 and doubles each day. What is it after 3 days?",
         ["40", "60", "80", "160"], 3,
@@ -413,7 +458,12 @@ STARTER_CHAPTERS = {
          ("Five cells triple for three periods. Enter the result.", "135")],
         "Apply the factor once for every completed period.",
         "Explain why doubling 20 for three days gives 160.",
-        [r"\b(2|two|doubl\w+)\b", r"\b(3|three)\b", r"\b(multiply|factor|times)\b"], numeric=True),
+        [r"\b(2|two|doubl\w+)\b", r"\b(3|three)\b", r"\b(multiply|factor|times)\b"], numeric=True,
+        example_steps=[
+            "Start with 10 cells before the first period.",
+            "After one period, there are 10 × 2 = 20 cells.",
+            "After the second period, there are 20 × 2 = 40 cells.",
+        ]),
     "expected-value": lesson(
         12, "Mathematics", "Expected value", "A fair coin game pays $10 on heads and $0 on tails. What is the expected payout?",
         ["$0", "$2", "$5", "$10"], 2,
@@ -423,5 +473,10 @@ STARTER_CHAPTERS = {
          ("A game pays $18 with probability 1/3 and $0 otherwise. Enter the expected payout in dollars.", "6")],
         "Weight each possible payout by its probability.",
         "Explain why the expected payout of the fair coin game is $5.",
-        [r"\b(probability|half|1/2)\b", r"\b(multiply|weight|average)\b", r"\b(5|five)\b"], numeric=True),
+        [r"\b(probability|half|1/2)\b", r"\b(multiply|weight|average)\b", r"\b(5|five)\b"], numeric=True,
+        example_steps=[
+            "Weight the $8 payout by its probability: 8 × 1/4 = 2.",
+            "The other outcome pays $0 with probability 3/4, contributing 0.",
+            "Add the contributions. The expected payout is $2 per play over the long run.",
+        ]),
 }

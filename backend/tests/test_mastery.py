@@ -122,12 +122,10 @@ def test_catalog_offers_all_grades_and_the_four_grade_six_subjects(client):
     }
 
 
-def test_grade_six_coaching_exposes_ordered_worked_steps():
+def test_curriculum_coaching_exposes_ordered_worked_steps():
     from study.mastery import CHAPTERS, advance, new_lesson, snapshot
 
     for identifier, chapter in CHAPTERS.items():
-        if chapter["grade"] != 6:
-            continue
         lesson = new_lesson(identifier, 0)
         assert "example_steps" not in snapshot(lesson)
         wrong_choice = (chapter["answer"] + 1) % len(chapter["choices"])
