@@ -349,12 +349,16 @@ def create_app(data_dir: Path | None = None):
         now = time.time()
         with store.lock, store.db:
             invite = store.db.execute(
-                "SELECT student, role FROM progress_invitations WHERE digest=? AND expires>?", (digest, now),
+                "DELETE FROM progress_invitations WHERE digest=? AND expires>? AND student<>? RETURNING student, role",
+                (digest, now, user),
             ).fetchone()
             if not invite:
+                own_invite = store.db.execute(
+                    "SELECT 1 FROM progress_invitations WHERE digest=? AND expires>? AND student=?", (digest, now, user),
+                ).fetchone()
+                if own_invite:
+                    raise HTTPException(409, "Use a different Saras account to accept the invitation.")
                 raise HTTPException(404, "Invitation is invalid or expired.")
-            if invite["student"] == user:
-                raise HTTPException(409, "Use a different Saras account to accept the invitation.")
             existing = store.db.execute(
                 "SELECT id FROM progress_links WHERE student=? AND viewer=? AND role=?",
                 (invite["student"], user, invite["role"]),
@@ -365,7 +369,6 @@ def create_app(data_dir: Path | None = None):
                     "INSERT INTO progress_links VALUES (?,?,?,?,?)",
                     (identifier, invite["student"], user, invite["role"], now),
                 )
-            store.db.execute("DELETE FROM progress_invitations WHERE digest=?", (digest,))
             return {"id": identifier, "role": invite["role"]}
 
     @app.get("/progress-sharing/{identifier}/report")

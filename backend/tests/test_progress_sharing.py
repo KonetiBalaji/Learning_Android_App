@@ -73,3 +73,28 @@ def test_invitation_replacement_cancellation_expiry_and_account_deletion(client)
     assert client.get(f"/progress-sharing/{link}/report", headers=viewer).status_code == 404
     assert store.db.execute("SELECT COUNT(*) FROM progress_invitations").fetchone()[0] == 0
     assert store.db.execute("SELECT COUNT(*) FROM progress_links").fetchone()[0] == 0
+
+
+def test_concurrent_redeem_consumes_code_across_backend_instances(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from fastapi.testclient import TestClient
+    from study.api import create_app
+
+    monkeypatch.setenv("STUDY_GENERATION_MODE", "local_practice")
+    with TestClient(create_app(tmp_path)) as first, TestClient(create_app(tmp_path)) as second:
+        student = account(first, "student")
+        parent_a = account(first, "parenta")
+        parent_b = account(second, "parentb")
+        code = invite(first, student, "parent")
+        ready = Barrier(2)
+
+        def accept(client, auth):
+            ready.wait(timeout=10)
+            return redeem(client, auth, code).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = [pool.submit(accept, first, parent_a), pool.submit(accept, second, parent_b)]
+            assert sorted(task.result(timeout=15) for task in results) == [201, 404]
+        assert len(first.get("/progress-sharing", headers=student).json()) == 1
