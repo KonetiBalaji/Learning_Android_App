@@ -100,6 +100,11 @@ def snapshot(lesson):
         result.update(prompt=chapter["rewrite"])
     elif phase == "mastered":
         result.update(elapsed_seconds=lesson["elapsed_seconds"], diagnostic_correct=lesson["correct"])
+        if "diagnostic_hits" in lesson:
+            result["diagnostic_score"] = {
+                "correct": lesson["diagnostic_hits"],
+                "total": lesson["diagnostic_index"],
+            }
     return result
 
 
@@ -114,6 +119,9 @@ def advance(lesson, action, choice, response, now):
             raise ValueError("This choice is not available for the diagnostic question.")
         correct = choice == answer
         lesson["correct"] = lesson["correct"] is not False and correct
+        # Older attempts may have a partial diagnostic without a recorded count.
+        if index == 0 or "diagnostic_hits" in lesson:
+            lesson["diagnostic_hits"] = lesson.get("diagnostic_hits", 0) + int(correct)
         lesson["diagnostic_index"] = index + 1
         if correct:
             lesson["phase"] = "diagnostic" if index + 1 < len(items) else "practice"

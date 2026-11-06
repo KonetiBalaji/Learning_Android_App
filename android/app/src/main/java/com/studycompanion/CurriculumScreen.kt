@@ -159,6 +159,9 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
         "mastered" -> {
             Text("Concept mastered", style = MaterialTheme.typography.titleLarge)
             Text("Mastery badge earned")
+            lesson.optJSONObject("diagnostic_score")?.let { score ->
+                Text("Diagnostic score: ${score.getInt("correct")} / ${score.getInt("total")} correct")
+            }
             Text("Elapsed time: ${lesson.getInt("elapsed_seconds")} seconds")
             Text("Verified against the lesson's answer and explanation checklist.")
         }

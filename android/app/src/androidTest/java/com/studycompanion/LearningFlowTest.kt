@@ -246,6 +246,7 @@ class LearningFlowTest {
             phase("mastered")
             rule.onNodeWithText("Concept mastered").assertExists()
             rule.onNodeWithText("Mastery badge earned").assertExists()
+            rule.onNodeWithText("Diagnostic score: 0 / 1 correct").assertExists()
             tap("Back to chapters")
             rule.waitUntil(30_000) { !model.state.value.busy }
             rule.onNodeWithText("1 of 5 chapters mastered").assertExists()

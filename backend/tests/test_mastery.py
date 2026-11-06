@@ -146,6 +146,8 @@ def test_grade_six_math_path_requires_mastery_and_resumes_multi_question_diagnos
     rewrite = advance(percentages, practice, "practice", response="16")
     mastered = advance(percentages, rewrite, "rewrite", response="Multiply sixty by 0.25 to find twenty-five percent.")
     assert mastered["phase"] == "mastered" and not mastered["diagnostic_correct"]
+    assert mastered["diagnostic_score"] == {"correct": 2, "total": 3}
+    assert open_lesson(percentages) == mastered
     assert client.post(geometry, headers=auth).status_code == 409
 
     lesson = open_lesson(algebra)
@@ -203,3 +205,17 @@ def test_grade_six_subject_paths_unlock_for_the_student_only(client, subject, pr
     finish(client, student, *next_chapter)
     assert subject_chapters(student)[1]["mastered"]
     assert not subject_chapters(other)[1]["started"]
+
+
+def test_legacy_partial_diagnostic_completes_without_inventing_a_score():
+    from study.mastery import advance, new_lesson, snapshot
+
+    lesson = new_lesson("percentages", 0)
+    lesson.update(diagnostic_index=1, correct=False)
+    advance(lesson, "diagnostic", 2, None, 1)
+    advance(lesson, "diagnostic", 1, None, 2)
+    advance(lesson, "practice", None, "16", 3)
+    advance(lesson, "rewrite", None, "Multiply sixty by 0.25 to find twenty-five percent.", 4)
+    result = snapshot(lesson)
+    assert result["phase"] == "mastered"
+    assert "diagnostic_score" not in result
