@@ -60,6 +60,7 @@ data class StudyState(
     val progressLinks: List<JSONObject> = emptyList(),
     val progressInvite: JSONObject? = null,
     val progressReport: JSONObject? = null,
+    val progressReportId: String? = null,
 )
 
 class StudyViewModel internal constructor(application: Application, private val repository: StudyRepository) : AndroidViewModel(application) {
@@ -124,7 +125,7 @@ class StudyViewModel internal constructor(application: Application, private val 
     fun navigate(screen: String) {
         mutable.update { it.copy(screen = screen, error = null, source = null, sourceDocument = null,
             ocrDocument = null, ocrPage = null, ocrPages = emptyList(),
-            progressInvite = null, progressReport = null) }
+            progressInvite = null, progressReport = null, progressReportId = null) }
     }
 
     fun back() {
@@ -232,7 +233,8 @@ class StudyViewModel internal constructor(application: Application, private val 
 
     private suspend fun loadProgressSharing() {
         val links = JSONArray(repository.call("/progress-sharing")).objects()
-        mutable.update { it.copy(screen = "progress-sharing", progressLinks = links, progressReport = null) }
+        mutable.update { it.copy(screen = "progress-sharing", progressLinks = links,
+            progressReport = null, progressReportId = null) }
     }
 
     fun showProgressSharing() = run { loadProgressSharing() }
@@ -254,14 +256,24 @@ class StudyViewModel internal constructor(application: Application, private val 
     }
 
     fun readSharedProgress(id: String) = run {
-        val report = JSONObject(repository.call("/progress-sharing/$id/report"))
-        mutable.update { it.copy(progressReport = report) }
+        try {
+            val report = JSONObject(repository.call("/progress-sharing/$id/report"))
+            mutable.update { it.copy(progressReport = report, progressReportId = id) }
+        } catch (error: ApiException) {
+            if (error.status != 404) throw error
+            removeProgressLink(id)
+            mutable.update { it.copy(error = "This shared report is no longer available.") }
+        }
     }
 
     fun revokeProgressLink(id: String) = run {
         repository.call("/progress-sharing/$id", "DELETE")
+        removeProgressLink(id)
+    }
+
+    private fun removeProgressLink(id: String) {
         mutable.update { it.copy(progressLinks = it.progressLinks.filterNot { link -> link.getString("id") == id },
-            progressReport = null) }
+            progressReport = null, progressReportId = null) }
     }
 
     fun showCurriculum() = run {

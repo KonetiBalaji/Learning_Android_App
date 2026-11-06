@@ -113,11 +113,24 @@ class LearningFlowTest {
             rule.onNodeWithText("Grade 6 · Finding percentages").performScrollTo().assertIsDisplayed()
             rule.onNodeWithText("Revisit a worked example and try the practice for Finding percentages.")
                 .performScrollTo().assertIsDisplayed()
-            tap("Back to shared reports")
+            val linkId = model.state.value.progressLinks.single().getString("id")
+            val client = OkHttpClient()
+            val login = JSONObject().put("username", student).put("password", password)
+                .toString().toRequestBody("application/json".toMediaType())
+            val ownerToken = client.newCall(okhttp3.Request.Builder().url("$server/auth/login")
+                .post(login).build()).execute().use {
+                assertEquals(200, it.code)
+                JSONObject(it.body!!.string()).getString("token")
+            }
+            client.newCall(okhttp3.Request.Builder().url("$server/progress-sharing/$linkId")
+                .header("Authorization", "Bearer $ownerToken").delete().build()).execute().use {
+                assertEquals(204, it.code)
+            }
+            tap("Refresh report")
             waitUntilIdle()
-            tap("Remove link 1")
-            rule.onNodeWithText("Remove access", substring = false).performClick()
-            rule.waitUntil(30_000) { model.state.value.progressLinks.isEmpty() && !model.state.value.busy }
+            rule.onNodeWithText("This shared report is no longer available.").assertExists()
+            rule.onNodeWithText("No active sharing links.").assertExists()
+            rule.onNodeWithText("Student progress").assertDoesNotExist()
         } finally {
             deleteRegressionAccount(model)
             rule.runOnIdle { model.authenticate(student, password, false, server) }

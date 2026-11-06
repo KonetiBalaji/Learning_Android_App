@@ -50,6 +50,9 @@ fun ProgressSharingScreen(state: StudyState, model: StudyViewModel) {
         if (weak.isEmpty()) Text("No areas flagged in the available lesson evidence.")
         weak.forEach { Text("Grade ${it.getInt("grade")} · ${it.getString("title")}") }
         Text(report.getString("recommendation"))
+        state.progressReportId?.let { id ->
+            TextButton(onClick = { model.readSharedProgress(id) }, enabled = !state.busy) { Text("Refresh report") }
+        }
         TextButton(onClick = model::showProgressSharing, enabled = !state.busy) { Text("Back to shared reports") }
         return
     }
