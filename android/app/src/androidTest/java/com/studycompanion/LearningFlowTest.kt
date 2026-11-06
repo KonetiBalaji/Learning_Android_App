@@ -46,6 +46,8 @@ class LearningFlowTest {
         check(!model.state.value.signedIn) { "Run this test on a signed-out disposable installation." }
         val student = "sharestudent" + System.currentTimeMillis()
         val password = "disposable-sharing-password"
+        val server = InstrumentationRegistry.getArguments().getString("sharingPort")?.let { fixtureUrl(it.toInt()) }
+            ?: studyServer
 
         fun waitUntilIdle() = rule.waitUntil(30_000) { !model.state.value.busy }
         fun tap(label: String) = rule.onNodeWithText(label, substring = false).performScrollTo().performClick()
@@ -56,7 +58,7 @@ class LearningFlowTest {
         }
 
         try {
-            rule.runOnIdle { model.authenticate(student, password, true, studyServer) }
+            rule.runOnIdle { model.authenticate(student, password, true, server) }
             waitUntilIdle()
             assertTrue(model.state.value.signedIn)
             openReports()
@@ -66,7 +68,7 @@ class LearningFlowTest {
             rule.runOnIdle { model.signOut() }
             waitUntilIdle()
             assertNull(model.state.value.progressInvite)
-            signInForRegression(model, "shareviewer")
+            signInForRegression(model, "shareviewer", server)
             openReports()
             rule.onNodeWithText("Invitation code").performScrollTo().performTextReplacement(code)
             tap("Accept invitation")
@@ -82,7 +84,7 @@ class LearningFlowTest {
             rule.waitUntil(30_000) { model.state.value.progressLinks.isEmpty() && !model.state.value.busy }
         } finally {
             deleteRegressionAccount(model)
-            rule.runOnIdle { model.authenticate(student, password, false, studyServer) }
+            rule.runOnIdle { model.authenticate(student, password, false, server) }
             waitUntilIdle()
             deleteRegressionAccount(model)
         }
@@ -354,9 +356,9 @@ class LearningFlowTest {
         }
     }
 
-    private fun signInForRegression(model: StudyViewModel, prefix: String) {
+    private fun signInForRegression(model: StudyViewModel, prefix: String, server: String = studyServer) {
         rule.waitUntil(30_000) { !model.state.value.busy }
-        rule.runOnIdle { model.authenticate(prefix + System.currentTimeMillis(), "disposable-regression-password", true, studyServer) }
+        rule.runOnIdle { model.authenticate(prefix + System.currentTimeMillis(), "disposable-regression-password", true, server) }
         rule.waitUntil(30_000) { model.state.value.signedIn && !model.state.value.busy }
         assertNull(model.state.value.error)
     }

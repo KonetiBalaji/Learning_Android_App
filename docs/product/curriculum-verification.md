@@ -29,3 +29,5 @@ An invitation expires after 15 minutes, is stored only as a digest, and must be 
 The weekly report summarizes the last seven days of recorded curriculum activity. Earlier lesson records created before activity timestamps were introduced remain visible in all-time mastery and have no inferred date for weekly reporting. There is no automated email delivery or predictive exam score.
 
 The teacher and parent checkpoint passed 131 backend tests and the targeted Android 15 run for invitation redemption and report access, dark mode, and mastery progression. The Android build and lint passed. The dashboard's access-control tests also verify cross-account denial, cancellation, expiry, replay protection, revocation and account deletion.
+
+For a full Android device run, point the test runner at a second disposable instance of the same backend with `-e sharingPort <port>`. The sharing scenario creates and signs into multiple accounts. A separate fixture keeps its authentication requests from contending with other scenarios for the production login rate limit.
