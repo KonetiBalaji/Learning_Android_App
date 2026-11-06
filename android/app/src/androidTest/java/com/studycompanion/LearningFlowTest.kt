@@ -258,6 +258,10 @@ class LearningFlowTest {
             rule.onNodeWithText("Next example step").assertDoesNotExist()
             tap("Previous example step")
             rule.onNodeWithText("Step 2 of 3").assertExists()
+            tap("Read current example aloud")
+            rule.waitUntil(30_000) {
+                rule.onAllNodesWithText("Read current example aloud", substring = false).fetchSemanticsNodes().isNotEmpty()
+            }
             tap("Soccer example")
             rule.onNodeWithText("A soccer player completed 2/5", substring = true).assertExists()
             tap("Gaming example")

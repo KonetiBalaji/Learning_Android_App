@@ -144,20 +144,49 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
             Text("Worked example", style = MaterialTheme.typography.titleMedium)
             val explanation = lesson.getString("explanation")
             val example = lesson.getString("example")
-            var showExample by rememberSaveable(lesson.getString("chapter_id"), version) { mutableStateOf(false) }
+            val steps = lesson.optJSONArray("example_steps")?.strings().orEmpty()
+            val variants = lesson.optJSONObject("example_variants")
+            val chapterId = lesson.getString("chapter_id")
+            var showExample by rememberSaveable(chapterId, version) { mutableStateOf(false) }
+            var theme by rememberSaveable(chapterId, version) { mutableStateOf<String?>(null) }
+            var index by rememberSaveable(chapterId, version) { mutableStateOf(0) }
+            val themedExample = theme?.let { variants?.optString(it) }?.takeIf(String::isNotBlank)
+            val narration = if (showExample) themedExample ?: steps.getOrNull(index) ?: example else explanation
             Text(explanation)
-            ReadAloudButton(explanation, "Read explanation aloud", onSpeakingChanged)
+            ReadAloudButton(
+                narration,
+                if (showExample) "Read current example aloud" else "Read explanation aloud",
+                onSpeakingChanged,
+            )
             CurriculumButton(if (showExample) "Hide example steps" else "Show example steps", !state.busy) {
+                if (showExample) {
+                    theme = null
+                    index = 0
+                }
                 showExample = !showExample
             }
             AnimatedVisibility(showExample) {
-                val variants = lesson.optJSONObject("example_variants")
-                WorkedExample(
-                    example,
-                    lesson.optJSONArray("example_steps")?.strings().orEmpty(),
-                    variants,
-                    !state.busy,
-                )
+                Column {
+                    if (variants != null) {
+                        Text("Choose an example theme")
+                        for (option in listOf("Soccer", "Gaming")) {
+                            if (variants.has(option)) CurriculumButton("$option example", !state.busy) { theme = option }
+                        }
+                        if (themedExample != null) {
+                            Text(themedExample)
+                            CurriculumButton("Clear example theme", !state.busy) { theme = null }
+                        }
+                    }
+                    Text(example)
+                    if (steps.isNotEmpty()) {
+                        Text("Step ${index + 1} of ${steps.size}")
+                        Crossfade(targetState = index, label = "Worked example step") { step ->
+                            Text(steps[step])
+                        }
+                        if (index > 0) CurriculumButton("Previous example step", !state.busy) { index-- }
+                        if (index < steps.lastIndex) CurriculumButton("Next example step", !state.busy) { index++ }
+                    }
+                }
             }
             CurriculumButton(if (lesson.optBoolean("diagnostic_remaining")) "Next diagnostic question" else "Try a practice question",
                 !state.busy) { model.answerCurriculum("continue") }
@@ -187,33 +216,6 @@ fun CurriculumScreen(state: StudyState, model: StudyViewModel, onSpeakingChanged
         }
     }
     CurriculumButton("Back to chapters", !state.busy, model::closeCurriculumChapter)
-}
-
-@Composable
-private fun WorkedExample(example: String, steps: List<String>, variants: org.json.JSONObject?, enabled: Boolean) {
-    Column {
-        if (variants != null) {
-            var theme by rememberSaveable(example) { mutableStateOf<String?>(null) }
-            Text("Choose an example theme")
-            for (option in listOf("Soccer", "Gaming")) {
-                if (variants.has(option)) CurriculumButton("$option example", enabled) { theme = option }
-            }
-            theme?.let { selected ->
-                Text(variants.getString(selected))
-                CurriculumButton("Clear example theme", enabled) { theme = null }
-            }
-        }
-        Text(example)
-        if (steps.isNotEmpty()) {
-            var index by rememberSaveable(example) { mutableStateOf(0) }
-            Text("Step ${index + 1} of ${steps.size}")
-            Crossfade(targetState = index, label = "Worked example step") { step ->
-                Text(steps[step])
-            }
-            if (index > 0) CurriculumButton("Previous example step", enabled) { index-- }
-            if (index < steps.lastIndex) CurriculumButton("Next example step", enabled) { index++ }
-        }
-    }
 }
 
 @Composable

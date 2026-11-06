@@ -35,7 +35,7 @@ For a full Android device run, point the test runner at a second disposable inst
 
 ### Voice controls
 
-Dictation uses Android's on-device recognizer on devices with a microphone and a compatible service. The microphone is optional for installation. It requests microphone access only when the student taps Dictate. The transcript fills the editable field and is submitted only through the existing lesson or tutor action. If recognition or an offline voice is unavailable, typing and on-screen text remain available. Read-aloud selects an installed English voice that reports no network requirement. Leaving the screen or backgrounding the app ends the audio session.
+Dictation uses Android's on-device recognizer on devices with a microphone and a compatible service. The microphone is optional for installation. It requests microphone access only when the student taps Dictate. The transcript fills the editable field and is submitted only through the existing lesson or tutor action. If recognition or an offline voice is unavailable, typing and on-screen text remain available. Read-aloud selects an installed English voice that reports no network requirement. In curriculum coaching it reads the explanation while the example is closed. With the example open, it reads the selected theme, the current worked step, or the example text. Changing the narration text stops the previous reading. Leaving the screen or backgrounding the app ends the audio session.
 
 [Android on-device recognition](https://developer.android.com/reference/android/speech/SpeechRecognizer) · [Android text-to-speech voice capabilities](https://developer.android.com/reference/android/speech/tts/Voice)
 
