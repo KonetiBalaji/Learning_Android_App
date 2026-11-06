@@ -2,7 +2,9 @@
 set -euo pipefail
 
 run_dir="${RUNNER_TEMP:?Run on the Linux verification runner}/saras-emulator"
-mkdir -p "$run_dir"
+export ANDROID_USER_HOME="$run_dir/android"
+export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+mkdir -p "$ANDROID_AVD_HOME"
 
 export PYTHONPATH="$PWD/backend"
 export STUDY_MODEL_DIR="$PWD/.study-models"
@@ -35,14 +37,17 @@ done
 
 printf 'no\n' | avdmanager create avd --name SarasCI \
     --package "system-images;android-35;google_apis;x86_64" --device pixel_6 --force
+"$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx SarasCI
 "$ANDROID_HOME/emulator/emulator" @SarasCI -port 5554 -no-window -no-audio -no-boot-anim \
     -no-snapshot -netdelay none -netspeed full > "$run_dir/emulator.log" 2>&1 &
 pids+=("$!")
 
 export ANDROID_SERIAL=emulator-5554
+export emulator_pid="$!"
 timeout 240 bash -c '
-    adb wait-for-device
-    until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do
+    adb start-server
+    until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do
+        kill -0 "$emulator_pid" || exit 1
         sleep 2
     done
 '
