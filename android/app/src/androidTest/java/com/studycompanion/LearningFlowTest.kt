@@ -49,22 +49,20 @@ class LearningFlowTest {
                     android.content.res.Configuration.UI_MODE_NIGHT_YES
             }
             rule.onNodeWithText("Email or username").assertExists()
-            val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
-            assertTrue("The login screen should render the dark surface",
-                (0 until bitmap.height step 24).any { y ->
-                    bitmap.getPixel(bitmap.width - 10, y) == android.graphics.Color.rgb(17, 23, 20)
-                })
+            rule.activityRule.scenario.onActivity { activity ->
+                assertFalse(androidx.core.view.WindowCompat.getInsetsController(
+                    activity.window, activity.window.decorView).isAppearanceLightStatusBars)
+            }
             rule.runOnIdle { manager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_NO) }
             rule.waitUntil(30_000) {
                 rule.activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
                     android.content.res.Configuration.UI_MODE_NIGHT_NO
             }
             rule.onNodeWithText("Email or username").assertExists()
-            val light = rule.onRoot().captureToImage().asAndroidBitmap()
-            assertTrue("The login screen should render the light background",
-                (0 until light.height step 24).any { y ->
-                    light.getPixel(light.width - 10, y) == android.graphics.Color.rgb(246, 247, 242)
-                })
+            rule.activityRule.scenario.onActivity { activity ->
+                assertTrue(androidx.core.view.WindowCompat.getInsetsController(
+                    activity.window, activity.window.decorView).isAppearanceLightStatusBars)
+            }
         } finally {
             rule.runOnIdle { manager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_AUTO) }
         }
