@@ -48,8 +48,10 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
         previous?.destroy()
     }
 
+    val hasMicrophone = context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
+
     fun begin() {
-        if (Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+        if (!hasMicrophone || Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
             status = "On-device dictation is unavailable. You can type your response."
             return
         }
@@ -112,7 +114,7 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
     OutlinedButton(enabled = enabled || recognizer != null, onClick = {
         when {
             recognizer != null -> { stop(); status = null }
-            Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(context) -> begin()
+            !hasMicrophone || Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(context) -> begin()
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> begin()
             else -> permission.launch(Manifest.permission.RECORD_AUDIO)
         }

@@ -35,11 +35,11 @@ For a full Android device run, point the test runner at a second disposable inst
 
 ### Voice controls
 
-Dictation uses Android's on-device recognizer on devices that support it. It requests microphone access only when the student taps Dictate. The transcript fills the editable field and is submitted only through the existing lesson or tutor action. If recognition or an offline voice is unavailable, typing and on-screen text remain available. Read-aloud selects an installed English voice that reports no network requirement. Leaving the screen or backgrounding the app ends the audio session.
+Dictation uses Android's on-device recognizer on devices with a microphone and a compatible service. The microphone is optional for installation. It requests microphone access only when the student taps Dictate. The transcript fills the editable field and is submitted only through the existing lesson or tutor action. If recognition or an offline voice is unavailable, typing and on-screen text remain available. Read-aloud selects an installed English voice that reports no network requirement. Leaving the screen or backgrounding the app ends the audio session.
 
 [Android on-device recognition](https://developer.android.com/reference/android/speech/SpeechRecognizer) · [Android text-to-speech voice capabilities](https://developer.android.com/reference/android/speech/tts/Voice)
 
-The voice checkpoint passed the Android 15 curriculum and document tutor instrumentation tests. The tests exercise the explanation reveal, the read-aloud button's completion or fallback path, and the presence of the dictation controls. They do not verify real microphone transcription or independently check the audio output. The updated Android 15 fractions regression also verifies forward and backward step navigation, hiding the example, and continuing through mastery.
+The voice checkpoint passed the Android 15 curriculum and document tutor instrumentation tests. The tests exercise the explanation reveal, the read-aloud button's completion or fallback path, and the presence of the dictation controls. They do not verify real microphone transcription or independently check the audio output. The physical Android 13 phone exposed speech and text-to-speech services but rejected installation of the side-by-side QA APK with INSTALL_FAILED_USER_RESTRICTED. Physical voice verification remains open. The updated Android 15 fractions regression also verifies forward and backward step navigation, hiding the example, and continuing through mastery.
 
 
 ### Readiness evidence
