@@ -1,8 +1,11 @@
 # Saras dev verification report
 
-## Current promoted checkpoint
+## Promoted runtime checkpoint
 
-Revision `fa5110aaf7c9ddb01dfee9bd7acbc9b724d5084c` passed 166 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests before promotion to `main`. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint, and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42225180316) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42225180312)
+Revision `c00776ba41a301589114a5355cb627864cbdd7df` passed 166 backend tests, 4 Android unit tests, and 15 Android 15 emulator tests on dev before promotion to main. The separate process-stop rehearsal passed one preparation test and one resume test. The API contract check, debug and instrumentation APK builds, lint, and Docker HTTPS staging passed. [Hosted verification](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42229528612) · [Docker HTTPS staging](https://github.com/KonetiBalaji/Learning_Android_App/actions/runs/42229528565)
+
+- Docker staging verified the Google deletion page and rejected cross-origin submissions, missing confirmation, and missing credentials. The live Google browser callback and deletion on the authorized public HTTPS origin remain unverified.
+- The Android 13 phone signed out and signed back in to the private deployment using one approved Google test account. The Library reopened. This check used the installed debug APK and an ADB-forwarded local backend.
 
 - The starter catalog contains 23 lessons across Grades 1–12, including 12 in Grade 6. New attempts have at least two diagnostic questions. All lessons offer three worked steps, at least five authored practice prompts, and a guiding question for an incomplete rewrite.
 - Backend coverage verifies the ordered steps and bank structure across the catalog, original question counts on existing attempts, and retry cycling in the slope lesson. Android coverage verifies starter diagnostic navigation across all grades, the full Grade 6 Science path, and themed examples in fractions and percentages.
