@@ -188,6 +188,15 @@ try:
         lesson = call(decimals + "/actions", "POST",
                       {"version": lesson["version"], "action": action, **fields}, owner)
         assert lesson["phase"] == expected_phase
+    sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
+    document = upload("sample.txt", sample, "text/plain", owner)
+    root = f'/documents/{document["id"]}'
+    call(root + "/offline-bundle", token=outsider, expected=404)
+    quiz = call(root + "/quizzes", "POST", {"count": 1}, owner, 201)
+    assert quiz["mode"] == "local_practice"
+    assert call("/documents", token=owner)[0]["id"] == document["id"]
+    hits = call(root + "/search", "POST", {"query": "cell power factory"}, owner)["hits"]
+    assert hits and "mitochondria" in hits[0]["quote"].lower()
     attempt = call(readiness, "POST", token=owner)
     assert attempt["index"] == 0 and "correct" not in attempt
     call(readiness + "/answers", "POST", {"index": 0, "choice": 1}, outsider, 404)
@@ -197,9 +206,20 @@ try:
         if index < 5:
             assert not attempt["complete"] and "correct" not in attempt
         if index == 0:
+            if args.recreate_disposable_api:
+                subprocess.run(
+                    ["docker", "compose", "up", "--force-recreate", "--no-deps", "--wait", "--wait-timeout", "120", "api"],
+                    cwd=Path(__file__).resolve().parents[1], check=True,
+                )
+                assert call("/ready")["status"] == "ready"
+                assert call("/documents", token=owner)[0]["id"] == document["id"]
+                assert call(f'/quizzes/{quiz["id"]}', token=owner)["id"] == quiz["id"]
+                call(root + "/offline-bundle", token=outsider, expected=404)
             assert call(unfinished_readiness, token=owner) == ["grade6-math"]
             assert call(unfinished_readiness, token=outsider) == []
             assert call(readiness, "POST", token=owner) == attempt
+            if args.recreate_disposable_api:
+                print("Verified sessions, study data and unfinished readiness after replacing the API container.")
     assert attempt["complete"] and attempt["correct"] == 5 and attempt["total"] == 6
     assert call(unfinished_readiness, token=owner) == []
     assert "answers" not in attempt
@@ -216,26 +236,7 @@ try:
     call(shared, "DELETE", token=owner, expected=204)
     call(shared + "/report", token=outsider, expected=404)
     print("Verified readiness resume, account isolation, scoring, retry, parent aggregates and revocation over HTTPS.")
-    sample = (Path(__file__).resolve().parents[1] / "shared/sample-study-material.txt").read_bytes()
-    document = upload("sample.txt", sample, "text/plain", owner)
-    root = f'/documents/{document["id"]}'
-    call(root + "/offline-bundle", token=outsider, expected=404)
-    quiz = call(root + "/quizzes", "POST", {"count": 1}, owner, 201)
-    assert quiz["mode"] == "local_practice"
-    assert call("/documents", token=owner)[0]["id"] == document["id"]
-    hits = call(root + "/search", "POST", {"query": "cell power factory"}, owner)["hits"]
-    assert hits and "mitochondria" in hits[0]["quote"].lower()
     if args.recreate_disposable_api:
-        subprocess.run(
-            ["docker", "compose", "up", "--force-recreate", "--no-deps", "--wait", "--wait-timeout", "120", "api"],
-            cwd=Path(__file__).resolve().parents[1], check=True,
-        )
-        assert call("/ready")["status"] == "ready"
-        assert call("/documents", token=owner)[0]["id"] == document["id"]
-        assert call(f'/quizzes/{quiz["id"]}', token=owner)["id"] == quiz["id"]
-        assert call(readiness, "POST", token=owner) == attempt
-        call(root + "/offline-bundle", token=outsider, expected=404)
-        print("Verified existing sessions, encrypted study data and readiness results after replacing the API container.")
         verify_disposable_restore(owner, outsider, document["id"], quiz["id"], attempt, credentials[0])
     if args.scan:
         scan = upload("sample-scan.pdf", args.scan.read_bytes(), "application/pdf", owner)
