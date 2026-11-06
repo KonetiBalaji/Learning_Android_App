@@ -71,8 +71,14 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
 
                 override fun onError(error: Int) {
                     if (recognizer !== session) return
+                    status = when (error) {
+                        SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ->
+                            "The offline English speech model is unavailable. Install it in your device settings, or type your response."
+                        SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ->
+                            "This device does not support offline English dictation. You can type your response."
+                        else -> "Could not transcribe on this device. Try again or type your response."
+                    }
                     stop()
-                    status = "Could not transcribe on this device. Try again or type your response."
                 }
 
                 override fun onResults(results: Bundle?) {
@@ -88,7 +94,7 @@ fun DictateButton(enabled: Boolean, onTranscript: (String) -> Unit) {
             status = "Starting dictation…"
             session.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH.toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US.toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             })
